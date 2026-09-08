@@ -8,7 +8,10 @@ use App\Models\Outlet;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 use Tests\TestCase;
 
 class PaymentTest extends TestCase
@@ -81,6 +84,23 @@ class PaymentTest extends TestCase
         return $order->fresh();
     }
 
+    protected function setCreditLimit(float $amount): void
+    {
+        if (!Schema::hasTable('credit_limits')) {
+            Schema::create('credit_limits', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('outlet_id')->unique();
+                $table->decimal('limit_amount', 14, 2);
+                $table->timestamps();
+            });
+        }
+
+        DB::table('credit_limits')->updateOrInsert(
+            ['outlet_id' => $this->outlet->id],
+            ['limit_amount' => $amount, 'created_at' => now(), 'updated_at' => now()],
+        );
+    }
+
     /**
      * RED CYCLE 1: Given order is delivered, when recording payment, then the
      * payment is recorded and the order balance is updated.
@@ -111,5 +131,42 @@ class PaymentTest extends TestCase
             'id' => $order->id,
             'status' => 'Partially Paid',
         ]);
+    }
+
+    /**
+     * RED CYCLE 2: Given an outlet has pending orders exceeding its credit,
+     * when placing another order, the submission is rejected before mutation.
+     */
+    public function test_order_is_blocked_when_credit_limit_would_be_exceeded(): void
+    {
+        $this->setCreditLimit(50000);
+        $existingProduct = Product::factory()->create([
+            'price' => 40000,
+            'stock_quantity' => 10,
+            'is_active' => true,
+        ]);
+        $newProduct = Product::factory()->create([
+            'price' => 20000,
+            'stock_quantity' => 10,
+            'is_active' => true,
+        ]);
+
+        $existing = $this->withHeaders($this->outletHeaders())->postJson('/api/orders', [
+            'items' => [['product_id' => $existingProduct->id, 'quantity' => 1]],
+            'idempotency_key' => 'credit-existing',
+        ]);
+        $existing->assertStatus(201);
+        $beforeCount = Order::count();
+        $beforeStock = $newProduct->fresh()->stock_quantity;
+
+        $response = $this->withHeaders($this->outletHeaders())->postJson('/api/orders', [
+            'items' => [['product_id' => $newProduct->id, 'quantity' => 1]],
+            'idempotency_key' => 'credit-over-limit',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('status', 'error');
+        $this->assertSame($beforeCount, Order::count());
+        $this->assertSame($beforeStock, $newProduct->fresh()->stock_quantity);
     }
 }

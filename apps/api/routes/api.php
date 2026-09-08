@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +47,12 @@ Route::middleware('auth:api')->group(function () {
     // Payment routes
     Route::post('/payments', [PaymentController::class, 'store']);
     Route::get('/payments', [PaymentController::class, 'index']);
+
+    // Credit limit and outstanding balance routes
+    Route::get('/credit-limit', [CreditLimitController::class, 'show']);
+    Route::get('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'show']);
+    Route::put('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update']);
+    Route::post('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update']);
 });
 
 // Health check

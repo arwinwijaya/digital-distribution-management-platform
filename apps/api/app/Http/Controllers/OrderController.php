@@ -165,6 +165,8 @@ class OrderController extends Controller
             'outlet_id' => $order->outlet_id,
             'status' => $order->status,
             'total_amount' => $order->total_amount,
+            'paid_amount' => $order->paid_amount,
+            'outstanding_balance' => number_format(max(0, ((float) $order->total_amount) - ((float) $order->paid_amount)), 2, '.', ''),
             'commission_percentage' => $order->commission_percentage,
             'items' => $order->items->map(function ($item) {
                 return [

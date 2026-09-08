@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Models\Outlet;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,10 @@ class PaymentService
                 return ['payment' => $existing->load('order'), 'created' => false];
             }
 
+            // Serialize payment updates with credit-consuming order submissions
+            // by taking the same outlet lock before the order lock.
+            $orderOwner = Order::whereKey($data['order_id'])->firstOrFail()->outlet_id;
+            Outlet::whereKey($orderOwner)->lockForUpdate()->firstOrFail();
             // The order lock makes the paid/remaining calculation safe against
             // concurrent payment requests for the same order.
             $order = Order::lockForUpdate()->findOrFail($data['order_id']);

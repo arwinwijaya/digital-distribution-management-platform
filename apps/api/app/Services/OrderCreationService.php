@@ -14,6 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class OrderCreationService
 {
+    public function __construct(private readonly CreditLimitService $creditLimitService)
+    {
+    }
+
     /**
      * Create an order with an outlet-scoped idempotency identity.
      *
@@ -29,6 +33,10 @@ class OrderCreationService
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 return DB::transaction(function () use ($validated, $outlet, $requestIdentity) {
+                    // Serialize all credit consumption for this outlet before reading
+                    // outstanding orders. This lock is held until order and stock writes commit.
+                    $lockedOutlet = Outlet::whereKey($outlet->id)->lockForUpdate()->firstOrFail();
+
                     // Test-only barrier: both public requests enter this transaction
                     // immediately before the idempotency/product critical section.
                     ConcurrencyTestBarrier::await('order');
@@ -37,8 +45,12 @@ class OrderCreationService
                         return ['order' => $existingOrder, 'created' => false];
                     }
 
-                    [$items, $totalAmount] = $this->reserveProducts($validated['items']);
-                    $order = $this->persistOrder($outlet, $requestIdentity, $totalAmount, $items);
+                    // Product rows are locked and validated without mutation first, so
+                    // a rejected credit check cannot consume stock or persist an order.
+                    [$items, $totalAmount] = $this->prepareProducts($validated['items']);
+                    $this->creditLimitService->assertCanPlace($lockedOutlet, $this->moneyToCents($totalAmount));
+                    $this->reservePreparedProducts($items);
+                    $order = $this->persistOrder($lockedOutlet, $requestIdentity, $totalAmount, $items);
 
                     return ['order' => $order, 'created' => true];
                 });
@@ -67,7 +79,7 @@ class OrderCreationService
      * @param  array<int, array{product_id: int, quantity: int}>  $requestedItems
      * @return array{0: array<int, array<string, int|float>>, 1: float}
      */
-    private function reserveProducts(array $requestedItems): array
+    private function prepareProducts(array $requestedItems): array
     {
         $productIds = collect($requestedItems)
             ->pluck('product_id')
@@ -83,21 +95,16 @@ class OrderCreationService
 
         foreach ($requestedItems as $index => $item) {
             $product = $products->get((int) $item['product_id']);
-
-            // Validation normally handles missing products before this point;
-            // this guard also protects against a concurrent deletion.
             if (!$product) {
                 throw ValidationException::withMessages([
                     "items.{$index}.product_id" => 'The referenced product does not exist.',
                 ]);
             }
-
             if (!$product->is_active) {
                 throw ValidationException::withMessages([
                     "items.{$index}.product_id" => 'The selected product is no longer available.',
                 ]);
             }
-
             if ($product->stock_quantity < $item['quantity']) {
                 throw ValidationException::withMessages([
                     "items.{$index}.quantity" => "Insufficient stock. Only {$product->stock_quantity} unit(s) remain.",
@@ -114,13 +121,24 @@ class OrderCreationService
                 'unit_price' => $unitPrice,
                 'subtotal' => $subtotal,
             ];
-
-            // Stock reservation is part of the order transaction.
-            $product->stock_quantity -= $quantity;
-            $product->save();
         }
 
         return [$items, $totalAmount];
+    }
+
+    /** @param array<int, array<string, int|float>> $items */
+    private function reservePreparedProducts(array $items): void
+    {
+        foreach ($items as $item) {
+            $product = Product::lockForUpdate()->findOrFail($item['product_id']);
+            $product->stock_quantity -= (int) $item['quantity'];
+            $product->save();
+        }
+    }
+
+    private function moneyToCents(float $amount): int
+    {
+        return (int) round($amount * 100);
     }
 
     /**

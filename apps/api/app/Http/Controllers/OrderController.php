@@ -4,17 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\OrderStatusHistory;
-use App\Models\Product;
+use App\Services\OrderCreationService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
+    public function __construct(private readonly OrderCreationService $orderCreationService)
+    {
+    }
+
     /**
      * Create an order atomically. The effective request identity is always
      * persisted in the unique idempotency_key column: an explicit key is
@@ -25,128 +26,22 @@ class OrderController extends Controller
     {
         $validated = $request->validated();
         $outlet = $request->user()->outlet;
+        $requestIdentity = $this->requestIdentity($outlet->id, $validated['idempotency_key']);
+        $result = $this->orderCreationService->create($validated, $outlet, $requestIdentity);
+        $result['order']->load('items.product');
 
-        // A unique value per outlet prevents the same client key from colliding
-        // across outlets while retaining a single database uniqueness boundary.
-        $requestIdentity = hash('sha256', json_encode([
-            'outlet_id' => $outlet->id,
-            'request_identity' => $validated['idempotency_key'],
+        return response()->json([
+            'status' => 'success',
+            'data' => $this->formatOrderResponse($result['order']),
+        ], $result['created'] ? 201 : 200);
+    }
+
+    private function requestIdentity(int $outletId, string $clientIdentity): string
+    {
+        return hash('sha256', json_encode([
+            'outlet_id' => $outletId,
+            'request_identity' => $clientIdentity,
         ], JSON_THROW_ON_ERROR));
-
-        // A concurrent insert can race the initial lookup. Retrying the
-        // transaction and reading the unique row makes the loser return the
-        // winner's order rather than exposing a unique-constraint error.
-        for ($attempt = 0; $attempt < 3; $attempt++) {
-            try {
-                $result = DB::transaction(function () use ($validated, $outlet, $requestIdentity) {
-                    $existingOrder = Order::where('idempotency_key', $requestIdentity)->first();
-                    if ($existingOrder) {
-                        return ['order' => $existingOrder, 'created' => false];
-                    }
-
-                    $productIds = collect($validated['items'])->pluck('product_id')->map(fn ($id) => (int) $id);
-                    // Lock in a stable order so simultaneous orders cannot
-                    // oversell stock (and avoid lock-order deadlocks).
-                    $products = Product::whereIn('id', $productIds)
-                        ->orderBy('id')
-                        ->lockForUpdate()
-                        ->get()
-                        ->keyBy('id');
-
-                    $totalAmount = 0.0;
-                    $items = [];
-                    foreach ($validated['items'] as $index => $item) {
-                        $product = $products->get((int) $item['product_id']);
-
-                        // The exists rule handles missing products before this
-                        // point; this guard also protects against a concurrent
-                        // deletion or a malformed request reaching the service.
-                        if (!$product) {
-                            throw ValidationException::withMessages([
-                                "items.{$index}.product_id" => 'The referenced product does not exist.',
-                            ]);
-                        }
-
-                        if (!$product->is_active) {
-                            throw ValidationException::withMessages([
-                                "items.{$index}.product_id" => 'The selected product is no longer available.',
-                            ]);
-                        }
-
-                        if ($product->stock_quantity < $item['quantity']) {
-                            throw ValidationException::withMessages([
-                                "items.{$index}.quantity" => "Insufficient stock. Only {$product->stock_quantity} unit(s) remain.",
-                            ]);
-                        }
-
-                        $unitPrice = (float) $product->price;
-                        $subtotal = $unitPrice * (int) $item['quantity'];
-                        $totalAmount += $subtotal;
-                        $items[] = [
-                            'product_id' => $product->id,
-                            'quantity' => (int) $item['quantity'],
-                            'unit_price' => $unitPrice,
-                            'subtotal' => $subtotal,
-                        ];
-
-                        // Stock is reserved as part of the same transaction as
-                        // the order. Any validation or insert failure rolls it back.
-                        $product->stock_quantity -= (int) $item['quantity'];
-                        $product->save();
-                    }
-
-                    $order = Order::create([
-                        'order_id' => Order::generateUniqueOrderId(),
-                        'outlet_id' => $outlet->id,
-                        'status' => 'New',
-                        'total_amount' => $totalAmount,
-                        'commission_percentage' => config('orders.commission_percentage', 2.00),
-                        'idempotency_key' => $requestIdentity,
-                    ]);
-
-                    foreach ($items as $item) {
-                        OrderItem::create(array_merge($item, ['order_id' => $order->id]));
-                    }
-
-                    OrderStatusHistory::create([
-                        'order_id' => $order->id,
-                        'status' => 'New',
-                        'notes' => 'Order created',
-                    ]);
-
-                    return ['order' => $order, 'created' => true];
-                });
-
-                $order = $result['order'];
-                $order->load('items.product');
-
-                return response()->json([
-                    'status' => 'success',
-                    'data' => $this->formatOrderResponse($order),
-                ], $result['created'] ? 201 : 200);
-            } catch (QueryException $exception) {
-                // The unique request identity is the expected conflict when
-                // another request won the race. Fetch it after rollback.
-                $existingOrder = Order::where('idempotency_key', $requestIdentity)->first();
-                if ($existingOrder) {
-                    $existingOrder->load('items.product');
-
-                    return response()->json([
-                        'status' => 'success',
-                        'data' => $this->formatOrderResponse($existingOrder),
-                    ], 200);
-                }
-
-                if ($attempt === 2) {
-                    throw $exception;
-                }
-
-                usleep(10000 * ($attempt + 1));
-            }
-        }
-
-        // The loop always returns or throws; this is only a type-safe fallback.
-        abort(500, 'Unable to create order.');
     }
 
     /**

@@ -7,9 +7,10 @@ use App\Models\User;
 use App\Models\Outlet;
 use App\Models\Product;
 use App\Models\Order;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Notification;
 
 class OrderTest extends TestCase
 {
@@ -494,6 +495,106 @@ class OrderTest extends TestCase
         $this->assertSame($first->json('data.order_id'), $second->json('data.order_id'));
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock_quantity' => 8]);
         $this->assertCount(1, Order::all());
+    }
+
+    /**
+     * SQLite's in-memory test driver cannot share a lockable database between
+     * parallel PHP workers. Instead, the second public HTTP request is started
+     * from the first request's validation query. This deterministic boundary
+     * interleaving still exercises the same endpoint, idempotency lookup,
+     * product lock, stock reservation, and read-back behavior.
+     */
+    public function test_concurrent_same_identity_submissions_return_one_order_result(): void
+    {
+        $product = Product::factory()->create([
+            'price' => 25000,
+            'stock_quantity' => 8,
+            'is_active' => true,
+        ]);
+        $payload = [
+            'items' => [['product_id' => $product->id, 'quantity' => 3]],
+            'idempotency_key' => 'concurrent-order-key',
+        ];
+        $responses = [];
+        $nestedStarted = false;
+
+        DB::listen(function (QueryExecuted $query) use (&$nestedStarted, &$responses, $payload): void {
+            $sql = strtolower($query->sql);
+            if (!$nestedStarted && str_contains($sql, 'select count(*) as aggregate') && str_contains($sql, 'products')) {
+                $nestedStarted = true;
+                $responses['nested'] = $this->withHeaders($this->authHeaders())
+                    ->postJson('/api/orders', $payload);
+            }
+        });
+
+        $responses['outer'] = $this->withHeaders($this->authHeaders())
+            ->postJson('/api/orders', $payload);
+
+        $this->assertTrue($nestedStarted, 'The deterministic concurrent HTTP request was not started.');
+        $responses['nested']->assertSuccessful();
+        $responses['outer']->assertSuccessful();
+        $this->assertSame(
+            $responses['nested']->json('data.order_id'),
+            $responses['outer']->json('data.order_id')
+        );
+        $this->assertSame(1, Order::count());
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'stock_quantity' => 5,
+        ]);
+    }
+
+    /**
+     * The SQLite in-memory driver serializes transactions, so this test
+     * deterministically interleaves two public approval requests at the auth
+     * boundary. The first request completes the locked transition; the second
+     * observes Confirmed and cannot append another history record.
+     */
+    public function test_concurrent_admin_approvals_append_one_confirmed_history(): void
+    {
+        $product = Product::factory()->create(['price' => 50000, 'stock_quantity' => 5]);
+        $orderResponse = $this->withHeaders($this->authHeaders())
+            ->postJson('/api/orders', [
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+            ])
+            ->assertCreated();
+        $orderId = $orderResponse->json('data.id');
+
+        $admin = User::factory()->admin()->create([
+            'email' => 'concurrent-admin@ddp.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $login = $this->postJson('/api/auth/login', [
+            'email' => $admin->email,
+            'password' => 'password123',
+        ]);
+        $headers = ['Authorization' => 'Bearer '.$login->json('data.token')];
+        $responses = [];
+        $nestedStarted = false;
+
+        DB::listen(function (QueryExecuted $query) use (&$nestedStarted, &$responses, $headers, $orderId): void {
+            $sql = strtolower($query->sql);
+            if (!$nestedStarted && str_contains($sql, 'from "users"') && str_contains($sql, 'limit 1')) {
+                $nestedStarted = true;
+                $responses['nested'] = $this->withHeaders($headers)
+                    ->putJson("/api/orders/{$orderId}/approve");
+            }
+        });
+
+        $responses['outer'] = $this->withHeaders($headers)
+            ->putJson("/api/orders/{$orderId}/approve");
+
+        $this->assertTrue($nestedStarted, 'The deterministic concurrent approval request was not started.');
+        $this->assertContains(200, [$responses['nested']->status(), $responses['outer']->status()]);
+        $this->assertContains(422, [$responses['nested']->status(), $responses['outer']->status()]);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'status' => 'Confirmed',
+        ]);
+        $this->assertSame(1, DB::table('order_status_history')
+            ->where('order_id', $orderId)
+            ->where('status', 'Confirmed')
+            ->count());
     }
 
     public function test_admin_without_outlet_can_list_and_view_orders(): void

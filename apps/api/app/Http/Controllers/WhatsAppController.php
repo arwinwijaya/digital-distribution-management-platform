@@ -45,7 +45,7 @@ class WhatsAppController extends Controller
         $outlet = $user->outlet;
         if ($user->isAdmin()) {
             $phone = $request->string('phone')->toString();
-            $outlet = Outlet::where('phone', $phone)->where('is_active', true)->first();
+            $outlet = Outlet::where('canonical_phone', Outlet::canonicalizePhone($phone))->where('is_active', true)->first();
         }
         if (! $outlet) {
             return response()->json(['status' => 'error', 'message' => 'A verified active outlet is required.'], 422);
@@ -68,6 +68,12 @@ class WhatsAppController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Only admins can send order notifications.'], 403);
         }
         $order = Order::with('outlet')->findOrFail($orderId);
+        if ($order->status !== 'Confirmed') {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Cannot notify order with status '{$order->status}'. Only Confirmed orders can be notified.",
+            ], 409);
+        }
         $message = $this->whatsappService->notifyConfirmedOrder($order);
         if (! $message) {
             return response()->json(['status' => 'disabled', 'message' => 'WhatsApp integration is unavailable.'], 202);

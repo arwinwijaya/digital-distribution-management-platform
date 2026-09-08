@@ -18,6 +18,16 @@ class WhatsAppHttpClient implements WhatsAppClient
         ]);
     }
 
+    public function sendTextWithIdempotency(string $to, string $text, string $idempotencyKey): array
+    {
+        return $this->post([
+            'messaging_product' => 'whatsapp',
+            'to' => $to,
+            'type' => 'text',
+            'text' => ['body' => $text],
+        ], $idempotencyKey);
+    }
+
     public function sendCatalog(string $to, array $catalog): array
     {
         return $this->post([
@@ -29,7 +39,7 @@ class WhatsAppHttpClient implements WhatsAppClient
     }
 
     /** @param array<string, mixed> $payload */
-    private function post(array $payload): array
+    private function post(array $payload, ?string $idempotencyKey = null): array
     {
         $token = config('whatsapp.access_token');
         $phoneNumberId = config('whatsapp.phone_number_id');
@@ -37,7 +47,11 @@ class WhatsAppHttpClient implements WhatsAppClient
             throw new RuntimeException('WhatsApp provider credentials are not configured.');
         }
 
-        $response = Http::withToken($token)
+        $request = Http::withToken($token);
+        if ($idempotencyKey !== null) {
+            $request = $request->withHeaders(['Idempotency-Key' => $idempotencyKey]);
+        }
+        $response = $request
             ->post(rtrim((string) config('whatsapp.api_url'), '/').'/'.$phoneNumberId.'/messages', $payload)
             ->throw();
 

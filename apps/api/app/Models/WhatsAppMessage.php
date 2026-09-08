@@ -13,7 +13,7 @@ class WhatsAppMessage extends Model
     protected $table = 'whatsapp_messages';
 
     protected $fillable = [
-        'provider_message_id', 'direction', 'phone', 'message_type', 'body',
+        'provider_message_id', 'logical_key', 'provider_idempotency_key', 'direction', 'phone', 'message_type', 'body',
         'payload', 'status', 'error', 'attempts', 'outlet_id', 'order_id', 'sent_at',
     ];
 

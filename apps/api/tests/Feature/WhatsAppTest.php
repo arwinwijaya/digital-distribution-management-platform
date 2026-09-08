@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\WhatsAppMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class WhatsAppTest extends TestCase
@@ -61,8 +62,9 @@ class WhatsAppTest extends TestCase
         ]);
     }
 
-    public function test_signature_and_sender_are_required(): void
+    public function test_signature_and_sender_are_required_even_when_legacy_bypass_is_disabled(): void
     {
+        Config::set('whatsapp.verify_signature', false);
         $this->postJson('/api/whatsapp/webhook', [
             'message_id' => 'wamid-unsigned',
             'from' => $this->outlet->phone,
@@ -76,6 +78,27 @@ class WhatsAppTest extends TestCase
         ])->assertStatus(422);
     }
 
+    public function test_failed_inbound_event_can_retry_without_duplicate_order(): void
+    {
+        DB::table('whatsapp_messages')->insert([
+            'provider_message_id' => 'wamid-retry',
+            'direction' => 'inbound',
+            'phone' => $this->outlet->phone,
+            'message_type' => 'text',
+            'body' => 'ORDER COFFEE-001 1',
+            'status' => 'failed',
+            'attempts' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $payload = ['message_id' => 'wamid-retry', 'from' => '08123456789', 'text' => 'ORDER COFFEE-001 1'];
+        $this->webhook($payload)->assertCreated();
+        $this->webhook($payload)->assertOk()->assertJsonPath('duplicate', true);
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseHas('whatsapp_messages', ['provider_message_id' => 'wamid-retry', 'status' => 'processed']);
+    }
+
     public function test_duplicate_provider_delivery_does_not_create_another_order(): void
     {
         $payload = ['message_id' => 'wamid-duplicate', 'from' => $this->outlet->phone, 'text' => 'ORDER COFFEE-001 2'];
@@ -83,6 +106,15 @@ class WhatsAppTest extends TestCase
         $this->webhook($payload)->assertOk()->assertJsonPath('duplicate', true);
 
         $this->assertDatabaseCount('orders', 1);
+    }
+
+    public function test_structured_items_are_non_empty_integer_and_distinct(): void
+    {
+        $base = ['message_id' => 'wamid-structured', 'from' => $this->outlet->phone, 'text' => 'order'];
+        $this->webhook($base + ['items' => []])->assertStatus(422);
+        $this->webhook(['message_id' => 'wamid-float', 'from' => $this->outlet->phone, 'text' => 'order', 'items' => [['sku' => 'COFFEE-001', 'quantity' => 1.5]]])->assertStatus(422);
+        $this->webhook(['message_id' => 'wamid-duplicate-item', 'from' => $this->outlet->phone, 'text' => 'order', 'items' => [['sku' => 'COFFEE-001', 'quantity' => 1], ['name' => 'Coffee', 'quantity' => 1]]])->assertStatus(422);
+        $this->assertDatabaseCount('orders', 0);
     }
 
     public function test_confirmation_notification_and_catalog_use_client(): void
@@ -110,9 +142,13 @@ class WhatsAppTest extends TestCase
         $order = $this->webhook(['message_id' => 'wamid-notify', 'from' => $this->outlet->phone, 'text' => 'ORDER COFFEE-001 1'])->json('data.id');
         $admin = User::factory()->admin()->create();
         $token = auth()->login($admin);
+        $this->withToken($token)->postJson("/api/whatsapp/orders/{$order}/notification")->assertStatus(409);
         $this->withToken($token)->putJson("/api/orders/{$order}/approve")->assertOk();
+        $this->withToken($token)->postJson("/api/whatsapp/orders/{$order}/notification")->assertOk();
 
         $this->assertSame('text', $client->calls[0][0]);
+        $this->assertCount(1, $client->calls);
+        $this->assertDatabaseCount('whatsapp_messages', 2);
         $this->assertDatabaseHas('whatsapp_messages', ['direction' => 'outbound', 'status' => 'sent']);
     }
 
@@ -163,7 +199,13 @@ class WhatsAppTest extends TestCase
         $admin = User::factory()->admin()->create();
         $token = auth()->login($admin);
         $this->withToken($token)->putJson("/api/orders/{$orderId}/approve")->assertOk();
-        $this->assertDatabaseHas('orders', ['id' => $orderId, 'status' => 'Confirmed']);
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'status' => 'Confirmed',
+            'total_amount' => '10000.00',
+            'paid_amount' => '0.00',
+        ]);
+        $this->assertDatabaseCount('payments', 0);
         $messageId = WhatsAppMessage::where('direction', 'outbound')->value('id');
         $this->assertDatabaseHas('whatsapp_messages', ['id' => $messageId, 'status' => 'failed']);
 
@@ -181,6 +223,20 @@ class WhatsAppTest extends TestCase
         });
         $this->withToken($token)->postJson("/api/whatsapp/messages/{$messageId}/retry")->assertOk();
         $this->assertDatabaseHas('whatsapp_messages', ['id' => $messageId, 'status' => 'sent']);
+        $this->assertDatabaseCount('whatsapp_messages', 2);
+    }
+
+    public function test_ambiguous_sender_is_rejected_and_phone_variants_are_canonicalized(): void
+    {
+        $this->assertSame('+628123456789', $this->outlet->fresh()->canonical_phone);
+        $this->webhook(['message_id' => 'wamid-local', 'from' => '08123456789', 'text' => 'ORDER COFFEE-001 1'])->assertCreated();
+
+        DB::table('outlets')->insert([
+            'name' => 'Legacy duplicate', 'phone' => '08123456789', 'canonical_phone' => null,
+            'address' => 'x', 'city' => 'x', 'district' => 'x', 'is_active' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->webhook(['message_id' => 'wamid-ambiguous', 'from' => '+628123456789', 'text' => 'ORDER COFFEE-001 1'])->assertStatus(422);
     }
 
     public function test_ambiguous_input_is_rejected_and_feature_can_be_disabled(): void

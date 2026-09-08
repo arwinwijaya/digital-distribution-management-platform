@@ -83,6 +83,14 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
+     * Get the supplier associated with this user.
+     */
+    public function supplier(): HasOne
+    {
+        return $this->hasOne(Supplier::class);
+    }
+
+    /**
      * Get the identifier that will be stored in the subject claim of the JWT.
      */
     public function getJWTIdentifier(): mixed

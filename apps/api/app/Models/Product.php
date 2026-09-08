@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Product extends Model
 {
@@ -15,6 +16,7 @@ class Product extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'supplier_id',
         'name',
         'description',
         'price',
@@ -23,6 +25,11 @@ class Product extends Model
         'category',
         'is_active',
     ];
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
+    }
 
     /**
      * Get the attributes that should be cast.

@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RegisterOutletRequest;
+use App\Models\Outlet;
 use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -15,6 +18,56 @@ class AuthController extends Controller
     public function __construct(AuthService $authService)
     {
         $this->authService = $authService;
+    }
+
+    /**
+     * Register an outlet user and bind the outlet in one server-side transaction.
+     */
+    public function registerOutlet(RegisterOutletRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $tokenData = DB::transaction(function () use ($validated) {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'phone' => $validated['phone'],
+                'role' => 'outlet',
+                'is_active' => true,
+            ]);
+
+            $outlet = Outlet::create([
+                'name' => $validated['name'],
+                'phone' => $validated['phone'],
+                'address' => $validated['address'],
+                'city' => $validated['city'],
+                'district' => $validated['district'],
+                'latitude' => $validated['latitude'] ?? null,
+                'longitude' => $validated['longitude'] ?? null,
+                'user_id' => $user->id,
+                'is_active' => true,
+            ]);
+
+            return [$user, $outlet, $this->authService->createToken($user)];
+        });
+
+        [$user, $outlet, $tokenData] = $tokenData;
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'token' => $tokenData['token'],
+                'token_type' => 'Bearer',
+                'expires_in' => $tokenData['expires_in'],
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ],
+                'outlet' => $outlet,
+            ],
+        ], 201);
     }
 
     /**

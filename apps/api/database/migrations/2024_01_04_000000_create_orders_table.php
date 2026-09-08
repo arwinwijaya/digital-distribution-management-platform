@@ -17,7 +17,10 @@ return new class extends Migration
             $table->foreignId('outlet_id')->constrained()->cascadeOnDelete();
             $table->string('status')->default('New');
             $table->decimal('total_amount', 14, 2)->default(0);
-            $table->string('idempotency_key')->nullable()->unique()->comment('Prevents duplicate order submissions');
+            // Snapshot the configured revenue rate used for this transaction.
+            $table->decimal('commission_percentage', 5, 2)->default(2.00);
+            // Always populated with the validated client key or a server-derived request identity.
+            $table->string('idempotency_key', 64)->unique()->comment('Required request identity; prevents duplicate order submissions');
             $table->timestamps();
 
             $table->index(['outlet_id', 'status']);

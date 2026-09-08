@@ -32,7 +32,12 @@ Route::middleware('auth:api')->group(function () {
 
     // Order routes
     Route::post('/orders', [OrderController::class, 'store']);
+    // The controller authorizes this list for admins and does not require an outlet relation.
+    Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
+    // Explicit admin alias for clients that keep admin APIs under /admin.
+    Route::get('/admin/orders', [OrderController::class, 'index']);
+    Route::get('/admin/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/approve', [OrderController::class, 'approve']);
 });
 

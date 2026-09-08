@@ -6,6 +6,7 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Outlet;
 use App\Models\Product;
+use App\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -414,5 +415,111 @@ class OrderTest extends TestCase
 
         // Verify current status is Confirmed
         $this->assertEquals('Confirmed', $response->json('data.status'));
+    }
+
+    public function test_order_submission_snapshots_commission_and_decrements_stock(): void
+    {
+        $product = Product::factory()->create([
+            'price' => 10000,
+            'stock_quantity' => 8,
+            'is_active' => true,
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->postJson('/api/orders', [
+                'items' => [['product_id' => $product->id, 'quantity' => 3]],
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.commission_percentage', '2.00');
+        $this->assertDatabaseHas('orders', [
+            'id' => $response->json('data.id'),
+            'commission_percentage' => 2.00,
+            'total_amount' => 30000,
+        ]);
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'stock_quantity' => 5,
+        ]);
+    }
+
+    public function test_unavailable_product_does_not_create_partial_order(): void
+    {
+        $product = Product::factory()->create([
+            'stock_quantity' => 1,
+            'is_active' => false,
+        ]);
+
+        $this->withHeaders($this->authHeaders())
+            ->postJson('/api/orders', [
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['items.0.product_id']);
+
+        $this->assertCount(0, Order::all());
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'stock_quantity' => 1,
+        ]);
+    }
+
+    public function test_duplicate_product_ids_are_rejected(): void
+    {
+        $product = Product::factory()->create(['stock_quantity' => 10]);
+
+        $this->withHeaders($this->authHeaders())
+            ->postJson('/api/orders', [
+                'items' => [
+                    ['product_id' => $product->id, 'quantity' => 1],
+                    ['product_id' => $product->id, 'quantity' => 1],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['items.1.product_id']);
+
+        $this->assertCount(0, Order::all());
+    }
+
+    public function test_missing_request_key_uses_stable_identity_for_retries(): void
+    {
+        $product = Product::factory()->create(['stock_quantity' => 10]);
+        $payload = ['items' => [['product_id' => $product->id, 'quantity' => 2]]];
+
+        $first = $this->withHeaders($this->authHeaders())->postJson('/api/orders', $payload);
+        $second = $this->withHeaders($this->authHeaders())->postJson('/api/orders', $payload);
+
+        $first->assertStatus(201);
+        $second->assertStatus(200);
+        $this->assertSame($first->json('data.order_id'), $second->json('data.order_id'));
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock_quantity' => 8]);
+        $this->assertCount(1, Order::all());
+    }
+
+    public function test_admin_without_outlet_can_list_and_view_orders(): void
+    {
+        $product = Product::factory()->create(['stock_quantity' => 10]);
+        $orderResponse = $this->withHeaders($this->authHeaders())
+            ->postJson('/api/orders', [
+                'items' => [['product_id' => $product->id, 'quantity' => 1]],
+            ]);
+        $orderId = $orderResponse->json('data.id');
+
+        $admin = User::factory()->admin()->create([
+            'email' => 'admin-no-outlet@ddp.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $login = $this->postJson('/api/auth/login', [
+            'email' => $admin->email,
+            'password' => 'password123',
+        ]);
+        $headers = ['Authorization' => 'Bearer '.$login->json('data.token')];
+
+        $this->withHeaders($headers)->getJson('/api/admin/orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $orderId);
+        $this->withHeaders($headers)->getJson('/api/admin/orders/'.$orderId)
+            ->assertOk()
+            ->assertJsonPath('data.id', $orderId);
     }
 }

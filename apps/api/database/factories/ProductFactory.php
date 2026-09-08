@@ -24,7 +24,8 @@ class ProductFactory extends Factory
             'description' => fake()->sentence(),
             'price' => fake()->numberBetween(1000, 100000),
             'sku' => fake()->unique()->bothify('SKU-####-????'),
-            'stock_quantity' => fake()->numberBetween(0, 500),
+            // Orders require available stock; keep the default fixture usable.
+            'stock_quantity' => 100,
             'category' => fake()->randomElement(['food', 'beverage', 'household', 'personal_care']),
             'is_active' => true,
         ];

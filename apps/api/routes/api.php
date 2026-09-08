@@ -1,14 +1,15 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\OutletController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\CreditLimitController;
-use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AnalyticsController;
-use App\Http\Controllers\SalesController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\OutletController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SalesController;
+use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,6 +26,8 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'registerOutlet']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+// Provider delivery is public by transport, but the controller verifies its HMAC signature.
+Route::post('/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
 
 // Protected routes
 Route::middleware('auth:api')->group(function () {
@@ -67,6 +70,11 @@ Route::middleware('auth:api')->group(function () {
 
     // Owner analytics routes
     Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
+
+    // WhatsApp outbound operations use the authenticated outlet/admin identity.
+    Route::post('/whatsapp/catalog', [WhatsAppController::class, 'catalog']);
+    Route::post('/whatsapp/orders/{orderId}/notification', [WhatsAppController::class, 'notify']);
+    Route::post('/whatsapp/messages/{messageId}/retry', [WhatsAppController::class, 'retry']);
 
     // Credit limit and outstanding balance routes
     Route::get('/credit-limit', [CreditLimitController::class, 'show']);

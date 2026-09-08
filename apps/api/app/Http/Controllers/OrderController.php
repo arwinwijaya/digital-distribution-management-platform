@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\Order;
 use App\Services\OrderCreationService;
+use App\Services\WhatsAppService;
 use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -13,9 +14,10 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function __construct(private readonly OrderCreationService $orderCreationService)
-    {
-    }
+    public function __construct(
+        private readonly OrderCreationService $orderCreationService,
+        private readonly WhatsAppService $whatsappService,
+    ) {}
 
     /**
      * Create an order atomically. The effective request identity is always
@@ -51,7 +53,7 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized. Only admins can list orders.',
@@ -78,9 +80,9 @@ class OrderController extends Controller
         $query = Order::with(['items.product', 'statusHistory']);
         $user = $request->user();
 
-        if (!$user->isAdmin()) {
+        if (! $user->isAdmin()) {
             $outlet = $user->outlet;
-            if (!$outlet) {
+            if (! $outlet) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'The authenticated user is not associated with an outlet.',
@@ -104,7 +106,7 @@ class OrderController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->isAdmin()) {
+        if (! $user->isAdmin()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized. Only admins can approve orders.',
@@ -126,6 +128,7 @@ class OrderController extends Controller
                     }
 
                     $order->recordStatus('Confirmed', 'Order approved by admin');
+
                     return [$order, true];
                 });
                 break;
@@ -139,7 +142,7 @@ class OrderController extends Controller
 
         [$order, $approved] = $result;
 
-        if (!$approved) {
+        if (! $approved) {
             return response()->json([
                 'status' => 'error',
                 'message' => "Cannot approve order with status '{$order->status}'. Only orders with status 'New' can be approved.",
@@ -147,6 +150,9 @@ class OrderController extends Controller
         }
 
         $order->load('statusHistory');
+        // Outbound provider failure is isolated and persisted by WhatsAppService;
+        // it must never roll back this already-committed order transition.
+        $this->whatsappService->notifyConfirmedOrder($order->load('outlet'));
 
         return response()->json([
             'status' => 'success',

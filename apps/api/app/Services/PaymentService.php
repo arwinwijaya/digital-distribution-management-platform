@@ -24,13 +24,20 @@ class PaymentService
                 ->lockForUpdate()
                 ->first();
             if ($existing) {
+                $existing->load('order');
+                $this->authorizeOrder($existing->order, $user);
                 if ((int) $existing->order_id !== (int) $data['order_id']) {
                     throw ValidationException::withMessages([
                         'idempotency_key' => 'This payment request identity was already used for another order.',
                     ]);
                 }
+                if ($this->moneyToCents($existing->amount) !== $this->moneyToCents($data['amount'])) {
+                    throw ValidationException::withMessages([
+                        'idempotency_key' => 'This payment request identity was already used with a different amount.',
+                    ]);
+                }
 
-                return ['payment' => $existing->load('order'), 'created' => false];
+                return ['payment' => $existing, 'created' => false];
             }
 
             // Serialize payment updates with credit-consuming order submissions

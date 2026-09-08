@@ -1,140 +1,63 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import { apiUrl, storeToken } from '@/lib/api';
 
 interface OutletFormData {
   name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
   phone: string;
   address: string;
   city: string;
   district: string;
 }
 
-interface OutletFormProps {
-  onSuccess?: (outlet: OutletFormData) => void;
-}
-
-export default function OutletForm({ onSuccess }: OutletFormProps) {
-  const [formData, setFormData] = useState<OutletFormData>({
-    name: '',
-    phone: '',
-    address: '',
-    city: '',
-    district: '',
-  });
+export default function OutletForm() {
+  const [formData, setFormData] = useState<OutletFormData>({ name: '', email: '', password: '', password_confirmation: '', phone: '', address: '', city: '', district: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(false);
-
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoading(true); setError(null); setSuccess(false);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/outlets`, {
+      const response = await fetch(apiUrl('/auth/register'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(formData),
       });
-
       const data = await response.json();
-
       if (!response.ok) {
-        const message = data.message || 'Registration failed';
-        const errors = data.errors ? Object.values(data.errors).flat().join(', ') : '';
-        setError(errors || message);
-        return;
+        const validation = data.errors ? Object.values(data.errors).flat().join(', ') : '';
+        throw new Error(validation || data.message || 'Registration failed.');
       }
-
+      storeToken(data.data.token);
       setSuccess(true);
-      setFormData({ name: '', phone: '', address: '', city: '', district: '' });
-      onSuccess?.(data.data);
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      setFormData({ name: '', email: '', password: '', password_confirmation: '', phone: '', address: '', city: '', district: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error. Please try again.');
+    } finally { setLoading(false); }
   };
 
-  return (
-    <div className="max-w-md mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">Register Outlet</h2>
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-          Outlet registered successfully!
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Outlet Name *</label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-          <input
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
-          <input
-            type="text"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
-            <input
-              type="text"
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">District *</label>
-            <input
-              type="text"
-              value={formData.district}
-              onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Registering...' : 'Register Outlet'}
-        </button>
-      </form>
-    </div>
+  const input = (key: keyof OutletFormData, label: string, type = 'text') => (
+    <label className="block text-sm font-medium text-gray-700">{label}
+      <input required type={type} value={formData[key]} onChange={(e) => setFormData({ ...formData, [key]: e.target.value })} className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2" />
+    </label>
   );
+
+  return <div className="mx-auto max-w-md p-6">
+    <h2 className="mb-2 text-2xl font-bold">Register outlet account</h2>
+    <p className="mb-6 text-sm text-gray-600">Your account and outlet are securely associated automatically.</p>
+    {error && <div role="alert" className="mb-4 rounded border border-red-400 bg-red-100 p-3 text-red-700">{error}</div>}
+    {success && <div className="mb-4 rounded border border-green-400 bg-green-100 p-3 text-green-700">Registered and signed in. You can place an order from the Orders page.</div>}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {input('name', 'Outlet name')}{input('email', 'Email', 'email')}{input('password', 'Password', 'password')}{input('password_confirmation', 'Confirm password', 'password')}
+      {input('phone', 'Phone number')}{input('address', 'Address')}
+      <div className="grid grid-cols-2 gap-4">{input('city', 'City')}{input('district', 'District')}</div>
+      <button disabled={loading} className="w-full rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{loading ? 'Registering...' : 'Register outlet'}</button>
+    </form>
+  </div>;
 }

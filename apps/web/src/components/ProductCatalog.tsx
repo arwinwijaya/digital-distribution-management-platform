@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiUrl } from '@/lib/api';
 
 interface Product {
   id: number;
@@ -26,7 +27,7 @@ export default function ProductCatalog() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
 
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/products?${params}`;
+      const url = `${apiUrl('/products')}?${params}`;
       const response = await fetch(url);
       const data = await response.json();
 

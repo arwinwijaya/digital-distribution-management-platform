@@ -5,7 +5,7 @@ import { apiUrl, storeToken } from '@/lib/api';
 
 interface LoginFormProps {
   onLogin: (token: string, role: string) => void;
-  expectedRole?: 'outlet' | 'admin';
+  expectedRole?: 'outlet' | 'admin' | 'sales' | 'driver';
 }
 
 export default function LoginForm({ onLogin, expectedRole }: LoginFormProps) {

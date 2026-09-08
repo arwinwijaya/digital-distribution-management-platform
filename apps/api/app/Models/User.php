@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -98,6 +99,21 @@ class User extends Authenticatable implements JWTSubject
     public function supplier(): HasOne
     {
         return $this->hasOne(Supplier::class);
+    }
+
+    public function salesVisits(): HasMany
+    {
+        return $this->hasMany(SalesVisit::class, 'sales_user_id');
+    }
+
+    public function assignedDeliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class, 'driver_id');
+    }
+
+    public function createdDeliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class, 'assigned_by_id');
     }
 
     /**

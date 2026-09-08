@@ -8,6 +8,7 @@ use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\DeliveryController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,6 +52,14 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/sales/visits', [SalesController::class, 'store']);
     Route::get('/sales/visits/{id}', [SalesController::class, 'show']);
     Route::patch('/sales/visits/{id}', [SalesController::class, 'update']);
+
+    // Delivery assignment and auditable lifecycle routes.
+    Route::get('/deliveries', [DeliveryController::class, 'index']);
+    Route::post('/deliveries', [DeliveryController::class, 'store']);
+    Route::get('/deliveries/{id}', [DeliveryController::class, 'show']);
+    Route::patch('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus']);
+    Route::post('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus']);
+    Route::put('/deliveries/{id}', [DeliveryController::class, 'updateStatus']);
 
     // Payment routes
     Route::post('/payments', [PaymentController::class, 'store']);

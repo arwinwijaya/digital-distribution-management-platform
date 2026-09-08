@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
+    "test:e2e": "jest order-flow.test.js --runInBand",
     "test:watch": "jest --watch"
   },
   "dependencies": {

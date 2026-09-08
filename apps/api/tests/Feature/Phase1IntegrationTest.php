@@ -71,8 +71,12 @@ class Phase1IntegrationTest extends TestCase
     public function test_outlet_registration_rejects_arbitrary_user_ownership(): void
     {
         $user = User::factory()->outlet()->create();
+        $token = $this->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->json('data.token');
 
-        $this->postJson('/api/outlets', [
+        $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/outlets', [
             'name' => 'Unsafe Outlet',
             'phone' => '081234567891',
             'address' => 'Jl. Unsafe',

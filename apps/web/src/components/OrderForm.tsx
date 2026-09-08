@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl, authHeaders } from '@/lib/api';
 
 export interface Product { id: number; name: string; price: string; stock_quantity: number; is_active: boolean; }
@@ -15,6 +15,7 @@ export default function OrderForm({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const idempotencyAttempt = useRef<{ signature: string; key: string } | null>(null);
 
   useEffect(() => {
     fetch(apiUrl('/products'), { headers: authHeaders(token) })
@@ -30,11 +31,17 @@ export default function OrderForm({ token }: { token: string }) {
     if (!items.length) { setError('Add at least one available product.'); return; }
     setSubmitting(true); setError(null);
     try {
-      const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      // Keep one identity for this cart payload so a retry cannot create a duplicate order.
+      const signature = JSON.stringify(items);
+      if (!idempotencyAttempt.current || idempotencyAttempt.current.signature !== signature) {
+        const key = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+        idempotencyAttempt.current = { signature, key };
+      }
+      const idempotencyKey = idempotencyAttempt.current.key;
       const response = await fetch(apiUrl('/orders'), { method: 'POST', headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ items, idempotency_key: idempotencyKey }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Order could not be submitted.');
-      setOrder(data.data); setTrackingId(String(data.data.id)); setCart({});
+      setOrder(data.data); setTrackingId(String(data.data.id)); setCart({}); idempotencyAttempt.current = null;
     } catch (err) { setError(err instanceof Error ? err.message : 'Order could not be submitted.'); }
     finally { setSubmitting(false); }
   }

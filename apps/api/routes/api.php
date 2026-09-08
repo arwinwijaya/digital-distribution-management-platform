@@ -20,11 +20,12 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'registerOutlet']);
 Route::post('/auth/login', [AuthController::class, 'login']);
-Route::post('/outlets', [OutletController::class, 'store']);
-Route::get('/products', [ProductController::class, 'index']);
 
 // Protected routes
 Route::middleware('auth:api')->group(function () {
+    // Legacy outlet/catalog endpoints remain available only to authenticated clients.
+    Route::post('/outlets', [OutletController::class, 'store']);
+    Route::get('/products', [ProductController::class, 'index']);
     Route::prefix('auth')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);

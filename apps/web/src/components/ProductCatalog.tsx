@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, authHeaders } from '@/lib/api';
 
 interface Product {
   id: number;
@@ -13,7 +13,7 @@ interface Product {
   is_active: boolean;
 }
 
-export default function ProductCatalog() {
+export default function ProductCatalog({ token }: { token: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -28,7 +28,7 @@ export default function ProductCatalog() {
       if (search) params.set('search', search);
 
       const url = `${apiUrl('/products')}?${params}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: authHeaders(token) });
       const data = await response.json();
 
       if (!response.ok) {
@@ -42,7 +42,7 @@ export default function ProductCatalog() {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, token]);
 
   useEffect(() => {
     fetchProducts();

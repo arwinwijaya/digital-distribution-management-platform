@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\Order;
 use App\Services\OrderCreationService;
+use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -114,6 +115,9 @@ class OrderController extends Controller
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $result = DB::transaction(function () use ($id) {
+                    // Test-only barrier: both public requests enter the approval
+                    // transaction immediately before contending on this row lock.
+                    ConcurrencyTestBarrier::await('approval');
                     // The status check and transition are both protected by the
                     // same row lock. Exactly one concurrent approval can append history.
                     $order = Order::with('items.product')->lockForUpdate()->findOrFail($id);

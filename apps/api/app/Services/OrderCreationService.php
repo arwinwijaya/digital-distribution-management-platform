@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\Outlet;
 use App\Models\Product;
+use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -28,6 +29,9 @@ class OrderCreationService
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 return DB::transaction(function () use ($validated, $outlet, $requestIdentity) {
+                    // Test-only barrier: both public requests enter this transaction
+                    // immediately before the idempotency/product critical section.
+                    ConcurrencyTestBarrier::await('order');
                     $existingOrder = Order::where('idempotency_key', $requestIdentity)->first();
                     if ($existingOrder) {
                         return ['order' => $existingOrder, 'created' => false];

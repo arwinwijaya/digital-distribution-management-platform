@@ -37,6 +37,15 @@ class AnalyticsController extends Controller
             ], 422);
         }
 
+        $rangeDays = $start->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
+        if ($rangeDays > AnalyticsService::MAX_DATE_RANGE_DAYS) {
+            $message = sprintf('The date range cannot exceed %d days.', AnalyticsService::MAX_DATE_RANGE_DAYS);
+            return response()->json([
+                'message' => $message,
+                'errors' => ['date_range' => [$message]],
+            ], 422);
+        }
+
         $data = $this->analyticsService->dashboard($start, $end, $validated['group'] ?? 'daily');
 
         // Keep the nested metrics contract while exposing descriptive aliases for

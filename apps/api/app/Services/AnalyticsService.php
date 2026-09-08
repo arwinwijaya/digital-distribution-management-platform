@@ -12,7 +12,12 @@ use Illuminate\Database\Eloquent\Builder;
 
 class AnalyticsService
 {
+    public const MAX_DATE_RANGE_DAYS = 366;
+    public const MAX_TREND_BUCKETS = 366;
+    public const OUTLET_PERFORMANCE_LIMIT = 10;
+
     private const EXCLUDED_ORDER_STATUSES = ['Cancelled', 'Canceled', 'Rejected', 'Invalid'];
+    private const OUTSTANDING_ORDER_STATUSES = ['New', 'Confirmed', 'Delivered', 'Partially Paid'];
 
     /**
      * Build the owner dashboard from database aggregates. Queries return grouped
@@ -25,12 +30,14 @@ class AnalyticsService
     {
         $orders = $this->orderQuery($start, $end);
         $orderSummary = (clone $orders)->selectRaw('COUNT(*) as orders_total, COALESCE(SUM(total_amount), 0) as sales_total')->first();
-        $outstanding = (clone $orders)
+        $outstanding = $this->outstandingOrderQuery($start, $end)
             ->selectRaw('COALESCE(SUM(CASE WHEN total_amount > paid_amount THEN total_amount - paid_amount ELSE 0 END), 0) as outstanding_total')
             ->value('outstanding_total');
 
         $payments = $this->paymentQuery($start, $end);
-        $paymentTotal = (clone $payments)->sum('amount');
+        $paymentTotal = (clone $payments)->sum('payments.amount');
+
+        $outletPerformance = $this->outletPerformance($start, $end);
 
         return [
             'metrics' => [
@@ -42,7 +49,13 @@ class AnalyticsService
                 'outstanding_total' => $this->money($outstanding),
             ],
             'sales_trends' => $this->salesTrends($start, $end, $group),
-            'outlet_performance' => $this->outletPerformance($start, $end),
+            'outlet_performance' => $outletPerformance['rows'],
+            'analytics_limits' => [
+                'max_date_range_days' => self::MAX_DATE_RANGE_DAYS,
+                'max_trend_buckets' => self::MAX_TREND_BUCKETS,
+                'outlet_performance_limit' => self::OUTLET_PERFORMANCE_LIMIT,
+                'outlet_performance_has_more' => $outletPerformance['has_more'],
+            ],
         ];
     }
 
@@ -53,26 +66,37 @@ class AnalyticsService
             ->whereBetween('created_at', [$start, $end]);
     }
 
+    private function outstandingOrderQuery(CarbonInterface $start, CarbonInterface $end): Builder
+    {
+        return Order::query()
+            ->whereIn('status', self::OUTSTANDING_ORDER_STATUSES)
+            ->whereBetween('created_at', [$start, $end]);
+    }
+
     private function paymentQuery(CarbonInterface $start, CarbonInterface $end): Builder
     {
         return Payment::query()
-            ->where('status', 'completed')
-            ->whereBetween('created_at', [$start, $end]);
+            ->join('orders', 'orders.id', '=', 'payments.order_id')
+            ->where('payments.status', 'completed')
+            ->whereNotIn('orders.status', self::EXCLUDED_ORDER_STATUSES)
+            ->whereBetween('payments.created_at', [$start, $end]);
     }
 
     /** @return array<int, array<string, int|string>> */
     private function salesTrends(CarbonInterface $start, CarbonInterface $end, string $group): array
     {
         $orderRows = $this->orderQuery($start, $end)
-            ->selectRaw('DATE(created_at) as period, COUNT(*) as orders_total, COALESCE(SUM(total_amount), 0) as sales_total')
-            ->groupByRaw('DATE(created_at)')
+            ->selectRaw('DATE(orders.created_at) as period, COUNT(*) as orders_total, COALESCE(SUM(orders.total_amount), 0) as sales_total')
+            ->groupByRaw('DATE(orders.created_at)')
             ->orderBy('period')
+            ->limit(self::MAX_TREND_BUCKETS)
             ->get();
 
         $paymentRows = $this->paymentQuery($start, $end)
-            ->selectRaw('DATE(created_at) as period, COALESCE(SUM(amount), 0) as payments_total')
-            ->groupByRaw('DATE(created_at)')
+            ->selectRaw('DATE(payments.created_at) as period, COALESCE(SUM(payments.amount), 0) as payments_total')
+            ->groupByRaw('DATE(payments.created_at)')
             ->orderBy('period')
+            ->limit(self::MAX_TREND_BUCKETS)
             ->get();
 
         $grouped = [];
@@ -101,8 +125,11 @@ class AnalyticsService
      * Rank outlets by aggregate order sales. Ties are deterministic: outlet
      * name ascending, then outlet id ascending. Cancelled/rejected orders are
      * excluded, while all other existing order statuses count as sales.
+     * Return only the server-defined top N outlets. Fetching one extra grouped
+     * row lets the response advertise whether a larger ranking exists without
+     * loading the full ranking into application memory.
      *
-     * @return array<int, array<string, int|string>>
+     * @return array{rows: array<int, array<string, int|string>>, has_more: bool}
      */
     private function outletPerformance(CarbonInterface $start, CarbonInterface $end): array
     {
@@ -115,17 +142,24 @@ class AnalyticsService
             ->orderByDesc('sales_total')
             ->orderBy('outlets.name')
             ->orderBy('outlets.id')
+            ->limit(self::OUTLET_PERFORMANCE_LIMIT + 1)
             ->get();
 
-        return $rows->values()->map(function ($row, int $index): array {
-            return [
-                'rank' => $index + 1,
-                'outlet_id' => (int) $row->outlet_id,
-                'outlet_name' => $row->outlet_name,
-                'orders_total' => (int) $row->orders_total,
-                'sales_total' => $this->money($row->sales_total),
-            ];
-        })->all();
+        $hasMore = $rows->count() > self::OUTLET_PERFORMANCE_LIMIT;
+        $rows = $rows->take(self::OUTLET_PERFORMANCE_LIMIT);
+
+        return [
+            'rows' => $rows->values()->map(function ($row, int $index): array {
+                return [
+                    'rank' => $index + 1,
+                    'outlet_id' => (int) $row->outlet_id,
+                    'outlet_name' => $row->outlet_name,
+                    'orders_total' => (int) $row->orders_total,
+                    'sales_total' => $this->money($row->sales_total),
+                ];
+            })->all(),
+            'has_more' => $hasMore,
+        ];
     }
 
     private function periodKey(string $date, string $group): string

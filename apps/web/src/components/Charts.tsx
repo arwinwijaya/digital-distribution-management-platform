@@ -44,7 +44,7 @@ export function OutletPerformanceChart({ outlets }: { outlets: OutletPoint[] }) 
 
   return (
     <ol className="space-y-3" aria-label="Outlet performance ranking">
-      {outlets.slice(0, 10).map((outlet) => (
+      {outlets.map((outlet) => (
         <li key={outlet.outlet_id} className="grid grid-cols-[2rem_9rem_1fr_6rem] items-center gap-3 text-sm">
           <span className="font-semibold text-gray-500">#{outlet.rank}</span>
           <span className="truncate" title={outlet.outlet_name}>{outlet.outlet_name}</span>

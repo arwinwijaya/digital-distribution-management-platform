@@ -171,6 +171,63 @@ class AnalyticsTest extends TestCase
             ->assertJsonPath('data.outlet_performance', []);
     }
 
+    public function test_dashboard_rejects_date_ranges_over_server_limit(): void
+    {
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/analytics/dashboard?start_date=2025-01-01&end_date=2026-01-02');
+
+        $response->assertStatus(422)
+            ->assertJsonPath('errors.date_range.0', 'The date range cannot exceed 366 days.');
+    }
+
+    public function test_outstanding_uses_only_the_documented_status_allow_list(): void
+    {
+        $outlet = Outlet::factory()->create();
+        foreach (['New', 'Confirmed', 'Delivered', 'Partially Paid'] as $status) {
+            $this->order($outlet, 10, '2025-09-01', $status);
+        }
+        foreach (['Paid', 'Cancelled', 'Canceled', 'Rejected', 'Invalid', 'FutureStatus'] as $status) {
+            $this->order($outlet, 100, '2025-09-01', $status);
+        }
+
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/analytics/dashboard?start_date=2025-09-01&end_date=2025-09-30');
+
+        $response->assertOk()->assertJsonPath('data.metrics.outstanding_total', '40.00');
+    }
+
+    public function test_completed_payments_for_excluded_parent_orders_are_not_counted(): void
+    {
+        $outlet = Outlet::factory()->create();
+        $valid = $this->order($outlet, 100, '2025-09-01', 'Delivered');
+        $excluded = $this->order($outlet, 100, '2025-09-01', 'Cancelled');
+        $this->payment($valid, 25, '2025-09-02');
+        $this->payment($excluded, 900, '2025-09-02');
+
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/analytics/dashboard?start_date=2025-09-01&end_date=2025-09-30');
+
+        $response->assertOk()
+            ->assertJsonPath('data.metrics.payments_total', '25.00')
+            ->assertJsonPath('data.sales_trends.1.payments_total', '25.00');
+    }
+
+    public function test_outlet_performance_is_server_bounded_with_explicit_limit_contract(): void
+    {
+        for ($index = 1; $index <= 11; $index++) {
+            $outlet = Outlet::factory()->create(['name' => sprintf('Outlet %02d', $index)]);
+            $this->order($outlet, 100 - $index, '2025-09-01');
+        }
+
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/analytics/dashboard?start_date=2025-09-01&end_date=2025-09-30');
+
+        $response->assertOk()
+            ->assertJsonCount(10, 'data.outlet_performance')
+            ->assertJsonPath('data.analytics_limits.outlet_performance_limit', 10)
+            ->assertJsonPath('data.analytics_limits.outlet_performance_has_more', true);
+    }
+
     public function test_dashboard_requires_admin_and_rejects_unsafe_date_filters(): void
     {
         $outletUser = User::factory()->outlet()->create([

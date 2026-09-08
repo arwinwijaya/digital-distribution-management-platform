@@ -119,6 +119,9 @@ class DeliveryController extends Controller
             $metadata = array_intersect_key($data, array_flip(['recipient_name', 'proof_of_delivery_url', 'proof_of_delivery', 'failure_reason']));
             $delivery->transitionTo($data['status'], $actor, $metadata, $data['notes'] ?? null);
             $delivery->save();
+            if ($data['status'] === Delivery::DELIVERED && $delivery->order->status !== 'Delivered') {
+                $delivery->order->recordStatus('Delivered', 'Delivery completed');
+            }
             return $delivery;
         });
 

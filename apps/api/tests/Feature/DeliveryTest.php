@@ -111,6 +111,7 @@ class DeliveryTest extends TestCase
             ->assertJsonPath('data.proof_of_delivery.photo_url', 'https://example.com/proof.jpg')
             ->assertJsonCount(3, 'data.status_history');
 
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Delivered']);
         $this->withHeader('Authorization', "Bearer {$adminToken}")
             ->getJson('/api/deliveries/'.$delivery['id'])
             ->assertOk()

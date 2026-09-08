@@ -27,79 +27,9 @@ class PaymentService
     {
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
-                return DB::transaction(function () use ($data, $user) {
-                    // Test-only synchronization releases public race workers together
-                    // before the same outlet/order critical section.
-                    ConcurrencyTestBarrier::await('payment');
-
-                    // Serialize payment updates with credit-consuming order submissions
-                    // by taking the same outlet lock before the order lock.
-                    $orderOwner = Order::whereKey($data['order_id'])->firstOrFail()->outlet_id;
-                    Outlet::whereKey($orderOwner)->lockForUpdate()->firstOrFail();
-                    // The order lock makes the paid/remaining calculation safe against
-                    // concurrent payment requests for the same order.
-                    $order = Order::lockForUpdate()->findOrFail($data['order_id']);
-
-                    // The lookup must happen after the locks. A request that waited for
-                    // the winner's transaction now sees its committed payment and replays it.
-                    $existing = Payment::where('idempotency_key', $data['idempotency_key'])
-                        ->lockForUpdate()
-                        ->first();
-                    if ($existing) {
-                        return $this->replayExistingPayment($existing, $data, $user);
-                    }
-
-                    $this->authorizeOrder($order, $user);
-                    if (!in_array($order->status, ['Delivered', 'Partially Paid'], true)) {
-                        throw ValidationException::withMessages([
-                            'order_id' => "Payments can only be recorded for delivered orders. Current status: {$order->status}.",
-                        ]);
-                    }
-
-                    $paidCents = $this->moneyToCents(
-                        Payment::where('order_id', $order->id)
-                            ->where('status', 'completed')
-                            ->sum('amount')
-                    );
-                    $totalCents = $this->moneyToCents($order->total_amount);
-                    $amountCents = $this->moneyToCents($data['amount']);
-                    $remainingCents = $totalCents - $paidCents;
-
-                    if ($amountCents > $remainingCents) {
-                        throw ValidationException::withMessages([
-                            'amount' => 'Payment cannot exceed the order outstanding balance.',
-                        ]);
-                    }
-
-                    $payment = Payment::create([
-                        'order_id' => $order->id,
-                        'outlet_id' => $order->outlet_id,
-                        'amount' => number_format($amountCents / 100, 2, '.', ''),
-                        'payment_method' => $data['payment_method'],
-                        'status' => 'completed',
-                        'idempotency_key' => $data['idempotency_key'],
-                        'receipt_reference' => null,
-                    ]);
-                    $payment->receipt_reference = $this->receiptService->generate($payment);
-                    $payment->save();
-
-                    $newPaidCents = $paidCents + $amountCents;
-                    $order->paid_amount = number_format($newPaidCents / 100, 2, '.', '');
-                    $order->status = $newPaidCents === $totalCents ? 'Paid' : 'Partially Paid';
-                    $order->save();
-                    $order->recordStatus($order->status, 'Payment recorded');
-
-                    return ['payment' => $payment->load('order'), 'created' => true];
-                });
+                return DB::transaction(fn () => $this->recordInTransaction($data, $user));
             } catch (QueryException $exception) {
-                // A unique-key conflict can happen after another transaction wins
-                // between our lookup and insert. Read the committed winner and apply
-                // the same identity validation instead of leaking a 500 response.
-                try {
-                    $existing = Payment::where('idempotency_key', $data['idempotency_key'])->first();
-                } catch (QueryException) {
-                    $existing = null;
-                }
+                $existing = $this->findCommittedPayment($data['idempotency_key']);
                 if ($existing) {
                     return $this->replayExistingPayment($existing, $data, $user);
                 }
@@ -112,6 +42,126 @@ class PaymentService
         }
 
         throw new \LogicException('Unable to record payment.');
+    }
+
+    /**
+     * Execute the payment workflow inside the caller's transaction.
+     *
+     * Lock order is deliberate: outlet first, then order. The idempotency
+     * lookup remains after both locks so a waiting request replays the winner.
+     *
+     * @return array{payment: Payment, created: bool}
+     */
+    private function recordInTransaction(array $data, User $user): array
+    {
+        ConcurrencyTestBarrier::await('payment');
+        $order = $this->lockOrderForPayment($data['order_id']);
+        $existing = $this->findPaymentForUpdate($data['idempotency_key']);
+
+        if ($existing) {
+            return $this->replayExistingPayment($existing, $data, $user);
+        }
+
+        return $this->createPaymentForOrder($order, $data, $user);
+    }
+
+    private function lockOrderForPayment(int|string $orderId): Order
+    {
+        // Serialize payment updates with credit-consuming order submissions.
+        $orderOwner = Order::whereKey($orderId)->firstOrFail()->outlet_id;
+        Outlet::whereKey($orderOwner)->lockForUpdate()->firstOrFail();
+
+        // The order lock makes the paid/remaining calculation safe for races.
+        return Order::lockForUpdate()->findOrFail($orderId);
+    }
+
+    private function findPaymentForUpdate(string $idempotencyKey): ?Payment
+    {
+        return Payment::where('idempotency_key', $idempotencyKey)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function findCommittedPayment(string $idempotencyKey): ?Payment
+    {
+        // A unique-key conflict may occur after another transaction wins between
+        // our lookup and insert. Read back that committed winner when available.
+        try {
+            return Payment::where('idempotency_key', $idempotencyKey)->first();
+        } catch (QueryException) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array{payment: Payment, created: bool}
+     */
+    private function createPaymentForOrder(Order $order, array $data, User $user): array
+    {
+        $this->validatePayableOrder($order, $user);
+        [$paidCents, $totalCents, $amountCents] = $this->paymentBalances($order, $data['amount']);
+
+        if ($amountCents > $totalCents - $paidCents) {
+            throw ValidationException::withMessages([
+                'amount' => 'Payment cannot exceed the order outstanding balance.',
+            ]);
+        }
+
+        $payment = $this->createPaymentRecord($order, $data, $amountCents);
+        $this->applyPaymentToOrder($order, $paidCents + $amountCents, $totalCents);
+
+        return ['payment' => $payment->load('order'), 'created' => true];
+    }
+
+    private function validatePayableOrder(Order $order, User $user): void
+    {
+        $this->authorizeOrder($order, $user);
+        if (!in_array($order->status, ['Delivered', 'Partially Paid'], true)) {
+            throw ValidationException::withMessages([
+                'order_id' => "Payments can only be recorded for delivered orders. Current status: {$order->status}.",
+            ]);
+        }
+    }
+
+    /** @return array{int, int, int} */
+    private function paymentBalances(Order $order, mixed $amount): array
+    {
+        $paidCents = $this->moneyToCents(
+            Payment::where('order_id', $order->id)
+                ->where('status', 'completed')
+                ->sum('amount')
+        );
+
+        return [
+            $paidCents,
+            $this->moneyToCents($order->total_amount),
+            $this->moneyToCents($amount),
+        ];
+    }
+
+    private function createPaymentRecord(Order $order, array $data, int $amountCents): Payment
+    {
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'outlet_id' => $order->outlet_id,
+            'amount' => number_format($amountCents / 100, 2, '.', ''),
+            'payment_method' => $data['payment_method'],
+            'status' => 'completed',
+            'idempotency_key' => $data['idempotency_key'],
+            'receipt_reference' => null,
+        ]);
+        $payment->receipt_reference = $this->receiptService->generate($payment);
+        $payment->save();
+
+        return $payment;
+    }
+
+    private function applyPaymentToOrder(Order $order, int $paidCents, int $totalCents): void
+    {
+        $order->paid_amount = number_format($paidCents / 100, 2, '.', '');
+        $order->status = $paidCents === $totalCents ? 'Paid' : 'Partially Paid';
+        $order->save();
+        $order->recordStatus($order->status, 'Payment recorded');
     }
 
     /**

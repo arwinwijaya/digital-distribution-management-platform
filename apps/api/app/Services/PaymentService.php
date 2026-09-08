@@ -11,6 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 class PaymentService
 {
+    public function __construct(private readonly ReceiptService $receiptService)
+    {
+    }
+
     /**
      * Record one completed payment while serializing all balance changes for an order.
      * The idempotency key is unique in the database and replayed requests are safe.
@@ -77,8 +81,10 @@ class PaymentService
                 'payment_method' => $data['payment_method'],
                 'status' => 'completed',
                 'idempotency_key' => $data['idempotency_key'],
-                'receipt_reference' => 'RCT-'.strtoupper(bin2hex(random_bytes(6))),
+                'receipt_reference' => null,
             ]);
+            $payment->receipt_reference = $this->receiptService->generate($payment);
+            $payment->save();
 
             $newPaidCents = $paidCents + $amountCents;
             $order->paid_amount = number_format($newPaidCents / 100, 2, '.', '');

@@ -7,6 +7,7 @@ use App\Models\OrderStatusHistory;
 use App\Models\Outlet;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\ReceiptService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -123,6 +124,9 @@ class PaymentTest extends TestCase
      */
     public function test_admin_can_record_payment_for_delivered_order(): void
     {
+        $this->mock(ReceiptService::class, function ($mock) {
+            $mock->shouldReceive('generate')->once()->andReturn('RCT-MOCKED');
+        });
         $order = $this->deliveredOrder(100000);
 
         $response = $this->withHeaders($this->adminHeaders())->postJson('/api/payments', [

@@ -1,0 +1,21 @@
+{
+  "name": "digital-distribution-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "api:artisan": "cd apps/api && php artisan"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

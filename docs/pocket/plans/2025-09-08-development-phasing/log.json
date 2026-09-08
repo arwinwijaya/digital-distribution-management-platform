@@ -1,0 +1,90 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2025-09-08-development-phasing",
+    "plan_type": "phased",
+    "status": "IN_PROGRESS",
+    "date_started": "2026-09-08",
+    "date_completed": null,
+    "baseline_sha": "c6827b2900a85e7d30fc1358a809a11d44c8303b",
+    "pipeline": 4,
+    "plan_file": "execution-plan/index.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/phase-1.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Foundation & Infrastructure",
+          "status": "WAITING",
+          "file": "execution-plan/tasks/T1-foundation-infrastructure.md"
+        },
+        {
+          "id": "T2",
+          "name": "Outlet Onboarding & Product Discovery",
+          "status": "WAITING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T2-outlet-onboarding-product-discovery.md"
+        },
+        {
+          "id": "T3",
+          "name": "Order Management & Transaction",
+          "status": "WAITING",
+          "depends": "T2",
+          "file": "execution-plan/tasks/T3-order-management-transaction.md"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "file": "execution-plan/phase-2.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T4",
+          "name": "Payment & Credit Management",
+          "status": "WAITING",
+          "depends": "T3",
+          "file": "execution-plan/tasks/T4-payment-credit-management.md"
+        },
+        {
+          "id": "T5",
+          "name": "Dashboard & Analytics",
+          "status": "WAITING",
+          "depends": "T3",
+          "file": "execution-plan/tasks/T5-dashboard-analytics.md"
+        },
+        {
+          "id": "T6",
+          "name": "Sales Force & Delivery",
+          "status": "WAITING",
+          "depends": "T4",
+          "file": "execution-plan/tasks/T6-sales-force-delivery.md"
+        },
+        {
+          "id": "T7",
+          "name": "WhatsApp Integration",
+          "status": "WAITING",
+          "depends": "T2",
+          "file": "execution-plan/tasks/T7-whatsapp-integration.md"
+        },
+        {
+          "id": "T8",
+          "name": "AI & Intelligence",
+          "status": "WAITING",
+          "depends": "T4",
+          "file": "execution-plan/tasks/T8-ai-intelligence.md"
+        },
+        {
+          "id": "T9",
+          "name": "Polish & Scale",
+          "status": "WAITING",
+          "depends": "T6, T7, T8",
+          "file": "execution-plan/tasks/T9-polish-scale.md"
+        }
+      ]
+    }
+  ]
+}

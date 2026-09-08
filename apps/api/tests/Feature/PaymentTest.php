@@ -140,7 +140,9 @@ class PaymentTest extends TestCase
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('data.amount', '40000.00')
             ->assertJsonPath('data.order_id', $order->id)
-            ->assertJsonPath('data.order.outstanding_balance', '60000.00');
+            ->assertJsonPath('data.order.outstanding_balance', '60000.00')
+            ->assertJsonPath('data.receipt.reference', 'RCT-MOCKED')
+            ->assertJsonPath('data.receipt.items.0.quantity', 1);
 
         $this->assertDatabaseHas('payments', [
             'order_id' => $order->id,

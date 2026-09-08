@@ -44,6 +44,7 @@ class PaymentController extends Controller
 
     private function formatPayment(Payment $payment): array
     {
+        $payment->loadMissing('order.items.product');
         $order = $payment->order;
         $paidCents = (int) round(((float) $order->paid_amount) * 100);
         $totalCents = (int) round(((float) $order->total_amount) * 100);
@@ -64,6 +65,20 @@ class PaymentController extends Controller
                 'paid_amount' => $order->paid_amount,
                 'outstanding_balance' => number_format(max(0, $totalCents - $paidCents) / 100, 2, '.', ''),
                 'status' => $order->status,
+            ],
+            'receipt' => [
+                'reference' => $payment->receipt_reference,
+                'payment_method' => $payment->payment_method,
+                'amount' => $payment->amount,
+                'tax' => '0.00',
+                'discount' => '0.00',
+                'items' => $order->items->map(fn ($item) => [
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product->name ?? null,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'subtotal' => $item->subtotal,
+                ])->values(),
             ],
             'created_at' => $payment->created_at,
         ];

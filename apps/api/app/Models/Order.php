@@ -21,6 +21,7 @@ class Order extends Model
         'outlet_id',
         'status',
         'total_amount',
+        'paid_amount',
         'commission_percentage',
         'idempotency_key',
     ];
@@ -34,6 +35,7 @@ class Order extends Model
     {
         return [
             'total_amount' => 'decimal:2',
+            'paid_amount' => 'decimal:2',
             'commission_percentage' => 'decimal:2',
         ];
     }
@@ -60,6 +62,11 @@ class Order extends Model
     public function statusHistory(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class)->orderBy('created_at');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     /**

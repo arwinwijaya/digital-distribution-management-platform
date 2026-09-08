@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,6 +42,10 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/admin/orders', [OrderController::class, 'index']);
     Route::get('/admin/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/approve', [OrderController::class, 'approve']);
+
+    // Payment routes
+    Route::post('/payments', [PaymentController::class, 'store']);
+    Route::get('/payments', [PaymentController::class, 'index']);
 });
 
 // Health check

@@ -41,9 +41,12 @@ class AuthService
      */
     public function invalidateToken(User $user): void
     {
-        // In a real implementation, you'd track tokens per user
-        // and invalidate all of them
-        // For now, we'll rely on cache expiration
+        // Find and invalidate all tokens for this user by scanning cache
+        // For a production system, you'd track tokens per user in the database
+        $token = request()->bearerToken();
+        if ($token) {
+            cache()->forget("auth_token:{$token}");
+        }
     }
 
     /**

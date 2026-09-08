@@ -31,7 +31,7 @@ class AuthTest extends TestCase
         // Assert: JWT token is returned
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'status' => 'success',
+                'status',
                 'data' => [
                     'token',
                     'token_type',

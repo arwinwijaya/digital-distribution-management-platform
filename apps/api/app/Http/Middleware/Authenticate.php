@@ -41,7 +41,7 @@ class Authenticate
             ], 401);
         }
 
-        $request->setUser($user);
+        $request->setUserResolver(fn () => $user);
 
         return $next($request);
     }

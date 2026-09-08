@@ -69,6 +69,11 @@ class Order extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function delivery(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Delivery::class);
+    }
+
     /**
      * Generate a unique server-generated order ID.
      * Format: ORD-YYYYMMDD-XXXXX (5-digit random suffix)

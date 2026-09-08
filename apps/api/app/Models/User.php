@@ -74,6 +74,16 @@ class User extends Authenticatable implements JWTSubject
         return $this->role === 'supplier';
     }
 
+    public function isSales(): bool
+    {
+        return $this->role === 'sales';
+    }
+
+    public function isDriver(): bool
+    {
+        return $this->role === 'driver';
+    }
+
     /**
      * Get the outlet associated with this user.
      */

@@ -7,6 +7,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\SalesController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -44,6 +45,12 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/admin/orders', [OrderController::class, 'index']);
     Route::get('/admin/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/approve', [OrderController::class, 'approve']);
+
+    // Sales visit planning routes (controller scopes sales users to their own visits).
+    Route::get('/sales/visits', [SalesController::class, 'index']);
+    Route::post('/sales/visits', [SalesController::class, 'store']);
+    Route::get('/sales/visits/{id}', [SalesController::class, 'show']);
+    Route::patch('/sales/visits/{id}', [SalesController::class, 'update']);
 
     // Payment routes
     Route::post('/payments', [PaymentController::class, 'store']);

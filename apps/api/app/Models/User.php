@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
@@ -71,6 +72,14 @@ class User extends Authenticatable implements JWTSubject
     public function isSupplier(): bool
     {
         return $this->role === 'supplier';
+    }
+
+    /**
+     * Get the outlet associated with this user.
+     */
+    public function outlet(): HasOne
+    {
+        return $this->hasOne(Outlet::class);
     }
 
     /**

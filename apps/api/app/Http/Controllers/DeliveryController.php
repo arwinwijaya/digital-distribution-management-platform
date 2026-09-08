@@ -8,6 +8,7 @@ use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\RoutingService;
+use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -113,14 +114,23 @@ class DeliveryController extends Controller
                 abort(response()->json(['status' => 'error', 'message' => "Cannot transition delivery from {$delivery->status} to {$data['status']}.", 'current_status' => $delivery->status], 422));
             }
 
+            $order = null;
+            if ($data['status'] === Delivery::DELIVERED) {
+                // Keep the order lock in this transaction before changing either
+                // delivery state or the order status history. The barrier is inert
+                // outside explicitly configured race tests.
+                ConcurrencyTestBarrier::await('payment');
+                $order = Order::lockForUpdate()->findOrFail($delivery->order_id);
+            }
+
             $delivery->fill(array_intersect_key($data, array_flip([
                 'recipient_name', 'proof_of_delivery_url', 'proof_of_delivery', 'failure_reason', 'notes',
             ])));
             $metadata = array_intersect_key($data, array_flip(['recipient_name', 'proof_of_delivery_url', 'proof_of_delivery', 'failure_reason']));
             $delivery->transitionTo($data['status'], $actor, $metadata, $data['notes'] ?? null);
             $delivery->save();
-            if ($data['status'] === Delivery::DELIVERED && $delivery->order->status !== 'Delivered') {
-                $delivery->order->recordStatus('Delivered', 'Delivery completed');
+            if ($data['status'] === Delivery::DELIVERED && $order?->status !== 'Delivered') {
+                $order->recordStatus('Delivered', 'Delivery completed');
             }
             return $delivery;
         });

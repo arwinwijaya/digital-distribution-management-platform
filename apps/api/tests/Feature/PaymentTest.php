@@ -130,7 +130,7 @@ class PaymentTest extends TestCase
         $order = $this->deliveredOrder(100000);
 
         $response = $this->withHeaders($this->adminHeaders())->postJson('/api/payments', [
-            'order_id' => $order->id,
+            'order_id' => $order->order_id,
             'amount' => 40000,
             'payment_method' => 'cash',
             'idempotency_key' => 'payment-'.$order->id.'-1',

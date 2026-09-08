@@ -159,7 +159,10 @@ class PaymentTest extends TestCase
      */
     public function test_order_is_blocked_when_credit_limit_would_be_exceeded(): void
     {
-        $this->setCreditLimit(50000);
+        $this->withHeaders($this->adminHeaders())
+            ->putJson('/api/admin/outlets/'.$this->outlet->id.'/credit-limit', ['limit_amount' => 50000])
+            ->assertStatus(200)
+            ->assertJsonPath('data.credit_limit', '50000.00');
         $existingProduct = Product::factory()->create([
             'price' => 40000,
             'stock_quantity' => 10,

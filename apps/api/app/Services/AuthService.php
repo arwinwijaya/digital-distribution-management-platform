@@ -3,50 +3,31 @@
 namespace App\Services;
 
 use App\Models\User;
-
-use Illuminate\Support\Str;
-use Carbon\Carbon;
+use Tymon\JWTAuth\Facades\JWTAuth;
+use Tymon\JWTAuth\Exceptions\JWTException;
 
 class AuthService
 {
     /**
-     * Create a new authentication token for the user
+     * Create a new JWT token for the user
      */
     public function createToken(User $user): array
     {
-        // For simplicity, we'll use a custom token implementation
-        // In production, consider using Laravel Sanctum or JWT
-        $token = $this->generateToken($user);
-        $expiresIn = config('auth.token_lifetime', 1440); // 24 hours in minutes
-
-        // Store token in cache for validation
-        cache()->put(
-            "auth_token:{$token}",
-            [
-                'user_id' => $user->id,
-                'created_at' => Carbon::now(),
-                'expires_at' => Carbon::now()->addMinutes($expiresIn),
-            ],
-            $expiresIn * 60
-        );
+        $token = JWTAuth::fromUser($user);
+        $expiresIn = config('jwt.ttl', 1440) * 60; // Convert minutes to seconds
 
         return [
             'token' => $token,
-            'expires_in' => $expiresIn * 60, // Return seconds
+            'expires_in' => $expiresIn,
         ];
     }
 
     /**
-     * Invalidate a user's token
+     * Invalidate (blacklist) a specific JWT token
      */
-    public function invalidateToken(User $user): void
+    public function invalidateToken(User $user, string $token): void
     {
-        // Find and invalidate all tokens for this user by scanning cache
-        // For a production system, you'd track tokens per user in the database
-        $token = request()->bearerToken();
-        if ($token) {
-            cache()->forget("auth_token:{$token}");
-        }
+        JWTAuth::setToken($token)->invalidate();
     }
 
     /**
@@ -54,40 +35,25 @@ class AuthService
      */
     public function refreshToken(User $user): array
     {
-        return $this->createToken($user);
+        $token = JWTAuth::fromUser($user);
+        $expiresIn = config('jwt.ttl', 1440) * 60;
+
+        return [
+            'token' => $token,
+            'expires_in' => $expiresIn,
+        ];
     }
 
     /**
-     * Validate a token and return the user
+     * Validate a JWT token and return the user
      */
     public function validateToken(string $token): ?User
     {
-        $tokenData = cache()->get("auth_token:{$token}");
-
-        if (!$tokenData) {
+        try {
+            $user = JWTAuth::setToken($token)->authenticate();
+            return $user ?: null;
+        } catch (JWTException $e) {
             return null;
         }
-
-        if (Carbon::now()->isAfter($tokenData['expires_at'])) {
-            cache()->forget("auth_token:{$token}");
-            return null;
-        }
-
-        return User::find($tokenData['user_id']);
-    }
-
-    /**
-     * Generate a secure token
-     */
-    protected function generateToken(User $user): string
-    {
-        $payload = json_encode([
-            'user_id' => $user->id,
-            'email' => $user->email,
-            'iat' => Carbon::now()->timestamp,
-            'jti' => Str::uuid(),
-        ]);
-
-        return hash_hmac('sha256', $payload, config('app.key'));
     }
 }

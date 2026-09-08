@@ -78,7 +78,8 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $this->authService->invalidateToken($request->user());
+        $token = $request->bearerToken();
+        $this->authService->invalidateToken($request->user(), $token);
 
         return response()->json([
             'status' => 'success',

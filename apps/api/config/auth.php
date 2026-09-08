@@ -35,7 +35,7 @@ return [
         ],
 
         'api' => [
-            'driver' => 'bearer-token',
+            'driver' => 'jwt',
             'provider' => 'users',
         ],
     ],

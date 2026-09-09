@@ -13,76 +13,147 @@
     {
       "order": 1,
       "file": "execution-plan/phase-1.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T1",
           "name": "Foundation & Infrastructure",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T1-foundation-infrastructure.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T1-foundation-infrastructure.md",
+          "done_sha": "a9b073bf4df0b49de5a414d31fe531a351f21043"
         },
         {
           "id": "T2",
           "name": "Outlet Onboarding & Product Discovery",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T2-outlet-onboarding-product-discovery.md"
+          "file": "execution-plan/tasks/T2-outlet-onboarding-product-discovery.md",
+          "done_sha": "598f0a1a07423f280867b9e32d49c89e5131851c"
         },
         {
           "id": "T3",
           "name": "Order Management & Transaction",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T2",
-          "file": "execution-plan/tasks/T3-order-management-transaction.md"
+          "file": "execution-plan/tasks/T3-order-management-transaction.md",
+          "done_sha": "8ef69db4b0fb5f2380b2448c5b536555e757fd48"
+        }
+      ],
+      "corrections": [
+        {
+          "sha": "1b84082",
+          "files": [
+            "apps/api/app/Http/Controllers/AuthController.php",
+            "apps/api/app/Http/Requests/RegisterOutletRequest.php",
+            "apps/api/app/Http/Requests/StoreOutletRequest.php",
+            "apps/api/app/Models/Product.php",
+            "apps/api/app/Models/Supplier.php",
+            "apps/api/app/Models/User.php",
+            "apps/api/database/factories/SupplierFactory.php",
+            "apps/api/database/migrations/2026_09_08_000004_create_suppliers_table.php",
+            "apps/api/database/migrations/2026_09_08_000005_add_supplier_to_products_table.php",
+            "apps/api/routes/api.php",
+            "apps/api/tests/Feature/Phase1IntegrationTest.php"
+          ],
+          "for_task": "T2"
+        },
+        {
+          "sha": "8a52f3c",
+          "files": [
+            "apps/web/order-flow.test.js",
+            "apps/web/src/app/admin/orders/page.tsx",
+            "apps/web/src/app/orders/page.tsx",
+            "apps/web/src/app/page.tsx",
+            "apps/web/src/components/LoginForm.tsx",
+            "apps/web/src/components/OrderForm.tsx",
+            "apps/web/src/components/OutletForm.tsx",
+            "apps/web/src/components/ProductCatalog.tsx",
+            "apps/web/src/lib/api.ts"
+          ],
+          "for_task": "T3"
+        },
+        {
+          "sha": "3f606d2",
+          "files": [
+            "apps/api/routes/api.php",
+            "apps/api/tests/Feature/OutletTest.php",
+            "apps/api/tests/Feature/Phase1IntegrationTest.php",
+            "apps/api/tests/Feature/ProductTest.php",
+            "apps/web/order-flow.test.js",
+            "apps/web/package.json",
+            "apps/web/src/app/products/page.tsx",
+            "apps/web/src/components/OrderForm.tsx",
+            "apps/web/src/components/ProductCatalog.tsx"
+          ],
+          "for_task": "T2"
         }
       ]
     },
     {
       "order": 2,
       "file": "execution-plan/phase-2.md",
-      "status": "WAITING",
+      "status": "REVIEW",
       "tasks": [
         {
           "id": "T4",
           "name": "Payment & Credit Management",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T3",
-          "file": "execution-plan/tasks/T4-payment-credit-management.md"
+          "file": "execution-plan/tasks/T4-payment-credit-management.md",
+          "done_sha": "ff4537d63339401c05b82514f21f9e48553a2972"
         },
         {
           "id": "T5",
           "name": "Dashboard & Analytics",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T3",
-          "file": "execution-plan/tasks/T5-dashboard-analytics.md"
+          "file": "execution-plan/tasks/T5-dashboard-analytics.md",
+          "done_sha": "c599ff532476157553929301620fea05f4f9d412"
         },
         {
           "id": "T6",
           "name": "Sales Force & Delivery",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4",
-          "file": "execution-plan/tasks/T6-sales-force-delivery.md"
+          "file": "execution-plan/tasks/T6-sales-force-delivery.md",
+          "done_sha": "1480bf02c39f0eda994fabac2def901ba02ad269"
         },
         {
           "id": "T7",
           "name": "WhatsApp Integration",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T2",
-          "file": "execution-plan/tasks/T7-whatsapp-integration.md"
+          "file": "execution-plan/tasks/T7-whatsapp-integration.md",
+          "done_sha": "493f342d6ed66bef68664f97bf87be61ba630731"
         },
         {
           "id": "T8",
           "name": "AI & Intelligence",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4",
-          "file": "execution-plan/tasks/T8-ai-intelligence.md"
+          "file": "execution-plan/tasks/T8-ai-intelligence.md",
+          "done_sha": "1ad99c974a359fc91beb09e751f4a0539ce6de40"
         },
         {
           "id": "T9",
           "name": "Polish & Scale",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T6, T7, T8",
-          "file": "execution-plan/tasks/T9-polish-scale.md"
+          "file": "execution-plan/tasks/T9-polish-scale.md",
+          "done_sha": "3e2601ab7d5626d17df8511f83bf3c52534f055e"
+        }
+      ],
+      "corrections": [
+        {
+          "sha": "6723d98",
+          "files": [
+            "apps/api/app/Models/Product.php",
+            "apps/api/app/Services/OrderCreationService.php",
+            "apps/api/app/Services/WhatsAppPayloadParser.php",
+            "apps/api/tests/Feature/OrderTest.php",
+            "apps/api/tests/Feature/WhatsAppTest.php"
+          ],
+          "for_task": "T9"
         }
       ]
     }

@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "task_id": "T8",
+  "task_name": "AI & Intelligence",
+  "cycle": 2,
+  "timestamp": "2026-09-09T02:35:38Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "ForecastService no longer exposes confidence or confidence_score; data_sufficiency is explicitly described as a non-probabilistic historical-period heuristic, and measurement.measured remains false with calibration deferred until outcomes exist (apps/api/app/Services/ForecastService.php:5-6, 48-62).",
+      "Recommendation metadata likewise identifies data_sufficiency as non-probabilistic and keeps measurement.measured false; the analytics page discloses the heuristic and unmeasured status for recommendations and forecasts (apps/api/app/Services/RecommendationService.php:63-76; apps/web/src/app/analytics/page.tsx:68-70).",
+      "Recommendation HTTP coverage now creates an inactive supplier and asserts its product is excluded, while the left-join predicate retains products with no supplier (apps/api/tests/Feature/AITest.php:49-78; apps/api/app/Services/RecommendationService.php:29-37).",
+      "Recommendation explanations distinguish outlet-scoped ranking from the admin global all-outlet ranking, with HTTP assertions for both scopes (apps/api/app/Services/RecommendationService.php:79-84; apps/api/tests/Feature/AITest.php:126-132).",
+      "The protected recommendations, forecast, and segmentation endpoints validate request parameters and enforce outlet self-scope versus admin aggregate/selected-outlet access (apps/api/routes/api.php:66-74; apps/api/app/Http/Controllers/AIController.php:17-96).",
+      "Recommendations remain deterministic and bounded to ten results, exclude cancelled/invalid orders, inactive products, unavailable stock, and inactive suppliers; legacy products without suppliers remain eligible (apps/api/app/Services/RecommendationService.php:19-52).",
+      "Forecasting remains deterministic and bounded by validated horizon, a 366 daily-bucket history cap, positive totals, excluded statuses, and safe insufficient-history fallback; grouped daily/weekly/monthly predictions are generated only with at least three periods (apps/api/app/Services/ForecastService.php:17-83).",
+      "Segmentation remains deterministic, explainable, batched, capped at 100 active outlets for aggregate access, and returns a new/low-confidence fallback for sparse history (apps/api/app/Services/SegmentationService.php:17-113).",
+      "Sparse recommendations, forecasts, and segmentation, deterministic forecast repeatability, validation, supplier filtering, scope isolation, and global/outlet explanation behavior are covered by HTTP feature tests (apps/api/tests/Feature/AITest.php:49-132).",
+      "The focused AI suite passes 4 tests/47 assertions, the full API suite passes 74 tests/455 assertions with only the environment-gated PostgreSQL concurrency tests skipped, PHP syntax checks pass, and the web production build/type check passes."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Transparent rule-based and aggregate heuristics avoid complex ML dependencies and expose method/version metadata.",
+      "Deterministic ordering, bounded limits, validated inputs, history caps, and sparse fallbacks provide predictable resource and response behavior.",
+      "Authorization and outlet data isolation are centralized in AIController and exercised for recommendations, forecasts, and segmentation.",
+      "Inactive supplier filtering and no-supplier legacy product handling are implemented in the query predicate and covered through the endpoint.",
+      "The repair removes the misleading probability-like confidence_score field, documents non-probabilistic data sufficiency, keeps measured=false until calibration, and discloses that status in the decision-surface UI.",
+      "The implementation follows the Laravel service/controller and Next.js page patterns, has no hard-coded credentials or unsafe query interpolation, and passes the available automated quality checks."
+    ],
+    "issues": [],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "1ad99c9"
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "task_id": "T7",
+  "task_name": "WhatsApp Integration",
+  "cycle": 3,
+  "timestamp": "2026-09-09T01:54:06Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Enabled webhooks require a valid raw-body HMAC or configured verification token; the previous verify_signature=false bypass is not honored (apps/api/app/Services/WhatsAppService.php:19-31,107-131).",
+      "Failed inbound events remain retryable and provider-derived order idempotency prevents duplicate orders (apps/api/app/Services/WhatsAppService.php:67-95; apps/api/app/Services/OrderCreationService.php:20-81).",
+      "Outlet phones are canonicalized and uniquely indexed, while sender resolution rejects multiple active matches including legacy raw-phone conflicts (apps/api/app/Models/Outlet.php:46-67; apps/api/app/Services/WhatsAppSenderResolver.php:10-28; apps/api/database/migrations/2026_09_08_000015_add_canonical_phone_to_outlets.php:11-46).",
+      "Structured payloads require a non-empty list, positive integer quantities, resolvable products, and distinct resolved product IDs (apps/api/app/Services/WhatsAppPayloadParser.php:53-74).",
+      "Notifications are Confirmed-only and provider failures are isolated from the already-committed order/payment state (apps/api/app/Services/WhatsAppOutboundService.php:19-26; apps/api/app/Http/Controllers/WhatsAppController.php:65-83; apps/api/app/Http/Controllers/OrderController.php:145-158).",
+      "Outbound notifications have a unique logical key, stable provider idempotency key, and the production HTTP client sends that key on text delivery/retry (apps/api/database/migrations/2026_09_08_000016_add_notification_idempotency_to_whatsapp_messages.php:11-15; apps/api/app/Services/WhatsAppOutboundService.php:28-46,139-177; apps/api/app/Services/WhatsAppHttpClient.php:21-29,50-56).",
+      "Inbound and outbound races now use insertOrIgnore followed by lockForUpdate within a usable transaction, rather than catching a PostgreSQL unique violation and querying an aborted transaction (apps/api/app/Services/WhatsAppService.php:134-163; apps/api/app/Services/WhatsAppOutboundService.php:28-55).",
+      "Outbound sending rows have a claimed_at lease, fresh-lease protection, stale-lease reclaim, and cleanup on success/failure; retries reuse the stable provider key (apps/api/app/Services/WhatsAppOutboundService.php:113-158; apps/api/database/migrations/2026_09_09_000017_add_claimed_at_to_whatsapp_messages.php:9-14).",
+      "WhatsApp responsibilities remain separated across the webhook service, payload parser, sender resolver, outbound service, and provider client; no former mixed-responsibility service regression was found."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "The Laravel PostgreSQL grammar compiles insertOrIgnore to INSERT ... ON CONFLICT DO NOTHING; the subsequent SELECT ... FOR UPDATE waits for and locks the committed winner, so neither conflict path queries an aborted transaction (vendor/laravel/framework/src/Illuminate/Database/Query/Grammars/PostgresGrammar.php:353-356; WhatsAppService.php:142-163; WhatsAppOutboundService.php:36-55).",
+      "Outbound creation and delivery have clear transaction boundaries: logical-row convergence is locked before commit, then claimed_at is acquired under a row lock before the provider call; fresh leases are not duplicated and stale leases are reclaimable with the stable provider key.",
+      "The lease migration adds the nullable claim timestamp and a delivery index; success and failure paths clear the claim and persist attempts/error state.",
+      "Focused WhatsAppTest passes with 11 tests and 49 assertions, including fresh/stale lease behavior, provider failure isolation, strict payloads, sender ambiguity, and Confirmed-only notifications.",
+      "The full API suite passes with 70 tests and 408 assertions."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "The optional PostgreSQL concurrency suite is explicit and correctly skips when DB_CONNECTION=pgsql/pdo_pgsql or the test database is unavailable. This environment has no pdo_pgsql and the Docker daemon is unavailable, so the two real PostgreSQL worker races could not be executed here; SQL grammar, transaction/lock flow, and test setup were inspected and are sound.",
+        "location": "apps/api/tests/Feature/WhatsAppPostgresConcurrencyTest.php:31-47,99-148"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 3,
+    "max_cycles": 2,
+    "cycles_remaining": 0
+  },
+  "reviewed_sha": "493f342"
+}

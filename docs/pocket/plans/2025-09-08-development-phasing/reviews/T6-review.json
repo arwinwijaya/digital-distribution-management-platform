@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "task_id": "T6",
+  "task_name": "Sales Force & Delivery",
+  "cycle": 2,
+  "timestamp": "2026-09-08T08:24:42Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Delivery completion now acquires Order::lockForUpdate inside the same transaction before Delivery::transitionTo and Order::recordStatus('Delivered'), so the order row, order status, and order history mutation use the locked instance (apps/api/app/Http/Controllers/DeliveryController.php:114-127).",
+      "The concurrent regression uses two independent public HTTP workers and an opt-in barrier reached by both delivery completion and payment before order-row contention; it asserts final order status, order_status_history consistency, exactly one Delivered history entry, and the public tracking response (apps/api/tests/Feature/DeliveryTest.php:154-232).",
+      "Sales visit planning, authenticated role scoping, target/date validation, delivery assignment for confirmed orders, active-driver validation, assignment/status mutation scoping, explicit delivery transitions, and delivery status history are implemented and exercised through REST endpoints.",
+      "Proof metadata is validated, persisted, returned, and audited; the delivery UI now requires and submits recipient name plus proof URL before allowing completion (apps/api/app/Http/Requests/UpdateDeliveryStatusRequest.php:12-25; apps/web/src/app/delivery/page.tsx:30-55).",
+      "Order integration records Delivered and order status history atomically with delivery completion, and focused tests assert both database history and public order tracking history (apps/api/tests/Feature/DeliveryTest.php:108-145).",
+      "The original sales and delivery implementation cycles remain separate commits (e5c2b82 and 6341612), with endpoint integration tests for each; the repair commit adds the requested cross-entity regression and proof capture.",
+      "Focused T6 tests pass: 6 tests and 47 assertions. The complete API suite passes: 59 tests and 359 assertions. The Next.js production build and workspace TypeScript build both succeed."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Delivery completion and order status/history writes are enclosed by one transaction, with the related order row locked before either cross-entity mutation.",
+      "Delivery::canTransition rejects skipped, repeated, and terminal-state transitions; transition history and proof metadata are written atomically with the delivery update.",
+      "Role and ownership checks scope delivery reads and mutations to admins, assigning sales users, and assigned drivers; sales visits are scoped to their sales user.",
+      "Assignment locks the order and driver and is backed by a unique deliveries.order_id constraint, preventing duplicate assignments under concurrency.",
+      "Routing and calendar integrations remain simple injectable MVP seams with no complex routing algorithm.",
+      "Validation and HTTP error handling cover invalid roles, inactive/non-driver assignment, unconfirmed orders, invalid transitions, invalid proof URLs, and unauthorized access.",
+      "The concurrent test genuinely overlaps public HTTP transactions at a controlled critical-section barrier and verifies both persistence and tracking API consistency; all API tests and the web build are green."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "The delivery UI captures recipient name and a proof URL but does not expose the API's optional structured photo/signature fields, so richer proof metadata still requires another client.",
+        "location": "apps/web/src/app/delivery/page.tsx:7-55"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "1480bf0"
+}

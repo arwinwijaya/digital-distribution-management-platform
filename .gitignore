@@ -37,3 +37,4 @@ docker-compose.override.yml
 # Misc
 *.tgz
 .cache/
+/graphify-out/cache

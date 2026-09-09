@@ -1,0 +1,12 @@
+# T1 Audit Fixes
+
+## Tasks
+1. Implement JWTSubject on User model
+2. Create config/jwt.php (JWT_SECRET falls back to APP_KEY)
+3. Update auth.php api guard driver to jwt
+4. Rewrite AuthService.php to use JWTAuth facade
+5. Update Authenticate middleware (pass token explicitly, use JWTAuth)
+6. Update AuthController to pass bearer token to invalidateToken
+7. Add bootstrap/cache/ to .gitignore and remove tracked cache files
+8. Run AuthTest suite and verify
+9. Commit changes

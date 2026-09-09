@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "task_id": "T5",
+  "task_name": "Dashboard & Analytics",
+  "cycle": 2,
+  "timestamp": "2026-09-08T07:42:28.610514Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "The controller rejects date windows longer than AnalyticsService::MAX_DATE_RANGE_DAYS (366) before running analytics queries (apps/api/app/Http/Controllers/AnalyticsController.php:40-49), with HTTP coverage in AnalyticsTest.",
+      "Trend queries apply the server-side MAX_TREND_BUCKETS limit and outlet ranking applies OUTLET_PERFORMANCE_LIMIT plus one row to calculate has_more; the response documents all limits in analytics_limits (apps/api/app/Services/AnalyticsService.php:15-17,53-57,92-99,145-149).",
+      "Outstanding balances now use the explicit New, Confirmed, Delivered, and Partially Paid allow-list, excluding Paid, cancelled variants, Rejected, Invalid, and unknown statuses (apps/api/app/Services/AnalyticsService.php:19-20,70-73), covered by an HTTP edge test.",
+      "Completed payment totals and payment trends join orders and exclude Cancelled, Canceled, Rejected, and Invalid parent orders (apps/api/app/Services/AnalyticsService.php:77-82), covered by an HTTP test for an excluded parent order.",
+      "A composite payments status/created_at/order_id index is added for the completed-payment predicates and parent-order join (apps/api/database/migrations/2026_09_08_000010_add_payment_analytics_query_index.php:12-18).",
+      "HTTP authorization, invalid group/date ordering, out-of-range dates, empty results, deterministic outlet ranking, daily/weekly/monthly trends, and the frontend response contract remain covered; AnalyticsTest passes 10 tests/50 assertions and the Next.js production build succeeds."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "All aggregate and grouped queries remain database-side; only bounded grouped rows are materialized, with no N+1 relation access or full base-table collection loading.",
+      "The server enforces a 366-day date cap, 366 trend-bucket cap, and top-10 outlet response cap before serialization, and exposes the limits explicitly to clients.",
+      "Admin-only authorization is enforced on the protected route; unauthenticated and outlet users receive the expected 401/403 responses, with no outlet-scoped analytics data path.",
+      "Sales, outstanding, and completed-payment semantics are consistent with the documented status vocabulary and excluded parent-order rules; ranking ties are deterministic.",
+      "The payment analytics index matches the status/date filtering and order join, while existing order, outlet, and product analytics indexes cover the other aggregate predicates.",
+      "The feature follows the existing Laravel/Next.js patterns, preserves stable empty-state/API shapes, and passes the full API suite (53 tests/312 assertions) plus the web production build."
+    ],
+    "issues": [],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "c599ff5"
+}

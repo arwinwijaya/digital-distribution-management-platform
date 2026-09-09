@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "phase": 2,
+  "phase_key": "phase-2",
+  "phase_name": "Payment & Credit Management",
+  "phase_file": "execution-plan/phase-2.md",
+  "timestamp": "2026-09-09T03:28:03Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "overall": "PHASE_PASS",
+  "status": "PHASE_PASS_RESOLVED",
+  "task_verdict_summary": [
+    {
+      "task_id": "T4",
+      "status": "DONE",
+      "done_sha": "ff4537d63339401c05b82514f21f9e48553a2972",
+      "reviewed_sha": "6723d98f86d8fd41821cf0fa78fb440c5ed255ec",
+      "verdict": "REVIEW_PASS",
+      "observations": [
+        "Payment recording, partial-payment balances, credit-limit enforcement at submission, authorization, idempotency, receipt rollback, and payment/order concurrency remain covered; the supplier-scope correction was rechecked at the order boundary attributed to this task."
+      ]
+    },
+    {
+      "task_id": "T5",
+      "status": "DONE",
+      "done_sha": "c599ff532476157553929301620fea05f4f9d412",
+      "reviewed_sha": "c599ff532476157553929301620fea05f4f9d412",
+      "verdict": "REVIEW_PASS",
+      "observations": []
+    },
+    {
+      "task_id": "T6",
+      "status": "DONE",
+      "done_sha": "1480bf02c39f0eda994fabac2def901ba02ad269",
+      "reviewed_sha": "1480bf02c39f0eda994fabac2def901ba02ad269",
+      "verdict": "REVIEW_PASS",
+      "observations": [
+        {
+          "severity": "Minor",
+          "description": "The delivery UI captures recipient name and proof URL but not the API's optional structured photo/signature proof fields.",
+          "source": "T6-review.json"
+        }
+      ]
+    },
+    {
+      "task_id": "T7",
+      "status": "DONE",
+      "done_sha": "493f342d6ed66bef68664f97bf87be61ba630731",
+      "reviewed_sha": "6723d98f86d8fd41821cf0fa78fb440c5ed255ec",
+      "verdict": "REVIEW_PASS",
+      "observations": [
+        "WhatsApp inbound parsing now applies the shared purchasable-product predicate; inactive supplier SKU/name references cannot reach order creation, supplier-less legacy products still resolve, and retry/idempotency/signature/provider-failure behavior remains green.",
+        {
+          "severity": "Minor",
+          "description": "PostgreSQL concurrency workers were not executable because pdo_pgsql and the Docker-backed database were unavailable; the suite explicitly skips those two tests and no PostgreSQL result is claimed.",
+          "source": "T7-review.json and current test run"
+        }
+      ]
+    },
+    {
+      "task_id": "T8",
+      "status": "DONE",
+      "done_sha": "1ad99c974a359fc91beb09e751f4a0539ce6de40",
+      "reviewed_sha": "1ad99c974a359fc91beb09e751f4a0539ce6de40",
+      "verdict": "REVIEW_PASS",
+      "observations": [
+        "AI scope isolation, bounded deterministic recommendations/forecast/segmentation, supplier filtering, sparse-data fallbacks, and non-probabilistic measurement disclosures remain intact."
+      ]
+    },
+    {
+      "task_id": "T9",
+      "status": "DONE",
+      "done_sha": "3e2601ab7d5626d17df8511f83bf3c52534f055e",
+      "reviewed_sha": "6723d98f86d8fd41821cf0fa78fb440c5ed255ec",
+      "verdict": "REVIEW_PASS",
+      "observations": [
+        "Marketplace filtering, supplier-less legacy compatibility, bounded queries, indexes, and correction ownership were rechecked together with the REST/WhatsApp purchase boundary.",
+        {
+          "severity": "Minor",
+          "description": "The marketplace UI renders only the first API page and does not expose pagination controls.",
+          "source": "T9-review.json"
+        },
+        {
+          "severity": "Minor",
+          "description": "The real 100-concurrent-user performance SLO was not proven in this environment; the benchmark skips without external credentials/base URL or explicit local opt-in, and no performance pass is claimed.",
+          "source": "T9-review.json, LoadTest.php, current test run"
+        }
+      ]
+    }
+  ],
+  "corrections": [
+    {
+      "sha": "6723d98f86d8fd41821cf0fa78fb440c5ed255ec",
+      "short_sha": "6723d98",
+      "for_task": "T9",
+      "affected_tasks": ["T4", "T7", "T9"],
+      "files": [
+        "apps/api/app/Models/Product.php",
+        "apps/api/app/Services/OrderCreationService.php",
+        "apps/api/app/Services/WhatsAppPayloadParser.php",
+        "apps/api/tests/Feature/OrderTest.php",
+        "apps/api/tests/Feature/WhatsAppTest.php"
+      ],
+      "resolution": "Centralized purchasable eligibility permits active supplier-less legacy products and requires an active supplier for supplier-backed products. REST order preparation eager-loads and checks supplier eligibility under the product lock; WhatsApp SKU and exact-name resolution uses the same SQL scope. Regression tests cover direct product_id rejection plus supplier-less REST ordering, and stale WhatsApp reference rejection plus supplier-less WhatsApp ordering. Existing stock, idempotency, retry, and message-status semantics remain green."
+    }
+  ],
+  "cross_task_issues": [
+    {
+      "id": "P2-INT-001",
+      "severity": "Important",
+      "category": "marketplace-supplier-scope",
+      "status": "RESOLVED",
+      "resolution": "The correction closes the previous bypass at both purchase boundaries. Direct REST product_id submission now rejects an active product owned by an inactive supplier without creating an order or decrementing stock. WhatsApp resolution excludes the same product by SKU or exact name, while an active supplier-less legacy product remains orderable. Marketplace and AI supplier filtering continue to agree with these rules."
+    },
+    {
+      "id": "P2-INT-002",
+      "severity": "Minor",
+      "category": "performance-bounds",
+      "status": "OPEN_NON_BLOCKING",
+      "description": "PaymentController::index, SalesController::index, and DeliveryController::index still materialize complete histories with get(). This is a scale follow-up, not a demonstrated Phase 2 blocker at the tested fixture size."
+    }
+  ],
+  "acceptance_and_deliverables": {
+    "status": "PASS_WITH_NON_BLOCKING_ENVIRONMENT_AND_UI_NOTES",
+    "verified": [
+      "Supplier-less legacy products remain purchasable through REST and WhatsApp.",
+      "Supplier-backed products require active supplier subscription at REST order creation and WhatsApp product resolution; stale direct product_id and stale SKU/name references cannot bypass the boundary.",
+      "T4 payment/credit behavior, T5 analytics semantics and bounds, T6 delivery/order/payment consistency, T7 signed webhook and retry/idempotency behavior, T8 AI scope and sparse honesty, and T9 marketplace filtering/fixture/bounds remain integrated and green.",
+      "Auth and data isolation remain enforced for outlet, admin, sales, driver, payment, order, delivery, analytics, AI, marketplace, and WhatsApp operations.",
+      "No Critical or Important cross-task blocker remains after correction 6723d98."
+    ],
+    "not_fully_verified": [
+      "Real PostgreSQL WhatsApp concurrency workers were explicitly skipped because pdo_pgsql/database infrastructure was unavailable.",
+      "No real production or external 100-concurrent-user performance result is available; the benchmark remains honest and environment-gated.",
+      "The existing minor UI pagination/proof-field gaps and unbounded operational history endpoints remain follow-up work."
+    ]
+  },
+  "test_evidence": [
+    {
+      "command": "cd apps/api && php artisan test",
+      "result": "PASS_WITH_EXPLICIT_SKIPS",
+      "details": "81 passed, 488 assertions; 3 explicit skips: 2 PostgreSQL WhatsApp concurrency tests due to unavailable DB_CONNECTION=pgsql/pdo_pgsql infrastructure, and the real performance benchmark because no external base URL/tokens or PERFORMANCE_LOCAL=true opt-in was configured."
+    },
+    {
+      "command": "cd apps/api && php artisan test --filter 'OrderTest|WhatsAppTest|MarketplaceTest|AITest'",
+      "result": "PASS",
+      "details": "38 passed, 217 assertions, including the correction regression tests and existing order/WhatsApp semantics."
+    },
+    {
+      "command": "cd apps/web && npx jest --runInBand --passWithNoTests",
+      "result": "PASS",
+      "details": "The real HTTP order-flow suite passed 1 test."
+    },
+    {
+      "command": "npm run build",
+      "result": "PASS",
+      "details": "Next.js production build and shared TypeScript build completed successfully."
+    },
+    {
+      "command": "cd apps/api && php artisan test --filter LoadTest",
+      "result": "SKIPPED_EXPLICITLY",
+      "details": "The benchmark requires PERFORMANCE_BASE_URL plus tokens, or explicit PERFORMANCE_LOCAL=true. No 100-concurrency production result is asserted or invented."
+    }
+  ],
+  "concerns": [
+    {
+      "severity": "Minor",
+      "description": "Marketplace pagination controls, structured delivery proof fields in the UI, and bounded pagination for payment/sales/delivery history remain follow-up improvements."
+    },
+    {
+      "severity": "Minor",
+      "description": "PostgreSQL concurrency and production-scale load evidence remain explicit environment limitations, not claimed passes."
+    }
+  ],
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "next_action": "Phase 2 passes the read-only re-pass. Transition Phase 2 to REVIEW in the phase state (without modifying log.json in this review); retain the documented PostgreSQL/load-test skips and non-blocking UI/performance follow-ups."
+}

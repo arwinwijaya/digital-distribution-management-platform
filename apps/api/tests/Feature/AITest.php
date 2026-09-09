@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Outlet;
 use App\Models\Product;
+use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -51,18 +52,29 @@ class AITest extends TestCase
         $popular = Product::factory()->create(['name' => 'Popular', 'stock_quantity' => 10, 'is_active' => true]);
         $inactive = Product::factory()->create(['name' => 'Inactive', 'stock_quantity' => 10, 'is_active' => false]);
         $unavailable = Product::factory()->create(['name' => 'Unavailable', 'stock_quantity' => 0, 'is_active' => true]);
+        $inactiveSupplier = Supplier::factory()->create(['subscription_status' => 'inactive']);
+        $inactiveSupplierProduct = Product::factory()->create([
+            'name' => 'Inactive supplier product',
+            'supplier_id' => $inactiveSupplier->id,
+            'stock_quantity' => 10,
+            'is_active' => true,
+        ]);
         $order = $this->order($outlet, '2025-09-01', 200);
         OrderItem::create(['order_id' => $order->id, 'product_id' => $popular->id, 'quantity' => 4, 'unit_price' => 50, 'subtotal' => 200]);
         OrderItem::create(['order_id' => $order->id, 'product_id' => $inactive->id, 'quantity' => 8, 'unit_price' => 10, 'subtotal' => 80]);
         OrderItem::create(['order_id' => $order->id, 'product_id' => $unavailable->id, 'quantity' => 9, 'unit_price' => 10, 'subtotal' => 90]);
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $inactiveSupplierProduct->id, 'quantity' => 99, 'unit_price' => 10, 'subtotal' => 990]);
 
         $response = $this->withHeaders($headers)->getJson('/api/ai/recommendations');
 
         $response->assertOk()
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('data.fallback', false)
-            ->assertJsonStructure(['data' => ['recommendations', 'limit', 'method', 'data_points']]);
+            ->assertJsonPath('data.data_sufficiency.level', 'limited')
+            ->assertJsonStructure(['data' => ['recommendations', 'limit', 'method', 'data_points', 'data_sufficiency', 'measurement']]);
         $this->assertSame([$popular->id], collect($response->json('data.recommendations'))->pluck('product_id')->all());
+        $this->assertNotContains($inactiveSupplierProduct->id, collect($response->json('data.recommendations'))->pluck('product_id')->all());
+        $this->assertSame('Frequently purchased by this outlet.', $response->json('data.recommendations.0.reason'));
         $this->assertLessThanOrEqual(10, count($response->json('data.recommendations')));
     }
 
@@ -76,6 +88,9 @@ class AITest extends TestCase
         $first = $this->withHeaders($headers)->getJson('/api/ai/forecast?period=daily&horizon=2');
         $second = $this->withHeaders($headers)->getJson('/api/ai/forecast?period=daily&horizon=2');
         $first->assertOk()->assertJsonPath('data.period', 'daily')->assertJsonPath('data.horizon', 2);
+        $this->assertArrayNotHasKey('confidence', $first->json('data'));
+        $this->assertArrayNotHasKey('confidence_score', $first->json('data'));
+        $this->assertSame('adequate', $first->json('data.data_sufficiency.level'));
         $this->assertSame($first->json('data.predictions'), $second->json('data.predictions'));
         $this->withHeaders($headers)->getJson('/api/ai/forecast?period=yearly&horizon=2')->assertStatus(422);
         $this->withHeaders($headers)->getJson('/api/ai/forecast?period=monthly&horizon=0')->assertStatus(422);
@@ -89,7 +104,8 @@ class AITest extends TestCase
         $recommendations->assertOk()->assertJsonPath('data.recommendations', [])->assertJsonPath('data.fallback', true);
 
         $forecast = $this->withHeaders($headers)->getJson('/api/ai/forecast?period=weekly&horizon=2');
-        $forecast->assertOk()->assertJsonPath('data.predictions', [])->assertJsonPath('data.confidence', 'low')->assertJsonPath('data.data_sufficiency.sufficient', false);
+        $forecast->assertOk()->assertJsonPath('data.predictions', [])->assertJsonPath('data.data_sufficiency.sufficient', false)->assertJsonPath('data.data_sufficiency.level', 'insufficient');
+        $this->assertArrayNotHasKey('confidence_score', $forecast->json('data'));
 
         $segmentation = $this->withHeaders($headers)->getJson('/api/ai/segmentation');
         $segmentation->assertOk()->assertJsonPath('data.segment', 'new')->assertJsonPath('data.confidence', 'low')->assertJsonStructure(['data' => ['signals', 'method', 'measurement']]);
@@ -108,6 +124,11 @@ class AITest extends TestCase
         $this->withHeaders($firstHeaders)->getJson('/api/ai/segmentation?outlet_id='.$secondOutlet->id)->assertForbidden();
 
         [, , $adminHeaders] = $this->authenticatedUser('admin');
-        $this->withHeaders($adminHeaders)->getJson('/api/ai/recommendations?outlet_id='.$secondOutlet->id)->assertOk();
+        $this->withHeaders($adminHeaders)->getJson('/api/ai/recommendations?outlet_id='.$secondOutlet->id)
+            ->assertOk()
+            ->assertJsonPath('data.recommendations.0.reason', 'Frequently purchased by this outlet.');
+        $this->withHeaders($adminHeaders)->getJson('/api/ai/recommendations')
+            ->assertOk()
+            ->assertJsonPath('data.recommendations.0.reason', 'Frequently purchased across all outlets.');
     }
 }

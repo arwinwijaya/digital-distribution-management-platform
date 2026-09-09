@@ -9,7 +9,8 @@ use Illuminate\Support\Collection;
 /**
  * Deterministic forecast using a grouped historical mean. It is deliberately
  * conservative: fewer than three positive historical periods returns no
- * predictions and a low-confidence fallback.
+ * predictions and an insufficient-data fallback. Data sufficiency is a
+ * non-probabilistic heuristic; no forecast probability is exposed.
  */
 class ForecastService
 {
@@ -43,13 +44,12 @@ class ForecastService
             'period' => $period,
             'horizon' => $horizon,
             'predictions' => [],
-            'confidence' => $sufficient ? 'medium' : 'low',
-            'confidence_score' => $sufficient ? 0.5 : 0.2,
             'data_points' => $dataPoints,
             'data_sufficiency' => [
                 'sufficient' => $sufficient,
-                'level' => $dataPoints === 0 ? 'none' : ($sufficient ? 'sufficient' : 'limited'),
+                'level' => $dataPoints === 0 ? 'insufficient' : ($sufficient ? 'adequate' : 'limited'),
                 'minimum_required' => self::MIN_DATA_POINTS,
+                'note' => 'Non-probabilistic heuristic based on historical period count; this is not a calibrated forecast probability.',
             ],
             'fallback' => ! $sufficient,
             'method' => 'historical_mean_v1',
@@ -58,7 +58,7 @@ class ForecastService
                 'measured' => false,
                 'acceptance_target' => null,
                 'accuracy_target' => null,
-                'note' => 'Forecast accuracy requires measured future outcomes; confidence describes data sufficiency only.',
+                'note' => 'Forecast accuracy and calibration require measured future outcomes; they are not available yet.',
             ],
         ];
 

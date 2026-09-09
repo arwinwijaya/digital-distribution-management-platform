@@ -14,10 +14,12 @@ class RecommendationService
 {
     public const DEFAULT_LIMIT = 10;
 
+    public const MIN_DATA_POINTS = 3;
+
     private const EXCLUDED_ORDER_STATUSES = ['Cancelled', 'Canceled', 'Rejected', 'Invalid'];
 
     /**
-     * @return array{recommendations: array<int, array<string, mixed>>, limit: int, data_points: int, fallback: bool, method: string, method_version: string, measurement: array<string, mixed>}
+     * @return array{recommendations: array<int, array<string, mixed>>, limit: int, data_points: int, data_sufficiency: array<string, mixed>, fallback: bool, method: string, method_version: string, measurement: array<string, mixed>}
      */
     public function recommend(?int $outletId, int $limit = self::DEFAULT_LIMIT): array
     {
@@ -55,9 +57,14 @@ class RecommendationService
         $dataPoints = (int) $dataPointsQuery->whereHas('items', fn ($items) => $items->where('quantity', '>', 0))->count();
 
         return [
-            'recommendations' => $this->format($rows),
+            'recommendations' => $this->format($rows, $outletId),
             'limit' => $limit,
             'data_points' => $dataPoints,
+            'data_sufficiency' => [
+                'level' => $dataPoints === 0 ? 'insufficient' : ($dataPoints >= self::MIN_DATA_POINTS ? 'adequate' : 'limited'),
+                'minimum_recommended' => self::MIN_DATA_POINTS,
+                'note' => 'Non-probabilistic heuristic based on completed order count; ranking quality is not a probability.',
+            ],
             'fallback' => $rows->isEmpty(),
             'method' => 'purchase_frequency_v1',
             'method_version' => '1.0.0',
@@ -70,9 +77,13 @@ class RecommendationService
         ];
     }
 
-    private function format(Collection $rows): array
+    private function format(Collection $rows, ?int $outletId): array
     {
-        return $rows->values()->map(function ($row, int $index): array {
+        $reason = $outletId === null
+            ? 'Frequently purchased across all outlets.'
+            : 'Frequently purchased by this outlet.';
+
+        return $rows->values()->map(function ($row, int $index) use ($reason): array {
             return [
                 'rank' => $index + 1,
                 'product_id' => (int) $row->product_id,
@@ -82,7 +93,7 @@ class RecommendationService
                 'price' => number_format((float) $row->price, 2, '.', ''),
                 'purchased_quantity' => (int) $row->purchased_quantity,
                 'order_count' => (int) $row->order_count,
-                'reason' => 'Frequently purchased by this outlet.',
+                'reason' => $reason,
             ];
         })->all();
     }

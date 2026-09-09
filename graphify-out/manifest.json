@@ -1096,5 +1096,23 @@
     "seen": 1788928351.0577943,
     "ast_hash": "c56b55f10177a73d8672c3fb1cedf856",
     "semantic_hash": "c56b55f10177a73d8672c3fb1cedf856"
+  },
+  "docs/dokumentasi-teknis.md": {
+    "mtime": 1788928758.810772,
+    "seen": 1788929297.960243,
+    "ast_hash": "013a64fcd7773732514f24279d55073e",
+    "semantic_hash": "013a64fcd7773732514f24279d55073e"
+  },
+  "docs/panduan-pengguna.md": {
+    "mtime": 1788928745.453335,
+    "seen": 1788929297.960245,
+    "ast_hash": "705d53258beeef20ae4943c0e9eb2a8a",
+    "semantic_hash": "705d53258beeef20ae4943c0e9eb2a8a"
+  },
+  "docs/panduan-setup.md": {
+    "mtime": 1788928884.2412748,
+    "seen": 1788929297.9602463,
+    "ast_hash": "dc6be961e0ee2d0e6423beae6c2ab443",
+    "semantic_hash": "dc6be961e0ee2d0e6423beae6c2ab443"
   }
 }

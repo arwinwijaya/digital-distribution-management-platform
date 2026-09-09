@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\Outlet;
 use App\Models\WhatsAppMessage;
-use Illuminate\Database\QueryException;
+use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -133,24 +133,30 @@ class WhatsAppService
     /** @param array<string, mixed> $payload */
     private function lockInbound(string $providerId, string $phone, string $body, array $payload): WhatsAppMessage
     {
-        $existing = WhatsAppMessage::where('provider_message_id', $providerId)->lockForUpdate()->first();
-        if ($existing) {
-            return $existing;
+        // Test-only race point: both public webhook workers reach the
+        // conflict-safe insert together when the PG suite opts in.
+        if (config('whatsapp.concurrency_barrier_enabled', false)) {
+            ConcurrencyTestBarrier::await('whatsapp-inbound');
         }
 
-        try {
-            return WhatsAppMessage::create([
-                'provider_message_id' => $providerId,
-                'direction' => 'inbound',
-                'phone' => $phone,
-                'message_type' => 'text',
-                'body' => $body,
-                'payload' => $payload,
-                'status' => 'processing',
-            ]);
-        } catch (QueryException) {
-            return WhatsAppMessage::where('provider_message_id', $providerId)->lockForUpdate()->firstOrFail();
-        }
+        // ON CONFLICT DO NOTHING never aborts a PostgreSQL transaction. The
+        // subsequent lock therefore runs in a usable transaction even when a
+        // concurrent webhook inserted this provider id first.
+        DB::table('whatsapp_messages')->insertOrIgnore([
+            'provider_message_id' => $providerId,
+            'direction' => 'inbound',
+            'phone' => $phone,
+            'message_type' => 'text',
+            'body' => $body,
+            'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
+            'status' => 'processing',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return WhatsAppMessage::where('provider_message_id', $providerId)
+            ->lockForUpdate()
+            ->firstOrFail();
     }
 
     private function validationMessage(ValidationException $exception): string

@@ -9,4 +9,8 @@ return [
     'concurrency_barrier_dir' => env('ORDER_CONCURRENCY_BARRIER_DIR'),
     'concurrency_barrier_name' => env('ORDER_CONCURRENCY_BARRIER_NAME'),
     'concurrency_barrier_participant' => env('ORDER_CONCURRENCY_BARRIER_PARTICIPANT'),
+    'concurrency_barrier_sections' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('ORDER_CONCURRENCY_BARRIER_SECTIONS', '')),
+    ))),
 ];

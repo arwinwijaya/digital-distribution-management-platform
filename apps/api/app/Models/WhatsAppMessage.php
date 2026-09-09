@@ -14,13 +14,14 @@ class WhatsAppMessage extends Model
 
     protected $fillable = [
         'provider_message_id', 'logical_key', 'provider_idempotency_key', 'direction', 'phone', 'message_type', 'body',
-        'payload', 'status', 'error', 'attempts', 'outlet_id', 'order_id', 'sent_at',
+        'payload', 'status', 'error', 'attempts', 'outlet_id', 'order_id', 'claimed_at', 'sent_at',
     ];
 
     protected function casts(): array
     {
         return [
             'payload' => 'array',
+            'claimed_at' => 'datetime',
             'sent_at' => 'datetime',
             'attempts' => 'integer',
         ];

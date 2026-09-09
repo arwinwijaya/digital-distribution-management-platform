@@ -7,7 +7,7 @@ use App\Models\Order;
 use App\Models\Outlet;
 use App\Models\Product;
 use App\Models\WhatsAppMessage;
-use Illuminate\Database\QueryException;
+use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Throwable;
@@ -27,29 +27,34 @@ class WhatsAppOutboundService
 
         $logicalKey = "order-confirmation:{$order->id}";
         $message = DB::transaction(function () use ($order, $logicalKey): WhatsAppMessage {
-            $existing = WhatsAppMessage::where('logical_key', $logicalKey)->lockForUpdate()->first();
-            if ($existing) {
-                return $existing;
+            // Test-only race point: both notification workers reach the
+            // conflict-safe insert together when the PG suite opts in.
+            if (config('whatsapp.concurrency_barrier_enabled', false)) {
+                ConcurrencyTestBarrier::await('whatsapp-outbound');
             }
 
-            try {
-                return WhatsAppMessage::create([
-                    'logical_key' => $logicalKey,
-                    'provider_idempotency_key' => hash('sha256', $logicalKey),
-                    'direction' => 'outbound',
-                    'phone' => $order->outlet->phone,
-                    'message_type' => 'order_confirmation',
-                    'body' => "Order {$order->order_id} is confirmed.",
-                    'status' => 'pending',
-                    'outlet_id' => $order->outlet_id,
-                    'order_id' => $order->id,
-                ]);
-            } catch (QueryException) {
-                return WhatsAppMessage::where('logical_key', $logicalKey)->lockForUpdate()->firstOrFail();
-            }
+            // ON CONFLICT DO NOTHING keeps the transaction usable on
+            // PostgreSQL when another request creates this logical message.
+            DB::table('whatsapp_messages')->insertOrIgnore([
+                'logical_key' => $logicalKey,
+                'provider_idempotency_key' => hash('sha256', $logicalKey),
+                'direction' => 'outbound',
+                'phone' => $order->outlet->phone,
+                'message_type' => 'order_confirmation',
+                'body' => "Order {$order->order_id} is confirmed.",
+                'status' => 'pending',
+                'outlet_id' => $order->outlet_id,
+                'order_id' => $order->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return WhatsAppMessage::where('logical_key', $logicalKey)
+                ->lockForUpdate()
+                ->firstOrFail();
         });
 
-        if (in_array($message->status, ['sent', 'sending'], true)) {
+        if ($message->status === 'sent') {
             return $message->fresh();
         }
 
@@ -60,9 +65,6 @@ class WhatsAppOutboundService
     {
         if (! config('whatsapp.enabled') || $message->direction !== 'outbound' || $message->status === 'sent') {
             return $message;
-        }
-        if ($message->status === 'sending') {
-            return $message->fresh();
         }
 
         return $this->deliver($message);
@@ -114,10 +116,17 @@ class WhatsAppOutboundService
     {
         $claimed = DB::transaction(function () use ($message): ?WhatsAppMessage {
             $locked = WhatsAppMessage::lockForUpdate()->findOrFail($message->id);
-            if (in_array($locked->status, ['sent', 'sending'], true)) {
+            if ($locked->status === 'sent') {
                 return null;
             }
-            $locked->update(['status' => 'sending']);
+            if ($locked->status === 'sending'
+                && $locked->claimed_at !== null
+                && $locked->claimed_at->gt(now()->subSeconds($this->sendLeaseSeconds()))) {
+                // A live worker still owns this lease. Do not issue a second
+                // provider request merely because another request arrived.
+                return null;
+            }
+            $locked->update(['status' => 'sending', 'claimed_at' => now()]);
 
             return $locked;
         });
@@ -136,12 +145,14 @@ class WhatsAppOutboundService
                 'status' => 'sent',
                 'attempts' => $message->attempts + 1,
                 'error' => null,
+                'claimed_at' => null,
                 'sent_at' => now(),
             ]);
         } catch (Throwable $exception) {
             $message->update([
                 'status' => 'failed',
                 'attempts' => $message->attempts + 1,
+                'claimed_at' => null,
                 'error' => $exception->getMessage(),
             ]);
         }
@@ -149,6 +160,11 @@ class WhatsAppOutboundService
         $fresh = $message->fresh();
 
         return is_array($catalog) ? ['message' => $fresh, 'status' => $fresh->status] : $fresh;
+    }
+
+    private function sendLeaseSeconds(): int
+    {
+        return max(1, (int) config('whatsapp.send_lease_seconds', 300));
     }
 
     /** @return array<string, mixed> */

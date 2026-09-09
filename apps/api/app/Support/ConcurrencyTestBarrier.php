@@ -23,6 +23,11 @@ final class ConcurrencyTestBarrier
         $directory = config('orders.concurrency_barrier_dir');
         $name = config('orders.concurrency_barrier_name');
         $participant = config('orders.concurrency_barrier_participant');
+        $sections = config('orders.concurrency_barrier_sections', []);
+
+        if (is_array($sections) && $sections !== [] && ! in_array($section, $sections, true)) {
+            return;
+        }
 
         if (! is_string($directory) || $directory === ''
             || ! is_string($name) || $name === ''

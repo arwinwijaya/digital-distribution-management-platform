@@ -7,6 +7,7 @@ use App\Models\Outlet;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\WhatsAppMessage;
+use App\Services\WhatsAppService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -224,6 +225,64 @@ class WhatsAppTest extends TestCase
         $this->withToken($token)->postJson("/api/whatsapp/messages/{$messageId}/retry")->assertOk();
         $this->assertDatabaseHas('whatsapp_messages', ['id' => $messageId, 'status' => 'sent']);
         $this->assertDatabaseCount('whatsapp_messages', 2);
+    }
+
+    public function test_fresh_sending_lease_is_not_duplicated_but_stale_unknown_send_is_reclaimed(): void
+    {
+        Config::set('whatsapp.send_lease_seconds', 60);
+        $client = new class implements WhatsAppClient
+        {
+            public array $keys = [];
+
+            public function sendText(string $to, string $text): array
+            {
+                throw new \LogicException('The idempotent text path was not used.');
+            }
+
+            public function sendTextWithIdempotency(string $to, string $text, string $key): array
+            {
+                $this->keys[] = $key;
+
+                return ['id' => 'recovered-provider-message'];
+            }
+
+            public function sendCatalog(string $to, array $catalog): array
+            {
+                return ['id' => 'catalog'];
+            }
+        };
+        $this->app->instance(WhatsAppClient::class, $client);
+
+        $message = WhatsAppMessage::create([
+            'logical_key' => 'order-confirmation:lease-test',
+            'provider_idempotency_key' => 'stable-provider-key',
+            'direction' => 'outbound',
+            'phone' => $this->outlet->phone,
+            'message_type' => 'order_confirmation',
+            'body' => 'Order lease-test is confirmed.',
+            'status' => 'sending',
+            'claimed_at' => now(),
+            'outlet_id' => $this->outlet->id,
+        ]);
+
+        $service = $this->app->make(WhatsAppService::class);
+        $service->retryMessage($message);
+        $this->assertDatabaseHas('whatsapp_messages', ['id' => $message->id, 'status' => 'sending']);
+        $this->assertCount(0, $client->keys);
+
+        DB::table('whatsapp_messages')->where('id', $message->id)->update([
+            'claimed_at' => now()->subSeconds(61),
+        ]);
+        $recovered = $service->retryMessage($message->fresh());
+
+        $this->assertSame('sent', $recovered->status);
+        $this->assertSame(['stable-provider-key'], $client->keys);
+        $this->assertDatabaseHas('whatsapp_messages', [
+            'id' => $message->id,
+            'status' => 'sent',
+            'provider_message_id' => 'recovered-provider-message',
+            'claimed_at' => null,
+        ]);
     }
 
     public function test_ambiguous_sender_is_rejected_and_phone_variants_are_canonicalized(): void

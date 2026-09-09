@@ -38,3 +38,4 @@ docker-compose.override.yml
 *.tgz
 .cache/
 /graphify-out/cache
+/.pi/tasks

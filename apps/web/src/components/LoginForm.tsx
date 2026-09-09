@@ -2,11 +2,19 @@
 
 import { FormEvent, useState } from 'react';
 import { apiUrl, storeToken } from '@/lib/api';
+import { Button, Card, Input } from '@/components/ui';
 
 interface LoginFormProps {
   onLogin: (token: string, role: string) => void;
   expectedRole?: 'outlet' | 'admin' | 'sales' | 'driver';
 }
+
+const roleLabels: Record<string, string> = {
+  outlet: 'outlet',
+  admin: 'administrator',
+  sales: 'sales',
+  driver: 'driver',
+};
 
 export default function LoginForm({ onLogin, expectedRole }: LoginFormProps) {
   const [email, setEmail] = useState('');
@@ -25,27 +33,35 @@ export default function LoginForm({ onLogin, expectedRole }: LoginFormProps) {
         body: JSON.stringify({ email, password }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message || 'Unable to sign in.');
+      if (!response.ok) throw new Error(result.message || 'Email atau kata sandi salah.');
       const role = result.data.user.role as string;
       if (expectedRole && role !== expectedRole) {
-        throw new Error(`This page is for ${expectedRole} users.`);
+        throw new Error(`Halaman ini khusus untuk pengguna ${roleLabels[expectedRole] ?? expectedRole}.`);
       }
       storeToken(result.data.token);
       onLogin(result.data.token, role);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to sign in.');
+      setError(err instanceof Error ? err.message : 'Tidak dapat masuk.');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="max-w-md space-y-4 rounded-lg border bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold">Sign in</h2>
-      {error && <p role="alert" className="rounded bg-red-100 p-3 text-red-700">{error}</p>}
-      <label className="block text-sm font-medium">Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded border p-2" /></label>
-      <label className="block text-sm font-medium">Password<input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded border p-2" /></label>
-      <button disabled={loading} className="w-full rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{loading ? 'Signing in...' : 'Sign in'}</button>
-    </form>
+    <Card className="max-w-md p-6">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-lg text-white">↗</div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Masuk ke akun</h2>
+          <p className="text-xs text-gray-500">Gunakan akun terdaftar Anda</p>
+        </div>
+      </div>
+      {error && <p role="alert" className="mb-4 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
+      <form onSubmit={submit} className="space-y-4">
+        <Input label="Email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@perusahaan.com" />
+        <Input label="Kata sandi" required type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Masukkan kata sandi" />
+        <Button type="submit" disabled={loading} className="w-full">{loading ? 'Memproses...' : 'Masuk'}</Button>
+      </form>
+    </Card>
   );
 }

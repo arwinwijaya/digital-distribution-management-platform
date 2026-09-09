@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { apiUrl, storeToken } from '@/lib/api';
+import { Button, Card, Input, PageHeader } from '@/components/ui';
 
 interface OutletFormData {
   name: string;
@@ -14,11 +15,14 @@ interface OutletFormData {
   district: string;
 }
 
+const emptyForm: OutletFormData = { name: '', email: '', password: '', password_confirmation: '', phone: '', address: '', city: '', district: '' };
+
 export default function OutletForm() {
-  const [formData, setFormData] = useState<OutletFormData>({ name: '', email: '', password: '', password_confirmation: '', phone: '', address: '', city: '', district: '' });
+  const [formData, setFormData] = useState<OutletFormData>(emptyForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const update = (key: keyof OutletFormData) => (event: React.ChangeEvent<HTMLInputElement>) => setFormData((current) => ({ ...current, [key]: event.target.value }));
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -32,32 +36,38 @@ export default function OutletForm() {
       const data = await response.json();
       if (!response.ok) {
         const validation = data.errors ? Object.values(data.errors).flat().join(', ') : '';
-        throw new Error(validation || data.message || 'Registration failed.');
+        throw new Error(validation || data.message || 'Pendaftaran gagal.');
       }
       storeToken(data.data.token);
       setSuccess(true);
-      setFormData({ name: '', email: '', password: '', password_confirmation: '', phone: '', address: '', city: '', district: '' });
+      setFormData(emptyForm);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error. Please try again.');
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan jaringan.');
     } finally { setLoading(false); }
   };
 
-  const input = (key: keyof OutletFormData, label: string, type = 'text') => (
-    <label className="block text-sm font-medium text-gray-700">{label}
-      <input required type={type} value={formData[key]} onChange={(e) => setFormData({ ...formData, [key]: e.target.value })} className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2" />
-    </label>
+  return (
+    <div className="mx-auto max-w-2xl">
+      <PageHeader title="Daftarkan outlet" description="Buat akun outlet untuk mulai memesan produk dari jaringan distribusi." />
+      <Card className="p-6 sm:p-8">
+        {error && <div role="alert" className="mb-5 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{error}</div>}
+        {success && <div className="mb-5 rounded-lg border border-success-200 bg-success-50 p-3 text-sm text-success-700">Pendaftaran berhasil. Anda sudah masuk dan dapat membuat pesanan.</div>}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Input label="Nama outlet" required value={formData.name} onChange={update('name')} placeholder="Contoh: Warung Berkah" />
+            <Input label="Nomor telepon" required value={formData.phone} onChange={update('phone')} placeholder="08xxxxxxxxxx" />
+            <Input label="Email" required type="email" value={formData.email} onChange={update('email')} placeholder="outlet@email.com" />
+            <Input label="Kata sandi" required type="password" value={formData.password} onChange={update('password')} />
+            <Input label="Konfirmasi kata sandi" required type="password" value={formData.password_confirmation} onChange={update('password_confirmation')} />
+            <Input label="Kota" required value={formData.city} onChange={update('city')} placeholder="Kota / Kabupaten" />
+            <Input label="Kecamatan" required value={formData.district} onChange={update('district')} placeholder="Kecamatan" />
+          </div>
+          <Input label="Alamat lengkap" required value={formData.address} onChange={update('address')} placeholder="Nama jalan, nomor, patokan" />
+          <div className="flex justify-end border-t border-gray-100 pt-5">
+            <Button type="submit" disabled={loading}>{loading ? 'Mendaftarkan...' : 'Daftarkan outlet'}</Button>
+          </div>
+        </form>
+      </Card>
+    </div>
   );
-
-  return <div className="mx-auto max-w-md p-6">
-    <h2 className="mb-2 text-2xl font-bold">Register outlet account</h2>
-    <p className="mb-6 text-sm text-gray-600">Your account and outlet are securely associated automatically.</p>
-    {error && <div role="alert" className="mb-4 rounded border border-red-400 bg-red-100 p-3 text-red-700">{error}</div>}
-    {success && <div className="mb-4 rounded border border-green-400 bg-green-100 p-3 text-green-700">Registered and signed in. You can place an order from the Orders page.</div>}
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {input('name', 'Outlet name')}{input('email', 'Email', 'email')}{input('password', 'Password', 'password')}{input('password_confirmation', 'Confirm password', 'password')}
-      {input('phone', 'Phone number')}{input('address', 'Address')}
-      <div className="grid grid-cols-2 gap-4">{input('city', 'City')}{input('district', 'District')}</div>
-      <button disabled={loading} className="w-full rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{loading ? 'Registering...' : 'Register outlet'}</button>
-    </form>
-  </div>;
 }

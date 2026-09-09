@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import OrderForm from '@/components/OrderForm';
 import { getStoredToken } from '@/lib/api';
+import { PageHeader } from '@/components/ui';
 
 export default function OrdersPage() {
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   useEffect(() => { setToken(getStoredToken()); setReady(true); }, []);
-  if (!ready) return <main className="mx-auto max-w-5xl p-8"><p>Loading...</p></main>;
-  return <main className="mx-auto max-w-5xl space-y-6 p-8"><header><h1 className="text-3xl font-bold">Outlet orders</h1><p className="text-gray-600">Browse, submit, and track your orders.</p></header>{token ? <OrderForm token={token} /> : <><p className="rounded bg-yellow-100 p-3 text-yellow-800">Sign in as an outlet to order. New outlet users can register first.</p><LoginForm expectedRole="outlet" onLogin={(nextToken) => setToken(nextToken)} /></>}</main>;
+  if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
+  if (!token) return <div className="mx-auto max-w-6xl"><PageHeader title="Pesanan outlet" description="Buat dan lacak pesanan produk Anda." /><div className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-700">Masuk sebagai outlet untuk mulai memesan. Belum punya akun? <a href="/outlets" className="font-semibold underline">Daftar di sini</a>.</div><LoginForm expectedRole="outlet" onLogin={(nextToken) => setToken(nextToken)} /></div>;
+  return <div className="mx-auto max-w-6xl"><PageHeader title="Pesanan outlet" description="Pilih produk, kirim pesanan, dan pantau status pengiriman." /><OrderForm token={token} /></div>;
 }

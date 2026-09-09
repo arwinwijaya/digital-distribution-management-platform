@@ -20,3 +20,7 @@ export function getStoredToken(): string | null {
 export function storeToken(token: string): void {
   window.localStorage.setItem('ddp_token', token);
 }
+
+export function clearStoredToken(): void {
+  window.localStorage.removeItem('ddp_token');
+}

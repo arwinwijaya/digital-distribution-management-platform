@@ -3,42 +3,16 @@
 import { FormEvent, useEffect, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { Button, Card, EmptyState, Input, PageHeader, StatusBadge, Table } from '@/components/ui';
 
 type Visit = { id: number; target: string | null; visit_date: string; status: string; notes: string | null };
 
 export default function SalesPage() {
-  const [token, setToken] = useState<string | null>(null);
-  const [visits, setVisits] = useState<Visit[]>([]);
-  const [target, setTarget] = useState('');
-  const [visitDate, setVisitDate] = useState('');
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const load = async (nextToken: string) => {
-    setLoading(true);
-    try {
-      const response = await fetch(apiUrl('/sales/visits'), { headers: authHeaders(nextToken) });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || 'Unable to load visits.');
-      setVisits(body.data);
-      setError('');
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load visits.'); }
-    finally { setLoading(false); }
-  };
-
+  const [token, setToken] = useState<string | null>(null); const [visits, setVisits] = useState<Visit[]>([]); const [target, setTarget] = useState(''); const [visitDate, setVisitDate] = useState(''); const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [loading, setLoading] = useState(false);
+  const load = async (nextToken: string) => { setLoading(true); try { const response = await fetch(apiUrl('/sales/visits'), { headers: authHeaders(nextToken) }); const body = await response.json(); if (!response.ok) throw new Error(body.message || 'Jadwal kunjungan tidak dapat dimuat.'); setVisits(body.data); setError(''); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Jadwal kunjungan tidak dapat dimuat.'); } finally { setLoading(false); } };
   useEffect(() => { const stored = getStoredToken(); setToken(stored); if (stored) load(stored); }, []);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!token) return;
-    setError(''); setMessage('');
-    const response = await fetch(apiUrl('/sales/visits'), { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ target, visit_date: visitDate }) });
-    const body = await response.json();
-    if (!response.ok) { setError(body.message || 'Visit could not be planned.'); return; }
-    setMessage('Visit planned.'); setTarget(''); await load(token);
-  };
-
-  if (!token) return <main className="mx-auto max-w-5xl space-y-4 p-8"><h1 className="text-3xl font-bold">Sales visits</h1><LoginForm expectedRole="sales" onLogin={(nextToken) => { setToken(nextToken); load(nextToken); }} /></main>;
-  return <main className="mx-auto max-w-5xl space-y-6 p-8"><header><h1 className="text-3xl font-bold">Sales visit planning</h1><p className="text-gray-600">Plan and track your authorized outlet targets.</p></header><form onSubmit={submit} className="flex flex-wrap gap-3 rounded border bg-white p-4"><input required value={target} onChange={(event) => setTarget(event.target.value)} placeholder="Target" className="rounded border p-2" /><input required type="date" value={visitDate} onChange={(event) => setVisitDate(event.target.value)} className="rounded border p-2" /><button className="rounded bg-blue-600 px-4 py-2 font-semibold text-white" type="submit">Plan visit</button></form>{message && <p className="rounded bg-green-100 p-3 text-green-800">{message}</p>}{error && <p className="rounded bg-red-100 p-3 text-red-800">{error}</p>}{loading ? <p>Loading visits...</p> : <section className="divide-y rounded border bg-white">{visits.length === 0 ? <p className="p-4 text-gray-600">No visits planned.</p> : visits.map((visit) => <div key={visit.id} className="flex justify-between gap-3 p-4"><span>{visit.target || 'Outlet target'}</span><span>{visit.visit_date} · {visit.status}</span></div>)}</section>}</main>;
+  const submit = async (event: FormEvent) => { event.preventDefault(); if (!token) return; setError(''); setMessage(''); const response = await fetch(apiUrl('/sales/visits'), { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ target, visit_date: visitDate }) }); const body = await response.json(); if (!response.ok) { setError(body.message || 'Kunjungan tidak dapat dijadwalkan.'); return; } setMessage('Kunjungan berhasil dijadwalkan.'); setTarget(''); setVisitDate(''); await load(token); };
+  if (!token) return <div className="mx-auto max-w-6xl"><PageHeader title="Kunjungan sales" description="Rencanakan dan pantau kunjungan ke outlet." /><LoginForm expectedRole="sales" onLogin={(nextToken) => { setToken(nextToken); load(nextToken); }} /></div>;
+  const columns = [{ key: 'target', header: 'Target outlet', render: (visit: Visit) => <span className="font-medium">{visit.target || 'Target outlet'}</span> }, { key: 'date', header: 'Tanggal', render: (visit: Visit) => new Date(visit.visit_date).toLocaleDateString('id-ID') }, { key: 'status', header: 'Status', render: (visit: Visit) => <StatusBadge status={visit.status} /> }, { key: 'notes', header: 'Catatan', render: (visit: Visit) => <span className="text-gray-500">{visit.notes || '—'}</span> }];
+  return <div className="mx-auto max-w-6xl"><PageHeader title="Kunjungan sales" description="Rencanakan dan pantau kunjungan ke outlet yang ditugaskan." />{message && <p className="mb-5 rounded-lg border border-success-200 bg-success-50 p-3 text-sm text-success-700">{message}</p>}{error && <p className="mb-5 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}<Card className="mb-6 p-5"><h2 className="mb-4 text-base font-semibold text-gray-900">Jadwalkan kunjungan</h2><form onSubmit={submit} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"><Input required label="Target outlet" value={target} onChange={(event) => setTarget(event.target.value)} placeholder="Nama outlet / kode outlet" /><Input required label="Tanggal kunjungan" type="date" value={visitDate} onChange={(event) => setVisitDate(event.target.value)} /><Button type="submit">Jadwalkan</Button></form></Card><Card className="overflow-hidden"><div className="border-b border-gray-100 px-5 py-4"><h2 className="font-semibold text-gray-900">Jadwal kunjungan</h2></div>{loading ? <p className="p-8 text-sm text-gray-500">Memuat...</p> : <Table columns={columns} rows={visits} rowKey={(visit) => visit.id} empty={<EmptyState icon={<span>📋</span>} title="Belum ada kunjungan" description="Jadwal kunjungan sales akan tampil di sini." />} />}</Card></div>;
 }

@@ -3,10 +3,12 @@ import { ReactNode } from 'react';
 /** Peta status pesanan/pembayaran/pengiriman → label Indonesia + warna */
 function statusMeta(raw: string): { label: string; variant: 'blue' | 'yellow' | 'green' | 'red' | 'gray' } {
   const map: Record<string, { label: string; variant: 'blue' | 'yellow' | 'green' | 'red' | 'gray' }> = {
+    new:              { label: 'Baru',          variant: 'yellow' },
     pending:          { label: 'Menunggu',      variant: 'yellow' },
     confirmed:        { label: 'Dikonfirmasi',  variant: 'blue'   },
     assigned:         { label: 'Ditugaskan',    variant: 'blue'   },
     in_transit:       { label: 'Dalam Perjalanan', variant: 'blue' },
+    in_progress:      { label: 'Sedang Diproses', variant: 'blue' },
     delivered:        { label: 'Terkirim',      variant: 'green'  },
     paid:             { label: 'Lunas',         variant: 'green'  },
     completed:        { label: 'Selesai',       variant: 'green'  },

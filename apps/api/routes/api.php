@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AIController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreditLimitController;
@@ -70,6 +71,13 @@ Route::middleware('auth:api')->group(function () {
 
     // Owner analytics routes
     Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
+
+    // Deterministic, bounded AI-assisted analytics for outlet and admin contexts.
+    Route::prefix('ai')->group(function () {
+        Route::get('/recommendations', [AIController::class, 'recommendations']);
+        Route::get('/forecast', [AIController::class, 'forecast']);
+        Route::get('/segmentation', [AIController::class, 'segmentation']);
+    });
 
     // WhatsApp outbound operations use the authenticated outlet/admin identity.
     Route::post('/whatsapp/catalog', [WhatsAppController::class, 'catalog']);

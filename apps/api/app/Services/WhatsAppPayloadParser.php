@@ -129,7 +129,7 @@ class WhatsAppPayloadParser
             throw ValidationException::withMessages(['message' => 'A product SKU or exact product name is required.']);
         }
         $value = trim((string) $reference);
-        $query = Product::query()->where('is_active', true);
+        $query = Product::query()->purchasable();
         if (ctype_digit($value)) {
             $query->whereKey((int) $value);
         } else {

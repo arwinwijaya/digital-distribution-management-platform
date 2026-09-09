@@ -85,6 +85,7 @@ class OrderCreationService
             ->pluck('product_id')
             ->map(fn ($id) => (int) $id);
         $products = Product::whereIn('id', $productIds)
+            ->with('supplier')
             ->orderBy('id')
             ->lockForUpdate()
             ->get()
@@ -100,7 +101,7 @@ class OrderCreationService
                     "items.{$index}.product_id" => 'The referenced product does not exist.',
                 ]);
             }
-            if (!$product->is_active) {
+            if (! $product->isPurchasable()) {
                 throw ValidationException::withMessages([
                     "items.{$index}.product_id" => 'The selected product is no longer available.',
                 ]);

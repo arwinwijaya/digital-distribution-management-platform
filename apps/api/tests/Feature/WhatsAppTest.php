@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Contracts\WhatsAppClient;
 use App\Models\Outlet;
 use App\Models\Product;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Models\WhatsAppMessage;
 use App\Services\WhatsAppService;
@@ -77,6 +78,43 @@ class WhatsAppTest extends TestCase
             'from' => '+628999999999',
             'text' => 'ORDER COFFEE-001 1',
         ])->assertStatus(422);
+    }
+
+    public function test_inactive_supplier_product_cannot_be_ordered_but_supplierless_product_can(): void
+    {
+        $supplier = Supplier::factory()->active()->create();
+        $supplierProduct = Product::factory()->create([
+            'supplier_id' => $supplier->id,
+            'name' => 'Inactive Coffee',
+            'sku' => 'INACTIVE-001',
+            'stock_quantity' => 2,
+            'is_active' => true,
+        ]);
+        $supplier->update(['subscription_status' => 'inactive']);
+
+        $this->webhook([
+            'message_id' => 'wamid-inactive-supplier',
+            'from' => $this->outlet->phone,
+            'text' => 'ORDER INACTIVE-001 1',
+        ])->assertStatus(422);
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseHas('products', [
+            'id' => $supplierProduct->id,
+            'stock_quantity' => 2,
+        ]);
+        $this->assertDatabaseHas('whatsapp_messages', [
+            'provider_message_id' => 'wamid-inactive-supplier',
+            'status' => 'rejected',
+        ]);
+
+        $this->webhook([
+            'message_id' => 'wamid-legacy-supplierless',
+            'from' => $this->outlet->phone,
+            'text' => 'ORDER COFFEE-001 1',
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('orders', 1);
     }
 
     public function test_failed_inbound_event_can_retry_without_duplicate_order(): void

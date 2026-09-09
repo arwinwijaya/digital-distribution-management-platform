@@ -6,6 +6,7 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Outlet;
 use App\Models\Product;
+use App\Models\Supplier;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
@@ -473,6 +474,39 @@ class OrderTest extends TestCase
             'id' => $product->id,
             'stock_quantity' => 1,
         ]);
+    }
+
+    public function test_inactive_supplier_product_cannot_be_ordered_but_supplierless_product_can(): void
+    {
+        $supplier = Supplier::factory()->active()->create();
+        $supplierProduct = Product::factory()->create([
+            'supplier_id' => $supplier->id,
+            'stock_quantity' => 2,
+            'is_active' => true,
+        ]);
+        $supplier->update(['subscription_status' => 'inactive']);
+
+        $this->withHeaders($this->authHeaders())
+            ->postJson('/api/orders', [
+                'items' => [['product_id' => $supplierProduct->id, 'quantity' => 1]],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['items.0.product_id']);
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseHas('products', [
+            'id' => $supplierProduct->id,
+            'stock_quantity' => 2,
+        ]);
+
+        $legacyProduct = Product::factory()->create(['stock_quantity' => 2, 'is_active' => true]);
+        $this->withHeaders($this->authHeaders())
+            ->postJson('/api/orders', [
+                'items' => [['product_id' => $legacyProduct->id, 'quantity' => 1]],
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseCount('orders', 1);
     }
 
     public function test_duplicate_product_ids_are_rejected(): void

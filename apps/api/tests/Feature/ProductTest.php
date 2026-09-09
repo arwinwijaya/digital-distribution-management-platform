@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -98,6 +99,18 @@ class ProductTest extends TestCase
         foreach ($data as $product) {
             $this->assertStringContainsString('Indomie', $product['name']);
         }
+    }
+
+    public function test_inactive_supplier_products_are_not_exposed_in_legacy_catalog(): void
+    {
+        $inactiveSupplier = Supplier::factory()->create(['subscription_status' => 'inactive']);
+        Product::factory()->create(['supplier_id' => $inactiveSupplier->id, 'name' => 'Hidden product']);
+        Product::factory()->create(['name' => 'Legacy product']);
+
+        $response = $this->withHeaders($this->authHeaders())->getJson('/api/products');
+
+        $response->assertOk();
+        $this->assertSame(['Legacy product'], collect($response->json('data'))->pluck('name')->all());
     }
 
     public function test_empty_catalog_returns_empty_array(): void

@@ -60,14 +60,21 @@ class OrderController extends Controller
             ], 403);
         }
 
+        // Keep the legacy array response while enforcing a server-side bound.
+        // Callers can request fewer rows, but never an unbounded order history.
+        $limit = min(max((int) $request->query('limit', 100), 1), 100);
         $orders = Order::with(['items.product'])
-            ->latest()
-            ->get()
+            ->latest('created_at')
+            ->limit($limit + 1)
+            ->get();
+        $hasMore = $orders->count() > $limit;
+        $orders = $orders->take($limit)
             ->map(fn (Order $order) => $this->formatOrderResponse($order));
 
         return response()->json([
             'status' => 'success',
             'data' => $orders,
+            'meta' => ['limit' => $limit, 'has_more' => $hasMore],
         ]);
     }
 

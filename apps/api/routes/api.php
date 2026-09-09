@@ -9,6 +9,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +36,10 @@ Route::middleware('auth:api')->group(function () {
     // Legacy outlet/catalog endpoints remain available only to authenticated clients.
     Route::post('/outlets', [OutletController::class, 'store']);
     Route::get('/products', [ProductController::class, 'index']);
+    Route::prefix('marketplace')->group(function () {
+        Route::get('/suppliers', [MarketplaceController::class, 'suppliers']);
+        Route::get('/products', [MarketplaceController::class, 'products']);
+    });
     Route::prefix('auth')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);

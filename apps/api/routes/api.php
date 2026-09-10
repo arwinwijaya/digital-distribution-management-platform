@@ -43,9 +43,9 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/admin/outlets/{outletId}/payment-terms', [OutletController::class, 'updatePaymentTerms']);
 
     // Legacy outlet/catalog endpoints remain available only to authenticated clients.
-    Route::post('/outlets', [OutletController::class, 'store']);
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::prefix('marketplace')->group(function () {
+    Route::post('/outlets', [OutletController::class, 'store'])->middleware('deny.finance');
+    Route::get('/products', [ProductController::class, 'index'])->middleware('deny.finance');
+    Route::prefix('marketplace')->middleware('deny.finance')->group(function () {
         Route::get('/suppliers', [MarketplaceController::class, 'suppliers']);
         Route::get('/products', [MarketplaceController::class, 'products']);
     });
@@ -56,28 +56,28 @@ Route::middleware('auth:api')->group(function () {
     });
 
     // Order routes
-    Route::post('/orders', [OrderController::class, 'store']);
+    Route::post('/orders', [OrderController::class, 'store'])->middleware('deny.finance');
     // The controller authorizes this list for admins and does not require an outlet relation.
-    Route::get('/orders', [OrderController::class, 'index']);
-    Route::get('/orders/{id}', [OrderController::class, 'show']);
+    Route::get('/orders', [OrderController::class, 'index'])->middleware('deny.finance');
+    Route::get('/orders/{id}', [OrderController::class, 'show'])->middleware('deny.finance');
     // Explicit admin alias for clients that keep admin APIs under /admin.
-    Route::get('/admin/orders', [OrderController::class, 'index']);
-    Route::get('/admin/orders/{id}', [OrderController::class, 'show']);
-    Route::put('/orders/{id}/approve', [OrderController::class, 'approve']);
+    Route::get('/admin/orders', [OrderController::class, 'index'])->middleware('deny.finance');
+    Route::get('/admin/orders/{id}', [OrderController::class, 'show'])->middleware('deny.finance');
+    Route::put('/orders/{id}/approve', [OrderController::class, 'approve'])->middleware('deny.finance');
 
     // Sales visit planning routes (controller scopes sales users to their own visits).
-    Route::get('/sales/visits', [SalesController::class, 'index']);
-    Route::post('/sales/visits', [SalesController::class, 'store']);
-    Route::get('/sales/visits/{id}', [SalesController::class, 'show']);
-    Route::patch('/sales/visits/{id}', [SalesController::class, 'update']);
+    Route::get('/sales/visits', [SalesController::class, 'index'])->middleware('deny.finance');
+    Route::post('/sales/visits', [SalesController::class, 'store'])->middleware('deny.finance');
+    Route::get('/sales/visits/{id}', [SalesController::class, 'show'])->middleware('deny.finance');
+    Route::patch('/sales/visits/{id}', [SalesController::class, 'update'])->middleware('deny.finance');
 
     // Delivery assignment and auditable lifecycle routes.
-    Route::get('/deliveries', [DeliveryController::class, 'index']);
-    Route::post('/deliveries', [DeliveryController::class, 'store']);
-    Route::get('/deliveries/{id}', [DeliveryController::class, 'show']);
-    Route::patch('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus']);
-    Route::post('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus']);
-    Route::put('/deliveries/{id}', [DeliveryController::class, 'updateStatus']);
+    Route::get('/deliveries', [DeliveryController::class, 'index'])->middleware('deny.finance');
+    Route::post('/deliveries', [DeliveryController::class, 'store'])->middleware('deny.finance');
+    Route::get('/deliveries/{id}', [DeliveryController::class, 'show'])->middleware('deny.finance');
+    Route::patch('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus'])->middleware('deny.finance');
+    Route::post('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus'])->middleware('deny.finance');
+    Route::put('/deliveries/{id}', [DeliveryController::class, 'updateStatus'])->middleware('deny.finance');
 
     // Payment routes
     Route::post('/payments', [PaymentController::class, 'store']);
@@ -87,7 +87,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
 
     // Deterministic, bounded AI-assisted analytics for outlet and admin contexts.
-    Route::prefix('ai')->group(function () {
+    Route::prefix('ai')->middleware('deny.finance')->group(function () {
         Route::get('/recommendations', [AIController::class, 'recommendations']);
         Route::get('/forecast', [AIController::class, 'forecast']);
         Route::get('/segmentation', [AIController::class, 'segmentation']);
@@ -99,10 +99,10 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/whatsapp/messages/{messageId}/retry', [WhatsAppController::class, 'retry']);
 
     // Credit limit and outstanding balance routes
-    Route::get('/credit-limit', [CreditLimitController::class, 'show']);
-    Route::get('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'show']);
-    Route::put('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update']);
-    Route::post('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update']);
+    Route::get('/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');
+    Route::get('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');
+    Route::put('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update'])->middleware('deny.finance');
+    Route::post('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update'])->middleware('deny.finance');
 });
 
 Route::middleware('auth:api')->get('/finance/access', [FinanceRoleController::class, 'access']);

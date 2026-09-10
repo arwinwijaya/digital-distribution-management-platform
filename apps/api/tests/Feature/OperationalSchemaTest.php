@@ -10,7 +10,7 @@ class OperationalSchemaTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_operational_schema_contract_is_relational_reversible_and_domain_typed(): void
+    public function test_operational_tables_and_columns_exist(): void
     {
         $this->assertTrue(Schema::hasTable('invoices'));
         $this->assertTrue(Schema::hasTable('invoice_reminders'));
@@ -29,7 +29,10 @@ class OperationalSchemaTest extends TestCase
         $this->assertTrue(Schema::hasColumns('role_assignment_audits', [
             'target_user_id', 'actor_user_id', 'from_role', 'to_role', 'action',
         ]));
+    }
 
+    public function test_operational_models_have_domain_types_and_factories(): void
+    {
         $this->assertTrue(class_exists(\App\Models\Invoice::class));
         $this->assertTrue(class_exists(\App\Models\InvoiceReminder::class));
         $this->assertTrue(class_exists(\App\Models\RoleAssignmentAudit::class));
@@ -52,7 +55,10 @@ class OperationalSchemaTest extends TestCase
         $this->assertSame('datetime', $reminder->getCasts()['next_attempt_at']);
         $this->assertSame('array', $reminder->getCasts()['metadata']);
         $this->assertSame('array', (new \App\Models\RoleAssignmentAudit())->getCasts()['metadata']);
+    }
 
+    public function test_operational_indexes_and_foreign_keys_exist(): void
+    {
         $this->assertTrue($this->hasIndex('invoices', ['order_id'], true));
         $this->assertTrue($this->hasIndex('invoices', ['outlet_id', 'status']));
         $this->assertTrue($this->hasIndex('invoices', ['status', 'due_date']));
@@ -66,7 +72,10 @@ class OperationalSchemaTest extends TestCase
         $this->assertTrue($this->hasForeignKey('invoice_reminders', 'invoice_id'));
         $this->assertTrue($this->hasForeignKey('role_assignment_audits', 'target_user_id'));
         $this->assertTrue($this->hasForeignKey('role_assignment_audits', 'actor_user_id'));
+    }
 
+    public function test_operational_migrations_are_reversible(): void
+    {
         foreach ([
             '2026_09_10_000019_add_payment_term_days_to_outlets_table.php',
             '2026_09_10_000020_create_invoices_table.php',

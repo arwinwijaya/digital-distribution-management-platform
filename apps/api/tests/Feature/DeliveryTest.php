@@ -86,6 +86,158 @@ class DeliveryTest extends TestCase
             ->assertJsonValidationErrors(['driver_id']);
     }
 
+    public function test_delivered_requires_nonblank_recipient(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $driver = User::factory()->driver()->create();
+        $outlet = Outlet::factory()->create();
+        $order = Order::create([
+            'order_id' => 'ORD-DELIVERY-PROOF-RECIPIENT',
+            'outlet_id' => $outlet->id,
+            'status' => 'Confirmed',
+            'total_amount' => 100000,
+            'idempotency_key' => 'delivery-proof-recipient',
+        ]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'driver_id' => $driver->id,
+            'assigned_by_id' => $admin->id,
+            'status' => Delivery::IN_PROGRESS,
+            'assigned_at' => now()->subMinute(),
+            'started_at' => now(),
+        ]);
+        $token = $this->loginAs($driver);
+
+        foreach ([
+            ['status' => Delivery::DELIVERED, 'proof_of_delivery_url' => 'https://example.com/proof.jpg'],
+            ['status' => Delivery::DELIVERED, 'recipient_name' => '   ', 'proof_of_delivery_url' => 'https://example.com/proof.jpg'],
+        ] as $payload) {
+            $this->withHeader('Authorization', "Bearer {$token}")
+                ->patchJson('/api/deliveries/'.$delivery->id.'/status', $payload)
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['recipient_name']);
+
+            $this->assertDatabaseHas('deliveries', [
+                'id' => $delivery->id,
+                'status' => Delivery::IN_PROGRESS,
+            ]);
+        }
+    }
+
+    public function test_delivered_requires_valid_proof_url(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $driver = User::factory()->driver()->create();
+        $outlet = Outlet::factory()->create();
+        $order = Order::create([
+            'order_id' => 'ORD-DELIVERY-PROOF-URL',
+            'outlet_id' => $outlet->id,
+            'status' => 'Confirmed',
+            'total_amount' => 100000,
+            'idempotency_key' => 'delivery-proof-url',
+        ]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'driver_id' => $driver->id,
+            'assigned_by_id' => $admin->id,
+            'status' => Delivery::IN_PROGRESS,
+            'assigned_at' => now()->subMinute(),
+            'started_at' => now(),
+        ]);
+        $token = $this->loginAs($driver);
+
+        foreach ([
+            ['status' => Delivery::DELIVERED, 'recipient_name' => 'Outlet manager'],
+            ['status' => Delivery::DELIVERED, 'recipient_name' => 'Outlet manager', 'proof_of_delivery_url' => 'not-a-url'],
+        ] as $payload) {
+            $this->withHeader('Authorization', "Bearer {$token}")
+                ->patchJson('/api/deliveries/'.$delivery->id.'/status', $payload)
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['proof_of_delivery_url']);
+
+            $this->assertDatabaseHas('deliveries', [
+                'id' => $delivery->id,
+                'status' => Delivery::IN_PROGRESS,
+            ]);
+        }
+    }
+
+    public function test_delivery_completion_persists_proof(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $driver = User::factory()->driver()->create();
+        $outlet = Outlet::factory()->create();
+        $order = Order::create([
+            'order_id' => 'ORD-DELIVERY-PROOF-PERSISTED',
+            'outlet_id' => $outlet->id,
+            'status' => 'Confirmed',
+            'total_amount' => 100000,
+            'idempotency_key' => 'delivery-proof-persisted',
+        ]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'driver_id' => $driver->id,
+            'assigned_by_id' => $admin->id,
+            'status' => Delivery::IN_PROGRESS,
+            'assigned_at' => now()->subMinute(),
+            'started_at' => now(),
+        ]);
+        $token = $this->loginAs($driver);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson('/api/deliveries/'.$delivery->id.'/status', [
+                'status' => Delivery::DELIVERED,
+                'recipient_name' => 'Outlet manager',
+                'proof_of_delivery_url' => 'https://example.com/persisted-proof.jpg',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Delivery::DELIVERED)
+            ->assertJsonPath('data.recipient_name', 'Outlet manager')
+            ->assertJsonPath('data.proof_of_delivery_url', 'https://example.com/persisted-proof.jpg');
+
+        $this->assertDatabaseHas('deliveries', [
+            'id' => $delivery->id,
+            'status' => Delivery::DELIVERED,
+            'recipient_name' => 'Outlet manager',
+            'proof_of_delivery_url' => 'https://example.com/persisted-proof.jpg',
+        ]);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Delivered']);
+    }
+
+    public function test_non_delivery_transitions_do_not_require_proof(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $driver = User::factory()->driver()->create();
+        $outlet = Outlet::factory()->create();
+        $order = Order::create([
+            'order_id' => 'ORD-DELIVERY-NON-COMPLETION',
+            'outlet_id' => $outlet->id,
+            'status' => 'Confirmed',
+            'total_amount' => 100000,
+            'idempotency_key' => 'delivery-non-completion',
+        ]);
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'driver_id' => $driver->id,
+            'assigned_by_id' => $admin->id,
+            'status' => Delivery::ASSIGNED,
+            'assigned_at' => now(),
+        ]);
+        $token = $this->loginAs($driver);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson('/api/deliveries/'.$delivery->id.'/status', ['status' => Delivery::IN_PROGRESS])
+            ->assertOk()
+            ->assertJsonPath('data.status', Delivery::IN_PROGRESS);
+
+        $this->assertDatabaseHas('deliveries', [
+            'id' => $delivery->id,
+            'status' => Delivery::IN_PROGRESS,
+            'recipient_name' => null,
+            'proof_of_delivery_url' => null,
+        ]);
+    }
+
     public function test_only_assigned_driver_can_transition_and_history_is_audited(): void
     {
         $admin = User::factory()->admin()->create();
@@ -117,6 +269,7 @@ class DeliveryTest extends TestCase
             ->patchJson('/api/deliveries/'.$delivery['id'].'/status', [
                 'status' => 'delivered',
                 'recipient_name' => 'Outlet manager',
+                'proof_of_delivery_url' => 'https://example.com/proof.jpg',
                 'proof_of_delivery' => ['photo_url' => 'https://example.com/proof.jpg'],
             ])
             ->assertOk()

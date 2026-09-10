@@ -15,8 +15,8 @@ class UpdateDeliveryStatusRequest extends FormRequest
     {
         return [
             'status' => ['required', 'in:assigned,in_progress,delivered,failed'],
-            'recipient_name' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'proof_of_delivery_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'recipient_name' => ['required_if:status,delivered', 'nullable', 'string', 'max:255'],
+            'proof_of_delivery_url' => ['required_if:status,delivered', 'nullable', 'url', 'max:2048'],
             'proof_of_delivery' => ['sometimes', 'nullable', 'array'],
             'proof_of_delivery.photo_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'proof_of_delivery.signature_url' => ['sometimes', 'nullable', 'url', 'max:2048'],

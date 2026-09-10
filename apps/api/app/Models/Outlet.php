@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use InvalidArgumentException;
 
@@ -40,6 +41,7 @@ class Outlet extends Model
             'latitude' => 'float',
             'longitude' => 'float',
             'is_active' => 'boolean',
+            'payment_term_days' => 'integer',
         ];
     }
 
@@ -77,5 +79,10 @@ class Outlet extends Model
     public function creditLimit(): HasOne
     {
         return $this->hasOne(CreditLimit::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 }

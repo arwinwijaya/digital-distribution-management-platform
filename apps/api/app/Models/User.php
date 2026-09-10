@@ -87,7 +87,7 @@ class User extends Authenticatable implements JWTSubject
 
     public function isFinance(): bool
     {
-        return $this->role === 'finance';
+        return app(\App\Services\FinanceAuthorizationService::class)->isFinance($this);
     }
 
     /**

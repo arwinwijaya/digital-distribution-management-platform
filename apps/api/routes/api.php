@@ -5,6 +5,7 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\FinanceRoleController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\PaymentController;
@@ -33,6 +34,14 @@ Route::post('/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
 
 // Protected routes
 Route::middleware('auth:api')->group(function () {
+    // Admin-controlled finance role assignment and removal.
+    Route::post('/admin/users/{userId}/finance-role', [FinanceRoleController::class, 'assign']);
+    Route::delete('/admin/users/{userId}/finance-role', [FinanceRoleController::class, 'remove']);
+    // Payment terms are administrator-controlled and outlet-scoped.
+    Route::get('/admin/outlets/{outletId}/payment-terms', [OutletController::class, 'showPaymentTerms']);
+    Route::put('/admin/outlets/{outletId}/payment-terms', [OutletController::class, 'updatePaymentTerms']);
+    Route::post('/admin/outlets/{outletId}/payment-terms', [OutletController::class, 'updatePaymentTerms']);
+
     // Legacy outlet/catalog endpoints remain available only to authenticated clients.
     Route::post('/outlets', [OutletController::class, 'store']);
     Route::get('/products', [ProductController::class, 'index']);
@@ -95,6 +104,8 @@ Route::middleware('auth:api')->group(function () {
     Route::put('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update']);
     Route::post('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update']);
 });
+
+Route::middleware('auth:api')->get('/finance/access', [FinanceRoleController::class, 'access']);
 
 // Health check
 Route::get('/health', function () {

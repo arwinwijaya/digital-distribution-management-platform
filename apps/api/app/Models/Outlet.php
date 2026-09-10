@@ -11,6 +11,8 @@ use InvalidArgumentException;
 
 class Outlet extends Model
 {
+    public const DEFAULT_PAYMENT_TERM_DAYS = 7;
+
     use HasFactory;
 
     /**
@@ -28,6 +30,7 @@ class Outlet extends Model
         'longitude',
         'user_id',
         'is_active',
+        'payment_term_days',
     ];
 
     /**
@@ -71,6 +74,11 @@ class Outlet extends Model
     /**
      * Get the user that owns the outlet.
      */
+    public function effectivePaymentTermDays(): int
+    {
+        return $this->payment_term_days ?? self::DEFAULT_PAYMENT_TERM_DAYS;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

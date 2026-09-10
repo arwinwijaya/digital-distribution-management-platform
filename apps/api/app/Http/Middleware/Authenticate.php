@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\AuthService;
+use App\Services\FinanceAuthorizationService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -42,6 +43,16 @@ class Authenticate
         }
 
         $request->setUserResolver(fn () => $user);
+
+        if (
+            app(FinanceAuthorizationService::class)->isFinance($user)
+            && !$request->is('api/finance/access')
+        ) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized.',
+            ], 403);
+        }
 
         return $next($request);
     }

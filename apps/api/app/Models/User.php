@@ -85,6 +85,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->role === 'driver';
     }
 
+    public function isFinance(): bool
+    {
+        return $this->role === 'finance';
+    }
+
     /**
      * Get the outlet associated with this user.
      */
@@ -114,6 +119,16 @@ class User extends Authenticatable implements JWTSubject
     public function createdDeliveries(): HasMany
     {
         return $this->hasMany(Delivery::class, 'assigned_by_id');
+    }
+
+    public function roleAssignmentAudits(): HasMany
+    {
+        return $this->hasMany(RoleAssignmentAudit::class, 'target_user_id');
+    }
+
+    public function roleAssignmentsMade(): HasMany
+    {
+        return $this->hasMany(RoleAssignmentAudit::class, 'actor_user_id');
     }
 
     /**

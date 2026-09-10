@@ -69,6 +69,11 @@ class Order extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function invoice(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Invoice::class);
+    }
+
     public function delivery(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Delivery::class);

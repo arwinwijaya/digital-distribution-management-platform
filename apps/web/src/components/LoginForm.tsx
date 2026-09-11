@@ -4,9 +4,11 @@ import { FormEvent, useState } from 'react';
 import { apiUrl, storeToken } from '@/lib/api';
 import { Button, Card, Input } from '@/components/ui';
 
+type UserRole = 'outlet' | 'admin' | 'sales' | 'driver' | 'finance';
+
 interface LoginFormProps {
   onLogin: (token: string, role: string) => void;
-  expectedRole?: 'outlet' | 'admin' | 'sales' | 'driver';
+  expectedRole?: UserRole | UserRole[];
 }
 
 const roleLabels: Record<string, string> = {
@@ -14,6 +16,7 @@ const roleLabels: Record<string, string> = {
   admin: 'administrator',
   sales: 'sales',
   driver: 'driver',
+  finance: 'finance',
 };
 
 export default function LoginForm({ onLogin, expectedRole }: LoginFormProps) {
@@ -35,8 +38,10 @@ export default function LoginForm({ onLogin, expectedRole }: LoginFormProps) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Email atau kata sandi salah.');
       const role = result.data.user.role as string;
-      if (expectedRole && role !== expectedRole) {
-        throw new Error(`Halaman ini khusus untuk pengguna ${roleLabels[expectedRole] ?? expectedRole}.`);
+      const allowedRoles = expectedRole ? (Array.isArray(expectedRole) ? expectedRole : [expectedRole]) : null;
+      if (allowedRoles && !allowedRoles.includes(role as UserRole)) {
+        const labels = allowedRoles.map((allowedRole) => roleLabels[allowedRole] ?? allowedRole).join(' atau ');
+        throw new Error(`Halaman ini khusus untuk pengguna ${labels}.`);
       }
       storeToken(result.data.token);
       onLogin(result.data.token, role);

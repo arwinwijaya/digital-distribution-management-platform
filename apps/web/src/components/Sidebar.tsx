@@ -1,17 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 
-type NavItem = { href: string; label: string; icon: string };
+type NavItem = { href: string; label: string; icon: string; finance?: boolean };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard',     label: 'Dasbor',        icon: '📊' },
+  { href: '/dashboard',     label: 'Dasbor',        icon: '📊', finance: true },
+  { href: '/invoices',      label: 'Invoice',       icon: '🧾', finance: true },
   { href: '/orders',        label: 'Pesanan',       icon: '🛒' },
   { href: '/products',      label: 'Produk',        icon: '📦' },
   { href: '/outlets',       label: 'Outlet',        icon: '🏪' },
   { href: '/marketplace',   label: 'Marketplace',   icon: '🌐' },
-  { href: '/payments',      label: 'Pembayaran',    icon: '💳' },
+  { href: '/payments',      label: 'Pembayaran',    icon: '💳', finance: true },
   { href: '/delivery',      label: 'Pengiriman',    icon: '🚚' },
   { href: '/sales',         label: 'Sales',         icon: '📋' },
   { href: '/analytics',     label: 'Analitik',      icon: '📈' },
@@ -20,6 +23,26 @@ const NAV_ITEMS: NavItem[] = [
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getStoredToken();
+    if (!token) return;
+
+    let active = true;
+    fetch(apiUrl('/auth/me'), { headers: authHeaders(token) })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => {
+        if (active) setRole(body?.data?.role ?? null);
+      })
+      .catch(() => {
+        if (active) setRole(null);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  const visibleItems = role === 'finance' ? NAV_ITEMS.filter((item) => item.finance) : NAV_ITEMS;
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-white border-r border-gray-200 shadow-sidebar">
@@ -31,7 +54,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
 
       {/* nav */}
       <nav className="flex-1 overflow-y-auto slim-scroll px-3 py-4 space-y-1">
-        {NAV_ITEMS.map(({ href, label, icon }) => {
+        {visibleItems.map(({ href, label, icon }) => {
           const isActive = pathname === href || pathname.startsWith(href + '/');
           return (
             <Link

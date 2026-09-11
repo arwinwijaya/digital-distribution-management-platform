@@ -12,7 +12,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('invoices:reminders')
+            ->everyMinute()
+            ->timezone('Asia/Jakarta')
+            ->withoutOverlapping()
+            ->description('Process idempotent WhatsApp invoice reminders');
     }
 
     /**

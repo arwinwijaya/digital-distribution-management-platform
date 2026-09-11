@@ -24,16 +24,25 @@ class InvoiceMetricsService
     {
         $startDate = $start->toDateString();
         $endDate = $end->toDateString();
-        $invoices = fn (): Builder => $this->invoiceQuery($outletId);
+        $aggregates = $this->aggregateMetrics($start, $end, $asOf, $startDate, $endDate, $outletId);
 
-        $issued = $invoices()
-            ->whereBetween('issue_date', [$startDate, $endDate])
-            ->count();
+        return $this->metricsResponse($startDate, $endDate, $aggregates);
+    }
+
+    /** @return array<string, mixed> */
+    private function aggregateMetrics(
+        CarbonInterface $start,
+        CarbonInterface $end,
+        CarbonInterface $asOf,
+        string $startDate,
+        string $endDate,
+        ?int $outletId,
+    ): array {
+        $invoices = fn (): Builder => $this->invoiceQuery($outletId);
+        $issued = $invoices()->whereBetween('issue_date', [$startDate, $endDate])->count();
 
         // Outstanding is a current-state measure: do not apply the event window.
-        $outstanding = $invoices()
-            ->whereIn('status', self::ACTIVE_STATUSES)
-            ->sum('balance_amount');
+        $outstanding = $invoices()->whereIn('status', self::ACTIVE_STATUSES)->sum('balance_amount');
 
         // Paid invoices are no longer active for overdue purposes; cancelled
         // invoices are excluded from both numerator and denominator.
@@ -42,15 +51,30 @@ class InvoiceMetricsService
             ->whereIn('status', self::ACTIVE_STATUSES)
             ->whereDate('due_date', '<', $asOf->toDateString())
             ->count();
-
         $statusCounts = $invoices()
             ->select('status')
             ->selectRaw('COUNT(*) as aggregate_count')
             ->groupBy('status')
             ->pluck('aggregate_count', 'status');
 
-        $collection = $this->collectionTime($invoices(), $start, $end);
-        $reminders = $this->reminderCounts($startDate, $endDate, $outletId);
+        return [
+            'issued' => $issued,
+            'outstanding' => $outstanding,
+            'active_count' => $activeCount,
+            'overdue_count' => $overdueCount,
+            'status_counts' => $statusCounts,
+            'collection' => $this->collectionTime($invoices(), $start, $end),
+            'reminders' => $this->reminderCounts($startDate, $endDate, $outletId),
+        ];
+    }
+
+    /** @param array<string, mixed> $aggregates */
+    private function metricsResponse(string $startDate, string $endDate, array $aggregates): array
+    {
+        $activeCount = $aggregates['active_count'];
+        $overdueCount = $aggregates['overdue_count'];
+        $statusCounts = $aggregates['status_counts'];
+        $reminders = $aggregates['reminders'];
 
         return [
             'window' => [
@@ -58,17 +82,17 @@ class InvoiceMetricsService
                 'end_date' => $endDate,
             ],
             'issued_invoices' => [
-                'count' => (int) $issued,
+                'count' => (int) $aggregates['issued'],
             ],
             'outstanding_balance' => [
-                'amount' => $this->number($outstanding),
+                'amount' => $this->number($aggregates['outstanding']),
             ],
             'overdue_rate' => [
                 'rate' => $activeCount > 0 ? round(($overdueCount / $activeCount) * 100, 2) : 0,
                 'overdue_count' => (int) $overdueCount,
                 'active_count' => (int) $activeCount,
             ],
-            'collection_time' => $collection,
+            'collection_time' => $aggregates['collection'],
             'payment_status_breakdown' => collect(Invoice::statuses())
                 ->mapWithKeys(fn (string $status): array => [$status => (int) ($statusCounts[$status] ?? 0)])
                 ->all(),

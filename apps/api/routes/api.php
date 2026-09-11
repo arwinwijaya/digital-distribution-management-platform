@@ -7,6 +7,7 @@ use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\FinanceRoleController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
@@ -64,6 +65,11 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/admin/orders', [OrderController::class, 'index'])->middleware('deny.finance');
     Route::get('/admin/orders/{id}', [OrderController::class, 'show'])->middleware('deny.finance');
     Route::put('/orders/{id}/approve', [OrderController::class, 'approve'])->middleware('deny.finance');
+    Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']);
+
+    // Invoice history is available to current admin, finance, and outlet roles;
+    // the controller applies the corresponding outlet scope.
+    Route::get('/invoices', [InvoiceController::class, 'index']);
 
     // Sales visit planning routes (controller scopes sales users to their own visits).
     Route::get('/sales/visits', [SalesController::class, 'index'])->middleware('deny.finance');

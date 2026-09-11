@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -69,7 +70,7 @@ class Order extends Model
         return $this->hasMany(Payment::class);
     }
 
-    public function invoice(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function invoice(): HasOne
     {
         return $this->hasOne(Invoice::class);
     }

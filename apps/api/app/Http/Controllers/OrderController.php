@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\Order;
+use App\Services\FinanceAuthorizationService;
+use App\Services\InvoiceService;
 use App\Services\OrderCreationService;
 use App\Services\WhatsAppService;
+use App\Http\Requests\CancelOrderRequest;
 use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +20,7 @@ class OrderController extends Controller
     public function __construct(
         private readonly OrderCreationService $orderCreationService,
         private readonly WhatsAppService $whatsappService,
+        private readonly InvoiceService $invoiceService,
     ) {}
 
     /**
@@ -113,7 +117,7 @@ class OrderController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->isAdmin()) {
+        if (! app(FinanceAuthorizationService::class)->isAdmin($user)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized. Only admins can approve orders.',
@@ -124,19 +128,27 @@ class OrderController extends Controller
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $result = DB::transaction(function () use ($id) {
-                    // Test-only barrier: both public requests enter the approval
-                    // transaction immediately before contending on this row lock.
+                    // Both the status transition and invoice creation occur in
+                    // this same lock-protected transaction.
                     ConcurrencyTestBarrier::await('approval');
-                    // The status check and transition are both protected by the
-                    // same row lock. Exactly one concurrent approval can append history.
                     $order = Order::with('items.product')->lockForUpdate()->findOrFail($id);
-                    if ($order->status !== 'New') {
-                        return [$order, false];
+
+                    if ($order->status === 'New') {
+                        $order->recordStatus('Confirmed', 'Order approved by admin');
+                        $invoice = $this->invoiceService->createForApprovedOrder($order);
+
+                        return [$order, true, $invoice];
                     }
 
-                    $order->recordStatus('Confirmed', 'Order approved by admin');
+                    if ($order->status === 'Confirmed') {
+                        // Approval retries reuse the immutable invoice and do not
+                        // append another status-history row.
+                        $invoice = $this->invoiceService->createForApprovedOrder($order);
 
-                    return [$order, true];
+                        return [$order, false, $invoice];
+                    }
+
+                    return [$order, null, null];
                 });
                 break;
             } catch (QueryException $exception) {
@@ -147,23 +159,35 @@ class OrderController extends Controller
             }
         }
 
-        [$order, $approved] = $result;
+        [$order, $approved, $invoice] = $result;
 
-        if (! $approved) {
+        if ($approved === null) {
             return response()->json([
                 'status' => 'error',
                 'message' => "Cannot approve order with status '{$order->status}'. Only orders with status 'New' can be approved.",
             ], 422);
         }
 
-        $order->load('statusHistory');
-        // Outbound provider failure is isolated and persisted by WhatsAppService;
-        // it must never roll back this already-committed order transition.
-        $this->whatsappService->notifyConfirmedOrder($order->load('outlet'));
+        $order->load(['statusHistory', 'invoice']);
+        if ($approved) {
+            // Outbound provider failure is isolated and persisted by WhatsAppService;
+            // it must never roll back this already-committed order transition.
+            $this->whatsappService->notifyConfirmedOrder($order->load('outlet'));
+        }
 
         return response()->json([
             'status' => 'success',
             'data' => $this->formatOrderResponse($order),
+        ]);
+    }
+
+    public function cancel(CancelOrderRequest $request, int $id): JsonResponse
+    {
+        $invoice = $this->invoiceService->cancelOrder($id);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $this->invoiceService->format($invoice),
         ]);
     }
 
@@ -203,6 +227,10 @@ class OrderController extends Controller
                     'created_at' => $history->created_at,
                 ];
             });
+        }
+
+        if ($order->relationLoaded('invoice') && $order->invoice) {
+            $data['invoice'] = app(InvoiceService::class)->format($order->invoice);
         }
 
         return $data;

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Order;
+use App\Services\FinanceAuthorizationService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePaymentRequest extends FormRequest
@@ -10,7 +11,11 @@ class StorePaymentRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
-        return $user && ($user->isAdmin() || $user->isOutlet());
+        return $user && (
+            app(FinanceAuthorizationService::class)->isAdmin($user)
+            || app(FinanceAuthorizationService::class)->isFinance($user)
+            || app(FinanceAuthorizationService::class)->hasCurrentRole($user, 'outlet')
+        );
     }
 
     protected function prepareForValidation(): void

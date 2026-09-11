@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Outlet;
 use App\Models\Payment;
@@ -13,8 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class PaymentService
 {
-    public function __construct(private readonly ReceiptService $receiptService)
-    {
+    public function __construct(
+        private readonly ReceiptService $receiptService,
+        private readonly FinanceAuthorizationService $authorization,
+    ) {
     }
 
     /**
@@ -98,22 +101,30 @@ class PaymentService
      */
     private function createPaymentForOrder(Order $order, array $data, User $user): array
     {
-        $this->validatePayableOrder($order, $user);
-        [$paidCents, $totalCents, $amountCents] = $this->paymentBalances($order, $data['amount']);
+        $invoice = Invoice::query()
+            ->where('order_id', $order->id)
+            ->lockForUpdate()
+            ->first();
+        $this->validatePayableOrder($order, $user, $invoice);
+        [$paidCents, $totalCents, $amountCents] = $this->paymentBalances($order, $invoice, $data['amount']);
 
         if ($amountCents > $totalCents - $paidCents) {
             throw ValidationException::withMessages([
-                'amount' => 'Payment cannot exceed the order outstanding balance.',
+                'amount' => 'Payment cannot exceed the outstanding balance.',
             ]);
         }
 
         $payment = $this->createPaymentRecord($order, $data, $amountCents);
-        $this->applyPaymentToOrder($order, $paidCents + $amountCents, $totalCents);
+        $newPaidCents = $paidCents + $amountCents;
+        $this->applyPaymentToOrder($order, $newPaidCents, $totalCents);
+        if ($invoice) {
+            $this->reconcileInvoice($invoice, $order->id, $totalCents);
+        }
 
         return ['payment' => $payment->load('order'), 'created' => true];
     }
 
-    private function validatePayableOrder(Order $order, User $user): void
+    private function validatePayableOrder(Order $order, User $user, ?Invoice $invoice = null): void
     {
         $this->authorizeOrder($order, $user);
         if (!in_array($order->status, ['Delivered', 'Partially Paid'], true)) {
@@ -121,22 +132,46 @@ class PaymentService
                 'order_id' => "Payments can only be recorded for delivered orders. Current status: {$order->status}.",
             ]);
         }
+        if ($invoice && in_array($invoice->status, [Invoice::PAID, Invoice::CANCELLED], true)) {
+            throw ValidationException::withMessages([
+                'order_id' => "Payments cannot be recorded for a {$invoice->status} invoice.",
+            ]);
+        }
     }
 
     /** @return array{int, int, int} */
-    private function paymentBalances(Order $order, mixed $amount): array
+    private function paymentBalances(Order $order, ?Invoice $invoice, mixed $amount): array
     {
-        $paidCents = $this->moneyToCents(
-            Payment::where('order_id', $order->id)
-                ->where('status', 'completed')
+        $paidCents = $this->validCompletedPaymentCents($order->id);
+        $totalCents = $this->moneyToCents($invoice?->total_amount ?? $order->total_amount);
+
+        return [$paidCents, $totalCents, $this->moneyToCents($amount)];
+    }
+
+    private function validCompletedPaymentCents(int $orderId): int
+    {
+        return $this->moneyToCents(
+            Payment::query()
+                ->where('order_id', $orderId)
+                ->completedPositive()
                 ->sum('amount')
         );
+    }
 
-        return [
-            $paidCents,
-            $this->moneyToCents($order->total_amount),
-            $this->moneyToCents($amount),
-        ];
+    private function reconcileInvoice(Invoice $invoice, int $orderId, int $totalCents): void
+    {
+        $paidCents = $this->validCompletedPaymentCents($orderId);
+        if ($paidCents > $totalCents) {
+            throw ValidationException::withMessages([
+                'amount' => 'Payment cannot exceed the invoice outstanding balance.',
+            ]);
+        }
+        $balanceCents = $totalCents - $paidCents;
+        $invoice->update([
+            'paid_amount' => number_format($paidCents / 100, 2, '.', ''),
+            'balance_amount' => number_format($balanceCents / 100, 2, '.', ''),
+            'status' => $paidCents === $totalCents ? Invoice::PAID : Invoice::PARTIALLY_PAID,
+        ]);
     }
 
     private function createPaymentRecord(Order $order, array $data, int $amountCents): Payment
@@ -190,17 +225,24 @@ class PaymentService
                 'idempotency_key' => 'This payment request identity was already used with a different amount.',
             ]);
         }
+        if ((string) $payment->payment_method !== (string) $data['payment_method']) {
+            throw ValidationException::withMessages([
+                'idempotency_key' => 'This payment request identity was already used with a different payment method.',
+            ]);
+        }
 
         return ['payment' => $payment, 'created' => false];
     }
 
     private function authorizeOrder(Order $order, User $user): void
     {
-        if ($user->isAdmin()) {
+        if ($this->authorization->isAdmin($user) || $this->authorization->isFinance($user)) {
             return;
         }
 
-        if (!$user->isOutlet() || !$user->outlet || (int) $user->outlet->id !== (int) $order->outlet_id) {
+        if (!$this->authorization->hasCurrentRole($user, 'outlet')
+            || !$user->outlet
+            || (int) $user->outlet->id !== (int) $order->outlet_id) {
             abort(403, 'You are not authorized to record payment for this order.');
         }
     }

@@ -4,14 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StorePaymentRequest;
 use App\Models\Payment;
+use App\Services\FinanceAuthorizationService;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
-    public function __construct(private readonly PaymentService $paymentService)
-    {
+    public function __construct(
+        private readonly PaymentService $paymentService,
+        private readonly FinanceAuthorizationService $authorization,
+    ) {
     }
 
     public function store(StorePaymentRequest $request): JsonResponse
@@ -27,18 +32,48 @@ class PaymentController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Payment::with('order')->latest();
-        if (!$request->user()->isAdmin()) {
-            $outlet = $request->user()->outlet;
+        $user = $request->user();
+        $isAdmin = $this->authorization->isAdmin($user);
+        $isFinance = $this->authorization->isFinance($user);
+        $isOutlet = $this->authorization->hasCurrentRole($user, 'outlet');
+        if (!$isAdmin && !$isFinance && !$isOutlet) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+        }
+
+        $validator = Validator::make($request->query(), [
+            'page' => ['sometimes', 'integer', 'min:1', 'max:100000'],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        $page = (int) $request->query('page', 1);
+        $limit = (int) $request->query('limit', 25);
+        $query = Payment::with('order')->orderByDesc('created_at')->orderByDesc('id');
+        if (!$isAdmin && !$isFinance) {
+            $outlet = $user->outlet;
             if (!$outlet) {
                 return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
             }
             $query->where('outlet_id', $outlet->id);
         }
 
+        $total = (clone $query)->count();
+        $rows = $query
+            ->offset(($page - 1) * $limit)
+            ->limit($limit + 1)
+            ->get();
+
         return response()->json([
             'status' => 'success',
-            'data' => $query->get()->map(fn (Payment $payment) => $this->formatPayment($payment)),
+            'data' => $rows->take($limit)->values()->map(fn (Payment $payment) => $this->formatPayment($payment)),
+            'meta' => [
+                'page' => $page,
+                'limit' => $limit,
+                'total' => $total,
+                'has_more' => $rows->count() > $limit,
+            ],
         ]);
     }
 

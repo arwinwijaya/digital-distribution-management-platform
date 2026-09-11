@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\Payment;
@@ -251,6 +252,17 @@ class PaymentTest extends TestCase
             'status' => 'Delivered',
             'notes' => 'Delivered for payment race test',
         ]);
+        Invoice::on('race')->create([
+            'order_id' => $order->id,
+            'outlet_id' => $outlet->id,
+            'invoice_number' => 'INV-RACE-PAYMENT',
+            'issue_date' => now()->subDays(7)->toDateString(),
+            'due_date' => now()->addDays(7)->toDateString(),
+            'total_amount' => 100000,
+            'paid_amount' => 0,
+            'balance_amount' => 100000,
+            'status' => Invoice::UNPAID,
+        ]);
 
         $this->startPaymentRaceServers('payment');
         $token = $this->paymentRaceLogin($admin->email);
@@ -278,6 +290,10 @@ class PaymentTest extends TestCase
         $this->assertSame('40000.00', (string) Payment::on('race')->sole()->amount);
         $this->assertSame('40000.00', (string) Order::on('race')->findOrFail($order->id)->paid_amount);
         $this->assertSame('Partially Paid', Order::on('race')->findOrFail($order->id)->status);
+        $this->assertSame(1, Invoice::on('race')->where('order_id', $order->id)->count());
+        $this->assertSame('40000.00', (string) Invoice::on('race')->where('order_id', $order->id)->value('paid_amount'));
+        $this->assertSame('60000.00', (string) Invoice::on('race')->where('order_id', $order->id)->value('balance_amount'));
+        $this->assertSame(Invoice::PARTIALLY_PAID, Invoice::on('race')->where('order_id', $order->id)->value('status'));
     }
 
     public function test_outstanding_balance_includes_pending_and_unpaid_orders_but_excludes_paid_orders(): void

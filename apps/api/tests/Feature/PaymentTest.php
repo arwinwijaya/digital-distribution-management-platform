@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Testing\TestResponse;
+use Tests\Support\PaymentConcurrencyHarness;
 use Tests\TestCase;
 
 class PaymentTest extends TestCase
@@ -26,9 +27,7 @@ class PaymentTest extends TestCase
     protected Outlet $outlet;
     protected string $outletToken;
     protected string $adminToken;
-    protected ?string $raceDatabase = null;
-    protected ?string $raceBarrierDirectory = null;
-    protected array $raceServerProcesses = [];
+    protected ?PaymentConcurrencyHarness $raceHarness = null;
 
     protected function setUp(): void
     {
@@ -59,7 +58,7 @@ class PaymentTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->stopRaceInfrastructure();
+        $this->raceHarness?->close();
         parent::tearDown();
     }
 
@@ -237,63 +236,32 @@ class PaymentTest extends TestCase
      */
     public function test_concurrent_same_identity_payment_posts_replay_one_payment(): void
     {
-        $this->preparePaymentRaceDatabase();
-        [$admin, $outlet] = $this->createPaymentRaceOutletAndAdmin();
-        $order = Order::on('race')->create([
-            'order_id' => 'ORD-RACE-PAYMENT',
-            'outlet_id' => $outlet->id,
-            'status' => 'Delivered',
-            'total_amount' => 100000,
-            'commission_percentage' => 2.00,
-            'idempotency_key' => 'race-payment-order',
-        ]);
-        OrderStatusHistory::on('race')->create([
-            'order_id' => $order->id,
-            'status' => 'Delivered',
-            'notes' => 'Delivered for payment race test',
-        ]);
-        Invoice::on('race')->create([
-            'order_id' => $order->id,
-            'outlet_id' => $outlet->id,
-            'invoice_number' => 'INV-RACE-PAYMENT',
-            'issue_date' => now()->subDays(7)->toDateString(),
-            'due_date' => now()->addDays(7)->toDateString(),
-            'total_amount' => 100000,
-            'paid_amount' => 0,
-            'balance_amount' => 100000,
-            'status' => Invoice::UNPAID,
-        ]);
+        $this->raceHarness = new PaymentConcurrencyHarness();
+        $this->raceHarness->prepare();
+        $order = $this->raceHarness->createPaymentFixture();
+        $this->raceHarness->startServers();
 
-        $this->startPaymentRaceServers('payment');
-        $token = $this->paymentRaceLogin($admin->email);
-        $payload = [
-            'order_id' => $order->id,
+        $responses = $this->raceHarness->runConcurrentPayment($order->id, [
             'amount' => 40000,
             'payment_method' => 'cash',
             'idempotency_key' => 'concurrent-payment-key',
-        ];
-
-        $responses = $this->runConcurrentPaymentHttpRequests([
-            ['token' => $token, 'body' => $payload],
-            ['token' => $token, 'body' => $payload],
         ]);
         $statuses = array_column($responses, 'status');
         sort($statuses);
 
         $this->assertSame([200, 201], $statuses);
         $this->assertSame(['success', 'success'], array_column(array_column($responses, 'json'), 'status'));
-        $this->assertSame(
-            $responses[0]['json']['data']['id'],
-            $responses[1]['json']['data']['id']
-        );
-        $this->assertSame(1, Payment::on('race')->count());
-        $this->assertSame('40000.00', (string) Payment::on('race')->sole()->amount);
-        $this->assertSame('40000.00', (string) Order::on('race')->findOrFail($order->id)->paid_amount);
-        $this->assertSame('Partially Paid', Order::on('race')->findOrFail($order->id)->status);
-        $this->assertSame(1, Invoice::on('race')->where('order_id', $order->id)->count());
-        $this->assertSame('40000.00', (string) Invoice::on('race')->where('order_id', $order->id)->value('paid_amount'));
-        $this->assertSame('60000.00', (string) Invoice::on('race')->where('order_id', $order->id)->value('balance_amount'));
-        $this->assertSame(Invoice::PARTIALLY_PAID, Invoice::on('race')->where('order_id', $order->id)->value('status'));
+        $this->assertSame($responses[0]['json']['data']['id'], $responses[1]['json']['data']['id']);
+        $this->assertSame(1, Payment::on(PaymentConcurrencyHarness::CONNECTION)->count());
+        $payment = Payment::on(PaymentConcurrencyHarness::CONNECTION)->sole();
+        $this->assertSame('completed', $payment->status);
+        $this->assertSame('40000.00', (string) $payment->amount);
+        $this->assertSame('40000.00', (string) Order::on(PaymentConcurrencyHarness::CONNECTION)->findOrFail($order->id)->paid_amount);
+        $this->assertSame('Partially Paid', Order::on(PaymentConcurrencyHarness::CONNECTION)->findOrFail($order->id)->status);
+        $this->assertSame(1, Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->count());
+        $this->assertSame('40000.00', (string) Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('paid_amount'));
+        $this->assertSame('60000.00', (string) Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('balance_amount'));
+        $this->assertSame(Invoice::PARTIALLY_PAID, Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('status'));
     }
 
     public function test_outstanding_balance_includes_pending_and_unpaid_orders_but_excludes_paid_orders(): void
@@ -370,251 +338,4 @@ class PaymentTest extends TestCase
         $this->recordPayment($order, 0, 'zero-payment')->assertStatus(422)->assertJsonValidationErrors(['amount']);
     }
 
-    /** @return array{0: User, 1: Outlet} */
-    private function createPaymentRaceOutletAndAdmin(): array
-    {
-        $admin = User::factory()->admin()->make([
-            'email' => 'payment-race-admin@ddp.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $admin->setConnection('race');
-        $admin->save();
-
-        $outletUser = User::factory()->outlet()->make([
-            'email' => 'payment-race-outlet@ddp.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $outletUser->setConnection('race');
-        $outletUser->save();
-        $outlet = Outlet::factory()->make([
-            'user_id' => $outletUser->id,
-            'is_active' => true,
-        ]);
-        $outlet->setConnection('race');
-        $outlet->save();
-
-        return [$admin, $outlet];
-    }
-
-    private function preparePaymentRaceDatabase(): void
-    {
-        $directory = storage_path('framework/testing');
-        foreach (['views', 'cache', 'sessions'] as $subdirectory) {
-            $path = storage_path('framework/'.$subdirectory);
-            if (! is_dir($path)) {
-                mkdir($path, 0777, true);
-            }
-        }
-        if (! is_dir($directory)) {
-            mkdir($directory, 0777, true);
-        }
-        $this->raceDatabase = tempnam($directory, 'payment-race-');
-        if ($this->raceDatabase === false) {
-            throw new \RuntimeException('Unable to create the payment race database file.');
-        }
-
-        config(['database.connections.race' => array_merge(
-            config('database.connections.sqlite'),
-            ['database' => $this->raceDatabase],
-        )]);
-        DB::purge('race');
-        $this->artisan('migrate:fresh', ['--database' => 'race', '--force' => true]);
-    }
-
-    private function startPaymentRaceServers(string $section): void
-    {
-        $this->raceBarrierDirectory = storage_path('framework/testing/payment-barrier-'.bin2hex(random_bytes(8)));
-        mkdir($this->raceBarrierDirectory, 0777, true);
-        $serverRouter = base_path('tests/Support/http_server.php');
-
-        for ($index = 0; $index < 2; $index++) {
-            $participant = $index === 0 ? 'A' : 'B';
-            $port = $this->findPaymentRaceFreePort();
-            $log = $this->raceBarrierDirectory.DIRECTORY_SEPARATOR.'server-'.$participant.'.log';
-            $command = [PHP_BINARY, '-S', '127.0.0.1:'.$port, $serverRouter];
-            $environment = getenv();
-            $environment['APP_ENV'] = 'testing';
-            $environment['APP_KEY'] = (string) config('app.key');
-            $environment['DB_CONNECTION'] = 'sqlite';
-            $environment['DB_DATABASE'] = $this->raceDatabase;
-            $environment['CACHE_STORE'] = 'array';
-            $environment['CACHE_DRIVER'] = 'array';
-            $environment['SESSION_DRIVER'] = 'array';
-            $environment['QUEUE_CONNECTION'] = 'sync';
-            $environment['MAIL_MAILER'] = 'array';
-            $environment['TELESCOPE_ENABLED'] = 'false';
-            $environment['ORDER_CONCURRENCY_BARRIER_DIR'] = $this->raceBarrierDirectory;
-            $environment['ORDER_CONCURRENCY_BARRIER_NAME'] = $section;
-            $environment['ORDER_CONCURRENCY_BARRIER_PARTICIPANT'] = $participant;
-
-            $process = proc_open($command, [
-                0 => ['pipe', 'r'],
-                1 => ['file', $log, 'ab'],
-                2 => ['file', $log, 'ab'],
-            ], $pipes, base_path(), $environment);
-            if (! is_resource($process)) {
-                throw new \RuntimeException('Unable to start the payment race server.');
-            }
-            fclose($pipes[0]);
-
-            $this->raceServerProcesses[] = [
-                'process' => $process,
-                'port' => $port,
-                'log' => $log,
-            ];
-            $this->waitForPaymentRaceServer($port, $log);
-        }
-    }
-
-    private function waitForPaymentRaceServer(int $port, string $log): void
-    {
-        $context = stream_context_create(['http' => [
-            'timeout' => 0.25,
-            'ignore_errors' => true,
-            'header' => "Accept: application/json\r\n",
-        ]]);
-        $url = "http://127.0.0.1:{$port}/api/health";
-        for ($attempt = 0; $attempt < 100; $attempt++) {
-            if (@file_get_contents($url, false, $context) !== false) {
-                return;
-            }
-            usleep(50000);
-        }
-
-        $details = is_file($log) ? file_get_contents($log) : '';
-        throw new \RuntimeException("Payment race server did not start: {$details}");
-    }
-
-    private function paymentRaceLogin(string $email): string
-    {
-        $response = $this->paymentRaceHttpRequest(
-            'POST',
-            $this->paymentRaceUrl(0).'/api/auth/login',
-            ['email' => $email, 'password' => 'password123'],
-        );
-        if (($response['status'] ?? 0) !== 200 || ! isset($response['json']['data']['token'])) {
-            throw new \RuntimeException('Payment race server login failed: '.json_encode($response));
-        }
-
-        return $response['json']['data']['token'];
-    }
-
-    /** @param array<int, array{token: string, body: array<string, mixed>}> $requests */
-    private function runConcurrentPaymentHttpRequests(array $requests): array
-    {
-        $worker = base_path('tests/Support/http_request.php');
-        $processes = [];
-        $files = [];
-        foreach ($requests as $index => $request) {
-            $input = $this->raceBarrierDirectory.DIRECTORY_SEPARATOR.'request-'.$index.'.json';
-            $output = $this->raceBarrierDirectory.DIRECTORY_SEPARATOR.'response-'.$index.'.json';
-            file_put_contents($input, json_encode([
-                'method' => 'POST',
-                'url' => $this->paymentRaceUrl($index).'/api/payments',
-                'headers' => ['Authorization' => 'Bearer '.$request['token']],
-                'body' => json_encode($request['body'], JSON_THROW_ON_ERROR),
-            ], JSON_THROW_ON_ERROR));
-            $process = proc_open([PHP_BINARY, $worker, $input, $output], [
-                0 => ['pipe', 'r'],
-                1 => ['pipe', 'w'],
-                2 => ['pipe', 'w'],
-            ], $pipes, base_path());
-            if (! is_resource($process)) {
-                throw new \RuntimeException('Unable to start a payment HTTP worker.');
-            }
-            foreach ($pipes as $pipe) {
-                fclose($pipe);
-            }
-            $processes[$index] = $process;
-            $files[$index] = [$input, $output];
-        }
-
-        foreach ($processes as $process) {
-            proc_close($process);
-        }
-
-        $responses = [];
-        foreach ($files as $index => [$input, $output]) {
-            if (! is_file($output)) {
-                throw new \RuntimeException("Payment HTTP worker {$index} produced no response.");
-            }
-            $raw = json_decode((string) file_get_contents($output), true, 512, JSON_THROW_ON_ERROR);
-            $raw['json'] = json_decode($raw['body'] ?? '', true);
-            $responses[$index] = $raw;
-            @unlink($input);
-            @unlink($output);
-        }
-
-        return $responses;
-    }
-
-    /** @return array{status: int, body: string, json: array<string, mixed>|null} */
-    private function paymentRaceHttpRequest(string $method, string $url, array $body): array
-    {
-        $context = stream_context_create(['http' => [
-            'method' => $method,
-            'header' => "Accept: application/json\r\nContent-Type: application/json\r\n",
-            'content' => json_encode($body, JSON_THROW_ON_ERROR),
-            'ignore_errors' => true,
-            'timeout' => 30,
-        ]]);
-        $responseBody = file_get_contents($url, false, $context);
-        $status = 0;
-        foreach ($http_response_header ?? [] as $header) {
-            if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
-                $status = (int) $matches[1];
-            }
-        }
-
-        return [
-            'status' => $status,
-            'body' => $responseBody === false ? '' : $responseBody,
-            'json' => json_decode($responseBody ?: '', true),
-        ];
-    }
-
-    private function paymentRaceUrl(int $index): string
-    {
-        return 'http://127.0.0.1:'.$this->raceServerProcesses[$index]['port'];
-    }
-
-    private function findPaymentRaceFreePort(): int
-    {
-        $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
-        if ($socket === false) {
-            throw new \RuntimeException("Unable to reserve a payment race port: {$error}");
-        }
-        $name = stream_socket_get_name($socket, false);
-        fclose($socket);
-
-        return (int) substr(strrchr($name, ':'), 1);
-    }
-
-    private function stopRaceInfrastructure(): void
-    {
-        foreach ($this->raceServerProcesses as $server) {
-            if (is_resource($server['process'])) {
-                $status = proc_get_status($server['process']);
-                if ($status['running']) {
-                    proc_terminate($server['process']);
-                }
-                proc_close($server['process']);
-            }
-        }
-        $this->raceServerProcesses = [];
-
-        if ($this->raceBarrierDirectory && is_dir($this->raceBarrierDirectory)) {
-            foreach (glob($this->raceBarrierDirectory.DIRECTORY_SEPARATOR.'*') ?: [] as $file) {
-                @unlink($file);
-            }
-            @rmdir($this->raceBarrierDirectory);
-        }
-        $this->raceBarrierDirectory = null;
-
-        if ($this->raceDatabase) {
-            DB::purge('race');
-            @unlink($this->raceDatabase);
-            $this->raceDatabase = null;
-        }
-    }
 }

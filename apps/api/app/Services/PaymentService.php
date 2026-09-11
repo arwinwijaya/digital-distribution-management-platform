@@ -249,6 +249,14 @@ class PaymentService
 
     private function moneyToCents(mixed $amount): int
     {
-        return (int) round(((float) $amount) * 100);
+        $normalized = trim((string) $amount);
+        if (! preg_match('/^(\d+)(?:\.(\d{1,2}))?$/', $normalized, $matches)) {
+            throw new \InvalidArgumentException('Money values must contain at most two decimal places.');
+        }
+
+        $wholeCents = ((int) $matches[1]) * 100;
+        $fractionCents = (int) str_pad($matches[2] ?? '', 2, '0');
+
+        return $wholeCents + $fractionCents;
     }
 }

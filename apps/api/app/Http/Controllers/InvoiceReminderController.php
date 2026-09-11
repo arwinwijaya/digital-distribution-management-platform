@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InvoiceReminder;
+use App\Services\FinanceAuthorizationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -10,20 +11,29 @@ use Illuminate\Validation\ValidationException;
 
 class InvoiceReminderController extends Controller
 {
+    public function __construct(private readonly FinanceAuthorizationService $authorization) {}
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $isAdmin = $user?->role === 'admin';
-        $isFinance = app(\App\Services\FinanceAuthorizationService::class)->isFinance($user ?? auth()->user());
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized.',
+            ], 403);
+        }
 
-        if (! $isAdmin && ! $isFinance) {
-            $outlet = $user?->outlet;
-            if (! $outlet) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Unauthorized.',
-                ], 403);
-            }
+        // Resolve every role from current active authorization state before any
+        // outlet relation is trusted; stale role claims/relations cannot grant access.
+        $isAdmin = $this->authorization->isAdmin($user);
+        $isFinance = $this->authorization->isFinance($user);
+        $isOutlet = $this->authorization->hasCurrentRole($user, 'outlet');
+        $outlet = $isOutlet ? $user->outlet : null;
+        if (! $isAdmin && ! $isFinance && (! $isOutlet || ! $outlet || ! $outlet->is_active)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized.',
+            ], 403);
         }
 
         $validator = Validator::make($request->query(), [
@@ -48,7 +58,6 @@ class InvoiceReminderController extends Controller
                 $query->whereHas('invoice', fn ($q) => $q->where('outlet_id', $outletId));
             }
         } else {
-            $outlet = $user->outlet;
             $query->whereHas('invoice', fn ($q) => $q->where('outlet_id', $outlet->id));
         }
 

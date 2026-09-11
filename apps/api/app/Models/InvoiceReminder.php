@@ -16,6 +16,7 @@ class InvoiceReminder extends Model
     public const OVERDUE = self::EVENT_OVERDUE;
 
     public const PENDING = 'pending';
+    public const SENDING = 'sending';
     public const SENT = 'sent';
     public const FAILED = 'failed';
 
@@ -26,6 +27,8 @@ class InvoiceReminder extends Model
         'status',
         'attempts',
         'next_attempt_at',
+        'claimed_at',
+        'claim_token',
         'sent_at',
         'failed_at',
         'last_error',
@@ -39,6 +42,7 @@ class InvoiceReminder extends Model
         return [
             'event_date' => 'date',
             'next_attempt_at' => 'datetime',
+            'claimed_at' => 'datetime',
             'sent_at' => 'datetime',
             'failed_at' => 'datetime',
             'attempts' => 'integer',

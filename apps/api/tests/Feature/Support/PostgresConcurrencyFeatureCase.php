@@ -12,6 +12,8 @@ use Throwable;
 
 abstract class PostgresConcurrencyFeatureCase extends TestCase
 {
+    protected bool $postgresRequired = true;
+
     protected ?string $barrierDirectory = null;
 
     /** @var array<int, array{process: resource, port: int}> */
@@ -34,18 +36,30 @@ abstract class PostgresConcurrencyFeatureCase extends TestCase
         parent::setUp();
 
         if (config('database.default') !== 'pgsql' || ! extension_loaded('pdo_pgsql')) {
-            $this->markTestSkipped('PostgreSQL concurrency coverage requires DB_CONNECTION=pgsql and pdo_pgsql.');
+            if ($this->postgresRequired) {
+                $this->markTestSkipped('PostgreSQL concurrency coverage requires DB_CONNECTION=pgsql and pdo_pgsql.');
+            }
+
+            return;
         }
 
         try {
             DB::connection()->getPdo();
         } catch (Throwable $exception) {
-            $this->markTestSkipped('PostgreSQL test database is unavailable: '.$exception->getMessage());
+            if ($this->postgresRequired) {
+                $this->markTestSkipped('PostgreSQL test database is unavailable: '.$exception->getMessage());
+            }
+
+            return;
         }
 
         if (! DB::getSchemaBuilder()->hasTable('whatsapp_messages')
             || ! DB::getSchemaBuilder()->hasTable('invoice_reminders')) {
-            $this->markTestSkipped('PostgreSQL test database is not migrated.');
+            if ($this->postgresRequired) {
+                $this->markTestSkipped('PostgreSQL test database is not migrated.');
+            }
+
+            return;
         }
 
         $this->prefix = 'pg-race-'.bin2hex(random_bytes(8));

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Testing\TestResponse;
+use Tests\Support\PaymentConcurrencyHarness;
 use Tests\TestCase;
 
 class PaymentTest extends TestCase
@@ -26,54 +27,32 @@ class PaymentTest extends TestCase
     protected Outlet $outlet;
     protected string $outletToken;
     protected string $adminToken;
+    protected ?PaymentConcurrencyHarness $raceHarness = null;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->outletUser = User::factory()->outlet()->create([
-            'email' => 'payment-outlet@ddp.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $this->outlet = Outlet::factory()->create([
-            'user_id' => $this->outletUser->id,
-            'is_active' => true,
-        ]);
-        $this->outletToken = $this->postJson('/api/auth/login', [
-            'email' => 'payment-outlet@ddp.test',
-            'password' => 'password123',
-        ])->json('data.token');
-
-        $admin = User::factory()->admin()->create([
-            'email' => 'payment-admin@ddp.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $this->adminToken = $this->postJson('/api/auth/login', [
-            'email' => $admin->email,
-            'password' => 'password123',
-        ])->json('data.token');
+        $this->outletUser = User::factory()->outlet()->create(['email' => 'payment-outlet@ddp.test', 'password' => Hash::make('password123')]);
+        $this->outlet = Outlet::factory()->create(['user_id' => $this->outletUser->id, 'is_active' => true]);
+        $this->outletToken = $this->postJson('/api/auth/login', ['email' => 'payment-outlet@ddp.test', 'password' => 'password123'])->json('data.token');
+        $admin = User::factory()->admin()->create(['email' => 'payment-admin@ddp.test', 'password' => Hash::make('password123')]);
+        $this->adminToken = $this->postJson('/api/auth/login', ['email' => $admin->email, 'password' => 'password123'])->json('data.token');
     }
 
-    protected function outletHeaders(): array
+    protected function tearDown(): void
     {
-        return ['Authorization' => "Bearer {$this->outletToken}"];
+        $this->raceHarness?->close();
+        parent::tearDown();
     }
 
-    protected function adminHeaders(): array
-    {
-        return ['Authorization' => "Bearer {$this->adminToken}"];
-    }
+    protected function outletHeaders(): array { return ['Authorization' => "Bearer {$this->outletToken}"]; }
+    protected function adminHeaders(): array { return ['Authorization' => "Bearer {$this->adminToken}"]; }
 
     protected function createOrder(float $total, string $identity): Order
     {
-        $product = Product::factory()->create([
-            'price' => $total,
-            'stock_quantity' => 100,
-            'is_active' => true,
-        ]);
-        $response = $this->withHeaders($this->outletHeaders())->postJson('/api/orders', [
-            'items' => [['product_id' => $product->id, 'quantity' => 1]],
-            'idempotency_key' => $identity,
-        ]);
+        $product = Product::factory()->create(['price' => $total, 'stock_quantity' => 100, 'is_active' => true]);
+        $response = $this->withHeaders($this->outletHeaders())->postJson('/api/orders', ['items' => [['product_id' => $product->id, 'quantity' => 1]], 'idempotency_key' => $identity]);
         $response->assertStatus(201);
 
         return Order::findOrFail($response->json('data.id'));
@@ -83,23 +62,14 @@ class PaymentTest extends TestCase
     {
         $order = $this->createOrder($total, 'payment-order-'.uniqid());
         $order->update(['status' => 'Delivered']);
-        OrderStatusHistory::create([
-            'order_id' => $order->id,
-            'status' => 'Delivered',
-            'notes' => 'Delivered for payment test',
-        ]);
+        OrderStatusHistory::create(['order_id' => $order->id, 'status' => 'Delivered', 'notes' => 'Delivered for payment test']);
 
         return $order->fresh();
     }
 
     protected function recordPayment(Order $order, float $amount, string $identity): TestResponse
     {
-        return $this->withHeaders($this->adminHeaders())->postJson('/api/payments', [
-            'order_id' => $order->id,
-            'amount' => $amount,
-            'payment_method' => 'cash',
-            'idempotency_key' => $identity,
-        ]);
+        return $this->withHeaders($this->adminHeaders())->postJson('/api/payments', ['order_id' => $order->id, 'amount' => $amount, 'payment_method' => 'cash', 'idempotency_key' => $identity]);
     }
 
     protected function setCreditLimit(float $amount): void
@@ -292,6 +262,31 @@ class PaymentTest extends TestCase
         $newOrder = $this->createOrder(10000, 'invalid-payment-status');
         $this->recordPayment($newOrder, 1, 'invalid-status')->assertStatus(422)->assertJsonValidationErrors(['order_id']);
         $this->recordPayment($order, 0, 'zero-payment')->assertStatus(422)->assertJsonValidationErrors(['amount']);
+    }
+
+    /** Legacy Step 9 alias: same pgsql race as PaymentConcurrencyTest, kept green on the old path. */
+    public function test_concurrent_same_identity_payment_posts_replay_one_payment(): void
+    {
+        $this->raceHarness = new PaymentConcurrencyHarness();
+        $this->raceHarness->prepare();
+        $order = $this->raceHarness->createPaymentFixture();
+        $this->raceHarness->startServers();
+        $responses = $this->raceHarness->runConcurrentPayment($order->id, ['amount' => 40000, 'payment_method' => 'cash', 'idempotency_key' => 'concurrent-payment-key']);
+        $statuses = array_column($responses, 'status');
+        sort($statuses);
+        $this->assertSame([200, 201], $statuses);
+        $this->assertSame(['success', 'success'], array_column(array_column($responses, 'json'), 'status'));
+        $this->assertSame($responses[0]['json']['data']['id'], $responses[1]['json']['data']['id']);
+        $this->assertSame(1, Payment::on(PaymentConcurrencyHarness::CONNECTION)->count());
+        $payment = Payment::on(PaymentConcurrencyHarness::CONNECTION)->sole();
+        $this->assertSame('completed', $payment->status);
+        $this->assertSame('40000.00', (string) $payment->amount);
+        $this->assertSame('40000.00', (string) Order::on(PaymentConcurrencyHarness::CONNECTION)->findOrFail($order->id)->paid_amount);
+        $this->assertSame('Partially Paid', Order::on(PaymentConcurrencyHarness::CONNECTION)->findOrFail($order->id)->status);
+        $this->assertSame(1, Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->count());
+        $this->assertSame('40000.00', (string) Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('paid_amount'));
+        $this->assertSame('60000.00', (string) Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('balance_amount'));
+        $this->assertSame(Invoice::PARTIALLY_PAID, Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('status'));
     }
 
 }

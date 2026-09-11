@@ -124,32 +124,18 @@ class OrderController extends Controller
             ], 403);
         }
 
+        [$order, $approved] = $this->runApprovalTransaction($id);
+
+        return $this->approvalResponse($order, $approved);
+    }
+
+    /** @return array{0: Order, 1: bool|null} */
+    private function runApprovalTransaction(int $id): array
+    {
         $result = null;
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
-                $result = DB::transaction(function () use ($id) {
-                    // Both the status transition and invoice creation occur in
-                    // this same lock-protected transaction.
-                    ConcurrencyTestBarrier::await('approval');
-                    $order = Order::with('items.product')->lockForUpdate()->findOrFail($id);
-
-                    if ($order->status === 'New') {
-                        $order->recordStatus('Confirmed', 'Order approved by admin');
-                        $invoice = $this->invoiceService->createForApprovedOrder($order);
-
-                        return [$order, true, $invoice];
-                    }
-
-                    if ($order->status === 'Confirmed') {
-                        // Approval retries reuse the immutable invoice and do not
-                        // append another status-history row.
-                        $invoice = $this->invoiceService->createForApprovedOrder($order);
-
-                        return [$order, false, $invoice];
-                    }
-
-                    return [$order, null, null];
-                });
+                $result = DB::transaction(fn (): array => $this->approveInTransaction($id));
                 break;
             } catch (QueryException $exception) {
                 if ($attempt === 2) {
@@ -159,8 +145,37 @@ class OrderController extends Controller
             }
         }
 
-        [$order, $approved, $invoice] = $result;
+        return $result;
+    }
 
+    /** @return array{0: Order, 1: bool|null} */
+    private function approveInTransaction(int $id): array
+    {
+        // Both the status transition and invoice creation occur in this same
+        // lock-protected transaction.
+        ConcurrencyTestBarrier::await('approval');
+        $order = Order::with('items.product')->lockForUpdate()->findOrFail($id);
+
+        if ($order->status === 'New') {
+            $order->recordStatus('Confirmed', 'Order approved by admin');
+            $this->invoiceService->createForApprovedOrder($order);
+
+            return [$order, true];
+        }
+
+        if ($order->status === 'Confirmed') {
+            // Approval retries reuse the immutable invoice and do not append
+            // another status-history row.
+            $this->invoiceService->createForApprovedOrder($order);
+
+            return [$order, false];
+        }
+
+        return [$order, null];
+    }
+
+    private function approvalResponse(Order $order, ?bool $approved): JsonResponse
+    {
         if ($approved === null) {
             return response()->json([
                 'status' => 'error',

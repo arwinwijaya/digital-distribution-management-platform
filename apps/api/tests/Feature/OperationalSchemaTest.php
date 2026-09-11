@@ -24,7 +24,7 @@ class OperationalSchemaTest extends TestCase
         ]));
         $this->assertTrue(Schema::hasColumns('invoice_reminders', [
             'invoice_id', 'event_type', 'event_date', 'status', 'attempts',
-            'next_attempt_at', 'idempotency_key',
+            'next_attempt_at', 'claimed_at', 'claim_token', 'idempotency_key',
         ]));
         $this->assertTrue(Schema::hasColumns('role_assignment_audits', [
             'target_user_id', 'actor_user_id', 'from_role', 'to_role', 'action',
@@ -81,6 +81,7 @@ class OperationalSchemaTest extends TestCase
             '2026_09_10_000020_create_invoices_table.php',
             '2026_09_10_000021_create_invoice_reminders_table.php',
             '2026_09_10_000022_create_role_assignment_audits_table.php',
+            '2026_09_11_000023_add_send_lease_to_invoice_reminders.php',
         ] as $migration) {
             $path = database_path('migrations/'.$migration);
             $instance = require $path;

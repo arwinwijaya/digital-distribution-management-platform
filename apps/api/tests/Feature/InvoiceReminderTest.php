@@ -34,10 +34,18 @@ class InvoiceReminderTest extends TestCase
         $this->app->instance(WhatsAppClient::class, new class implements WhatsAppClient
         {
             public int $sendTextCalls = 0;
+            public array $idempotencyKeys = [];
 
             public function sendText(string $to, string $text): array
             {
                 $this->sendTextCalls++;
+
+                throw new \RuntimeException('unkeyed provider path must not be used');
+            }
+
+            public function sendTextWithIdempotency(string $to, string $text, string $idempotencyKey): array
+            {
+                $this->idempotencyKeys[] = $idempotencyKey;
 
                 throw new \RuntimeException('provider unavailable');
             }
@@ -64,17 +72,18 @@ class InvoiceReminderTest extends TestCase
         Config::set('whatsapp.reminder_schedule', [
             'h_minus_one_offset_days' => 1,
             'overdue_offset_days' => 0,
-            'max_attempts' => 3,
+            'max_attempts' => 4,
             'backoff_minutes' => [1, 5, 15],
         ]);
     }
 
-    public function test_h_minus_one_reminder_is_sent_once(): void
+    public function test_invoice_reminder_is_sent_once(): void
     {
         $now = Carbon::parse('2026-09-10 07:00:00', 'Asia/Jakarta');
         Carbon::setTestNow($now);
 
         [$order, $invoice] = $this->createDeliveredInvoice('h-minus-one', '2026-09-11');
+        $client = $this->useSuccessfulReminderClient();
 
         $this->artisan('invoices:reminders');
         $this->artisan('invoices:reminders');
@@ -83,6 +92,8 @@ class InvoiceReminderTest extends TestCase
         $reminder = InvoiceReminder::where('invoice_id', $invoice->id)->first();
         $this->assertSame(InvoiceReminder::EVENT_H_MINUS_ONE, $reminder->event_type);
         $this->assertSame('2026-09-11', $reminder->event_date->toDateString());
+        $this->assertSame(1, count($client->idempotencyKeys));
+        $this->assertSame($reminder->idempotency_key, $client->idempotencyKeys[0]);
 
         Carbon::setTestNow();
     }
@@ -92,13 +103,16 @@ class InvoiceReminderTest extends TestCase
         $now = Carbon::parse('2026-09-12 07:00:00', 'Asia/Jakarta');
         Carbon::setTestNow($now);
 
-        [$order, $invoice] = $this->createDeliveredInvoice('missed-h-minus-one', '2026-09-11');
+        [$order, $invoice] = $this->createDeliveredInvoice('missed-h-minus-one', '2026-09-01');
+        $client = $this->useSuccessfulReminderClient();
 
         $this->artisan('invoices:reminders');
 
         $this->assertSame(1, InvoiceReminder::where('invoice_id', $invoice->id)->count());
         $reminder = InvoiceReminder::where('invoice_id', $invoice->id)->first();
         $this->assertSame(InvoiceReminder::EVENT_H_MINUS_ONE, $reminder->event_type);
+        $this->assertCount(1, $client->idempotencyKeys);
+        $this->assertSame($reminder->idempotency_key, $client->idempotencyKeys[0]);
 
         Carbon::setTestNow();
     }
@@ -109,13 +123,25 @@ class InvoiceReminderTest extends TestCase
         Carbon::setTestNow($now);
 
         [$order, $invoice] = $this->createDeliveredInvoice('overdue-first', '2026-09-11');
+        InvoiceReminder::create([
+            'invoice_id' => $invoice->id,
+            'event_type' => InvoiceReminder::EVENT_H_MINUS_ONE,
+            'event_date' => '2026-09-11',
+            'status' => InvoiceReminder::SENT,
+            'idempotency_key' => 'preexisting-h1-overdue-first',
+        ]);
+        $client = $this->useSuccessfulReminderClient();
 
         $this->artisan('invoices:reminders');
         $this->artisan('invoices:reminders');
 
-        $this->assertSame(1, InvoiceReminder::where('invoice_id', $invoice->id)->count());
-        $reminder = InvoiceReminder::where('invoice_id', $invoice->id)->first();
+        $this->assertSame(2, InvoiceReminder::where('invoice_id', $invoice->id)->count());
+        $reminder = InvoiceReminder::where('invoice_id', $invoice->id)
+            ->where('event_type', InvoiceReminder::EVENT_OVERDUE)
+            ->first();
         $this->assertSame(InvoiceReminder::EVENT_OVERDUE, $reminder->event_type);
+        $this->assertCount(1, $client->idempotencyKeys);
+        $this->assertSame($reminder->idempotency_key, $client->idempotencyKeys[0]);
 
         Carbon::setTestNow();
     }
@@ -156,10 +182,11 @@ class InvoiceReminderTest extends TestCase
 
     public function test_provider_failure_schedules_idempotent_backoff(): void
     {
-        $now = Carbon::parse('2026-09-11 07:00:00', 'Asia/Jakarta');
+        $now = Carbon::parse('2026-09-10 07:00:00', 'Asia/Jakarta');
         Carbon::setTestNow($now);
 
         [$order, $invoice] = $this->createDeliveredInvoice('backoff-identity', '2026-09-11');
+        $client = $this->app->make(WhatsAppClient::class);
 
         $this->artisan('invoices:reminders');
         $reminder = InvoiceReminder::where('invoice_id', $invoice->id)->sole();
@@ -169,31 +196,35 @@ class InvoiceReminderTest extends TestCase
 
         $idempotencyKey = $reminder->idempotency_key;
 
-        Carbon::setTestNow($now->copy()->addMinutes(2));
+        Carbon::setTestNow($now->copy()->addMinutes(1));
         $this->artisan('invoices:reminders');
         $reminder->refresh();
         $this->assertSame(2, $reminder->attempts);
         $this->assertSame($idempotencyKey, $reminder->idempotency_key);
         $this->assertSame($now->copy()->addMinutes(5)->toDateTimeString(), $reminder->next_attempt_at->toDateTimeString());
 
-        Carbon::setTestNow($now->copy()->addMinutes(6));
+        Carbon::setTestNow($now->copy()->addMinutes(5));
         $this->artisan('invoices:reminders');
         $reminder->refresh();
         $this->assertSame(3, $reminder->attempts);
         $this->assertSame($idempotencyKey, $reminder->idempotency_key);
+        $this->assertSame($now->copy()->addMinutes(15)->toDateTimeString(), $reminder->next_attempt_at->toDateTimeString());
 
-        Carbon::setTestNow($now->copy()->addMinutes(20));
+        Carbon::setTestNow($now->copy()->addMinutes(15));
         $this->artisan('invoices:reminders');
         $reminder->refresh();
-        $this->assertSame(3, $reminder->attempts);
+        $this->assertSame(4, $reminder->attempts);
+        $this->assertSame($idempotencyKey, $reminder->idempotency_key);
         $this->assertSame(InvoiceReminder::FAILED, $reminder->status);
+        $this->assertCount(4, $client->idempotencyKeys);
+        $this->assertSame([$idempotencyKey, $idempotencyKey, $idempotencyKey, $idempotencyKey], $client->idempotencyKeys);
 
         Carbon::setTestNow();
     }
 
     public function test_final_reminder_failure_is_audited_without_invoice_mutation(): void
     {
-        $now = Carbon::parse('2026-09-11 07:00:00', 'Asia/Jakarta');
+        $now = Carbon::parse('2026-09-10 07:00:00', 'Asia/Jakarta');
         Carbon::setTestNow($now);
 
         [$order, $invoice] = $this->createDeliveredInvoice('final-audit', '2026-09-11');
@@ -204,15 +235,15 @@ class InvoiceReminderTest extends TestCase
         $this->artisan('invoices:reminders');
         $reminder = InvoiceReminder::where('invoice_id', $invoice->id)->sole();
 
-        Carbon::setTestNow($now->copy()->addMinutes(2));
+        Carbon::setTestNow($now->copy()->addMinutes(1));
         $this->artisan('invoices:reminders');
         $reminder->refresh();
 
-        Carbon::setTestNow($now->copy()->addMinutes(6));
+        Carbon::setTestNow($now->copy()->addMinutes(5));
         $this->artisan('invoices:reminders');
         $reminder->refresh();
 
-        Carbon::setTestNow($now->copy()->addMinutes(20));
+        Carbon::setTestNow($now->copy()->addMinutes(15));
         $this->artisan('invoices:reminders');
         $reminder->refresh();
 
@@ -313,69 +344,84 @@ class InvoiceReminderTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_concurrent_invoice_reminder_workers(): void
+    public function test_asia_jakarta_pre_boundary_excludes_overdue_and_midnight_is_inclusive(): void
     {
-        if (config('database.default') !== 'pgsql' || ! extension_loaded('pdo_pgsql')) {
-            $this->markTestSkipped('Concurrent reminder claim coverage requires PostgreSQL.');
-        }
+        $client = $this->useSuccessfulReminderClient();
+        [$order, $invoice] = $this->createDeliveredInvoice('jakarta-boundary', '2026-09-11');
 
-        try {
-            \Illuminate\Support\Facades\DB::connection()->getPdo();
-        } catch (\Throwable $exception) {
-            $this->markTestSkipped('PostgreSQL test database is unavailable: '.$exception->getMessage());
-        }
+        Carbon::setTestNow(Carbon::parse('2026-09-10 23:59:59', 'Asia/Jakarta'));
+        $this->artisan('invoices:reminders');
+        $this->assertDatabaseHas('invoice_reminders', [
+            'invoice_id' => $invoice->id,
+            'event_type' => InvoiceReminder::EVENT_H_MINUS_ONE,
+        ]);
+        $this->assertDatabaseMissing('invoice_reminders', [
+            'invoice_id' => $invoice->id,
+            'event_type' => InvoiceReminder::EVENT_OVERDUE,
+        ]);
 
-        if (! \Illuminate\Support\Facades\DB::getSchemaBuilder()->hasTable('invoice_reminders')) {
-            $this->markTestSkipped('PostgreSQL test database is not migrated.');
-        }
+        Carbon::setTestNow(Carbon::parse('2026-09-11 00:00:00', 'Asia/Jakarta'));
+        $this->artisan('invoices:reminders');
+        $this->assertDatabaseHas('invoice_reminders', [
+            'invoice_id' => $invoice->id,
+            'event_type' => InvoiceReminder::EVENT_OVERDUE,
+        ]);
+        $this->assertCount(2, $client->idempotencyKeys);
 
-        $this->app->instance(WhatsAppClient::class, new class implements WhatsAppClient
+        Carbon::setTestNow();
+    }
+
+    public function test_reminder_history_requires_current_active_authorization(): void
+    {
+        [$order, $invoice] = $this->createDeliveredInvoice('authorization', '2026-09-11');
+        InvoiceReminder::create([
+            'invoice_id' => $invoice->id,
+            'event_type' => InvoiceReminder::EVENT_H_MINUS_ONE,
+            'event_date' => '2026-09-11',
+            'status' => InvoiceReminder::SENT,
+            'idempotency_key' => 'reminder-authorization',
+        ]);
+
+        $outletUser = User::factory()->outlet()->create();
+        $this->outlet->update(['user_id' => $outletUser->id]);
+        $token = auth()->login($outletUser);
+        $this->withToken($token)->getJson('/api/finance/reminders')->assertOk();
+
+        // The old token and outlet relation must not preserve access after role removal.
+        $outletUser->update(['role' => 'sales']);
+        $this->withToken($token)->getJson('/api/finance/reminders')->assertForbidden();
+
+        // Raw role alone must not grant an inactive administrator access.
+        $this->admin->update(['is_active' => false]);
+        $this->withToken($this->adminToken)->getJson('/api/finance/reminders')->assertForbidden();
+    }
+
+    private function useSuccessfulReminderClient(): object
+    {
+        $client = new class implements WhatsAppClient
         {
-            public int $sendTextCalls = 0;
+            public array $idempotencyKeys = [];
 
             public function sendText(string $to, string $text): array
             {
-                $this->sendTextCalls++;
+                throw new \LogicException('Reminder delivery must use the keyed provider method.');
+            }
 
-                return ['id' => 'reminder-pg-1'];
+            public function sendTextWithIdempotency(string $to, string $text, string $idempotencyKey): array
+            {
+                $this->idempotencyKeys[] = $idempotencyKey;
+
+                return ['id' => 'provider-'.count($this->idempotencyKeys)];
             }
 
             public function sendCatalog(string $to, array $catalog): array
             {
                 throw new \RuntimeException('Unexpected catalog call');
             }
-        });
+        };
+        $this->app->instance(WhatsAppClient::class, $client);
 
-        $now = Carbon::parse('2026-09-11 07:00:00', 'Asia/Jakarta');
-        Carbon::setTestNow($now);
-
-        [$order, $invoice] = $this->createDeliveredInvoice('concurrent-reminder', '2026-09-11');
-        $logicalKey = 'invoice-reminder:'.$invoice->id.':overdue:2026-09-11';
-
-        $this->artisan('invoices:reminders');
-
-        $reminder = InvoiceReminder::on('pgsql')
-            ->where('invoice_id', $invoice->id)
-            ->sole();
-
-        $idempotencyKey = $reminder->idempotency_key;
-        $providerKey = $reminder->idempotency_key;
-
-        $inserted = \Illuminate\Support\Facades\DB::connection('pgsql')->table('invoice_reminders')->insertOrIgnore([
-            'invoice_id' => $invoice->id,
-            'event_type' => InvoiceReminder::EVENT_OVERDUE,
-            'event_date' => '2026-09-11',
-            'status' => InvoiceReminder::SENT,
-            'idempotency_key' => $idempotencyKey,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $this->assertSame(0, $inserted);
-        $this->assertSame(1, InvoiceReminder::on('pgsql')->where('invoice_id', $invoice->id)->count());
-        $this->assertSame($providerKey, $idempotencyKey);
-
-        Carbon::setTestNow();
+        return $client;
     }
 
     /** @return array{0: Order, 1: Invoice} */

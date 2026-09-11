@@ -79,14 +79,9 @@ class WhatsAppOutboundService
      */
     public function sendInvoiceReminder(string $phone, string $body, string $idempotencyKey, array $invoicePayload = []): array
     {
-        if (method_exists($this->client, 'sendTextWithIdempotency')) {
-            /** @var array<string, mixed> $response */
-            $response = $this->client->sendTextWithIdempotency($phone, $body, $idempotencyKey);
-
-            return $response;
-        }
-
-        return $this->client->sendText($phone, $body);
+        // Reminder delivery has no unkeyed fallback: the contract requires the
+        // provider identity so every retry is deduplicated at the boundary.
+        return $this->client->sendTextWithIdempotency($phone, $body, $idempotencyKey);
     }
 
     /** @return array{message: WhatsAppMessage, status: string} */
@@ -189,14 +184,7 @@ class WhatsAppOutboundService
     /** @return array<string, mixed> */
     private function sendText(string $phone, string $body, string $idempotencyKey): array
     {
-        if (method_exists($this->client, 'sendTextWithIdempotency')) {
-            /** @var array<string, mixed> $response */
-            $response = $this->client->sendTextWithIdempotency($phone, $body, $idempotencyKey);
-
-            return $response;
-        }
-
-        return $this->client->sendText($phone, $body);
+        return $this->client->sendTextWithIdempotency($phone, $body, $idempotencyKey);
     }
 
     /** @param array<string, mixed> $response */

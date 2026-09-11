@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoice;
+use App\Models\InvoiceReminder;
 use App\Models\Order;
 use App\Models\Outlet;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\WhatsAppMessage;
 use App\Services\OrderCreationService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 use Throwable;
@@ -36,6 +39,16 @@ class WhatsAppPostgresConcurrencyTest extends TestCase
 
     private ?string $orderIdentity = null;
 
+    /** @var resource|null */
+    private $providerServer = null;
+
+    private ?int $providerPort = null;
+
+    private ?string $providerCallFile = null;
+
+    /** @var array<int, resource> */
+    private array $commandProcesses = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -50,7 +63,8 @@ class WhatsAppPostgresConcurrencyTest extends TestCase
             $this->markTestSkipped('PostgreSQL test database is unavailable: '.$exception->getMessage());
         }
 
-        if (! DB::getSchemaBuilder()->hasTable('whatsapp_messages')) {
+        if (! DB::getSchemaBuilder()->hasTable('whatsapp_messages')
+            || ! DB::getSchemaBuilder()->hasTable('invoice_reminders')) {
             $this->markTestSkipped('PostgreSQL test database is not migrated.');
         }
 
@@ -147,6 +161,48 @@ class WhatsAppPostgresConcurrencyTest extends TestCase
         $this->assertSame(1, WhatsAppMessage::where('logical_key', 'order-confirmation:'.$order->id)->count());
     }
 
+    public function test_concurrent_invoice_reminder_workers(): void
+    {
+        $orderIdentity = hash('sha256', $this->prefix.'-reminder-order');
+        $order = Order::create([
+            'order_id' => 'ORD-'.$this->prefix,
+            'outlet_id' => $this->outlet->id,
+            'status' => 'Delivered',
+            'total_amount' => 1000000,
+            'paid_amount' => 0,
+            'commission_percentage' => 2,
+            'idempotency_key' => $orderIdentity,
+        ]);
+        $this->orderIdentity = $orderIdentity;
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'outlet_id' => $this->outlet->id,
+            'invoice_number' => 'INV-'.$this->prefix,
+            'issue_date' => Carbon::now('Asia/Jakarta')->subDays(10)->toDateString(),
+            'due_date' => Carbon::now('Asia/Jakarta')->addDay()->toDateString(),
+            'total_amount' => 1000000,
+            'paid_amount' => 0,
+            'balance_amount' => 1000000,
+            'status' => Invoice::UNPAID,
+        ]);
+
+        $this->startProviderServer();
+        $this->startCommandWorkers();
+        foreach ($this->commandProcesses as $process) {
+            proc_close($process);
+        }
+        $this->commandProcesses = [];
+
+        $reminder = InvoiceReminder::query()->where('invoice_id', $invoice->id)->sole();
+        $this->assertSame(InvoiceReminder::SENT, $reminder->status);
+        $this->assertSame(1, InvoiceReminder::where('invoice_id', $invoice->id)->count());
+        $providerCalls = array_values(array_filter(
+            file($this->providerCallFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [],
+            fn (string $key): bool => $key === $reminder->idempotency_key,
+        ));
+        $this->assertCount(1, $providerCalls, 'Concurrent workers must produce one keyed provider call.');
+    }
+
     /** @param array<int, array{headers: array<string, string>, body: string}> $requests */
     private function runConcurrent(array $requests, string $path): array
     {
@@ -223,6 +279,74 @@ class WhatsAppPostgresConcurrencyTest extends TestCase
         }
     }
 
+    private function startProviderServer(): void
+    {
+        $this->barrierDirectory = storage_path('framework/testing/'.$this->prefix);
+        mkdir($this->barrierDirectory, 0777, true);
+        $this->providerCallFile = $this->barrierDirectory.DIRECTORY_SEPARATOR.'provider-calls.log';
+        file_put_contents($this->providerCallFile, '');
+        $this->providerPort = $this->findFreePort();
+        $environment = getenv();
+        $environment['WHATSAPP_PROVIDER_CALL_FILE'] = $this->providerCallFile;
+        $router = base_path('tests/Support/whatsapp_provider_server.php');
+        $process = proc_open(
+            [PHP_BINARY, '-S', '127.0.0.1:'.$this->providerPort, $router],
+            [0 => ['pipe', 'r'], 1 => ['file', $this->barrierDirectory.'/provider.log', 'ab'], 2 => ['file', $this->barrierDirectory.'/provider.log', 'ab']],
+            $pipes,
+            base_path(),
+            $environment,
+        );
+        if (! is_resource($process)) {
+            throw new \RuntimeException('Unable to start the fake WhatsApp provider.');
+        }
+        fclose($pipes[0]);
+        $this->providerServer = $process;
+        $this->waitForServer($this->providerPort);
+    }
+
+    private function startCommandWorkers(): void
+    {
+        if ($this->barrierDirectory === null || $this->providerPort === null) {
+            throw new \LogicException('Provider and barrier must be started before workers.');
+        }
+
+        for ($index = 0; $index < 2; $index++) {
+            $participant = $index === 0 ? 'A' : 'B';
+            $output = $this->barrierDirectory.DIRECTORY_SEPARATOR.'command-'.$participant.'.log';
+            $environment = getenv();
+            $environment['APP_ENV'] = 'testing';
+            $environment['APP_KEY'] = (string) config('app.key');
+            $environment['DB_CONNECTION'] = 'pgsql';
+            $environment['DB_HOST'] = (string) config('database.connections.pgsql.host');
+            $environment['DB_PORT'] = (string) config('database.connections.pgsql.port');
+            $environment['DB_DATABASE'] = (string) config('database.connections.pgsql.database');
+            $environment['DB_USERNAME'] = (string) config('database.connections.pgsql.username');
+            $environment['DB_PASSWORD'] = (string) config('database.connections.pgsql.password');
+            $environment['DB_URL'] = '';
+            $environment['WHATSAPP_ENABLED'] = 'true';
+            $environment['WHATSAPP_API_URL'] = 'http://127.0.0.1:'.$this->providerPort;
+            $environment['WHATSAPP_ACCESS_TOKEN'] = 'test-provider-token';
+            $environment['WHATSAPP_PHONE_NUMBER_ID'] = 'test-phone-number';
+            $environment['WHATSAPP_CONCURRENCY_BARRIER_ENABLED'] = 'true';
+            $environment['ORDER_CONCURRENCY_BARRIER_DIR'] = $this->barrierDirectory;
+            $environment['ORDER_CONCURRENCY_BARRIER_NAME'] = $this->prefix;
+            $environment['ORDER_CONCURRENCY_BARRIER_PARTICIPANT'] = $participant;
+            $environment['ORDER_CONCURRENCY_BARRIER_SECTIONS'] = 'invoice-reminder';
+            $process = proc_open(
+                [PHP_BINARY, base_path('artisan'), 'invoices:reminders', '--no-ansi'],
+                [0 => ['pipe', 'r'], 1 => ['file', $output, 'ab'], 2 => ['file', $output, 'ab']],
+                $pipes,
+                base_path(),
+                $environment,
+            );
+            if (! is_resource($process)) {
+                throw new \RuntimeException('Unable to start a PostgreSQL reminder worker.');
+            }
+            fclose($pipes[0]);
+            $this->commandProcesses[] = $process;
+        }
+    }
+
     private function waitForServer(int $port): void
     {
         $context = stream_context_create(['http' => ['timeout' => 0.25]]);
@@ -249,6 +373,23 @@ class WhatsAppPostgresConcurrencyTest extends TestCase
 
     private function stopServers(): void
     {
+        foreach ($this->commandProcesses as $process) {
+            if (is_resource($process)) {
+                if (proc_get_status($process)['running']) {
+                    proc_terminate($process);
+                }
+                proc_close($process);
+            }
+        }
+        $this->commandProcesses = [];
+        if (is_resource($this->providerServer)) {
+            if (proc_get_status($this->providerServer)['running']) {
+                proc_terminate($this->providerServer);
+            }
+            proc_close($this->providerServer);
+        }
+        $this->providerServer = null;
+        $this->providerPort = null;
         foreach ($this->servers as $server) {
             if (is_resource($server['process'])) {
                 if (proc_get_status($server['process'])['running']) {

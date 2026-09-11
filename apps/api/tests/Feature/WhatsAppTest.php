@@ -169,6 +169,13 @@ class WhatsAppTest extends TestCase
                 return ['id' => 'outbound-1'];
             }
 
+            public function sendTextWithIdempotency(string $to, string $text, string $key): array
+            {
+                $this->calls[] = ['keyed-text', $to, $text, $key];
+
+                return ['id' => 'outbound-keyed-1'];
+            }
+
             public function sendCatalog(string $to, array $catalog): array
             {
                 $this->calls[] = ['catalog', $to, $catalog];
@@ -185,7 +192,7 @@ class WhatsAppTest extends TestCase
         $this->withToken($token)->putJson("/api/orders/{$order}/approve")->assertOk();
         $this->withToken($token)->postJson("/api/whatsapp/orders/{$order}/notification")->assertOk();
 
-        $this->assertSame('text', $client->calls[0][0]);
+        $this->assertSame('keyed-text', $client->calls[0][0]);
         $this->assertCount(1, $client->calls);
         $this->assertDatabaseCount('whatsapp_messages', 2);
         $this->assertDatabaseHas('whatsapp_messages', ['direction' => 'outbound', 'status' => 'sent']);
@@ -202,6 +209,11 @@ class WhatsAppTest extends TestCase
             public function sendText(string $to, string $text): array
             {
                 return ['id' => 'text'];
+            }
+
+            public function sendTextWithIdempotency(string $to, string $text, string $key): array
+            {
+                return ['id' => 'keyed-text'];
             }
 
             public function sendCatalog(string $to, array $catalog): array
@@ -225,6 +237,11 @@ class WhatsAppTest extends TestCase
         $this->app->instance(WhatsAppClient::class, new class implements WhatsAppClient
         {
             public function sendText(string $to, string $text): array
+            {
+                throw new \RuntimeException('provider unavailable');
+            }
+
+            public function sendTextWithIdempotency(string $to, string $text, string $key): array
             {
                 throw new \RuntimeException('provider unavailable');
             }
@@ -253,6 +270,11 @@ class WhatsAppTest extends TestCase
             public function sendText(string $to, string $text): array
             {
                 return ['id' => 'retry-1'];
+            }
+
+            public function sendTextWithIdempotency(string $to, string $text, string $key): array
+            {
+                return ['id' => 'retry-keyed-1'];
             }
 
             public function sendCatalog(string $to, array $catalog): array

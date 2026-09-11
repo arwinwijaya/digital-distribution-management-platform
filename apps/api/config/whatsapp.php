@@ -19,9 +19,9 @@ return [
     'reminder_schedule' => [
         'h_minus_one_offset_days' => (int) env('WHATSAPP_REMINDER_H_MINUS_ONE_OFFSET_DAYS', 1),
         'overdue_offset_days' => (int) env('WHATSAPP_REMINDER_OVERDUE_OFFSET_DAYS', 0),
-        'max_attempts' => (int) env('WHATSAPP_REMINDER_MAX_ATTEMPTS', 3),
+        'max_attempts' => (int) env('WHATSAPP_REMINDER_MAX_ATTEMPTS', 4),
         'backoff_minutes' => array_map('intval', array_filter(explode(',', (string) env('WHATSAPP_REMINDER_BACKOFF_MINUTES', '1,5,15')), fn ($v) => $v !== '')),
     ],
-    'reminder_max_attempts' => (int) env('WHATSAPP_REMINDER_MAX_ATTEMPTS', 3),
+    'reminder_max_attempts' => (int) env('WHATSAPP_REMINDER_MAX_ATTEMPTS', 4),
     'reminder_backoff_minutes' => array_map('intval', array_filter(explode(',', (string) env('WHATSAPP_REMINDER_BACKOFF_MINUTES', '1,5,15')), fn ($v) => $v !== '')),
 ];

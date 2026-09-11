@@ -74,10 +74,9 @@ class WhatsAppOutboundService
      * Send an invoice reminder text through the provider, reusing the
      * reminder's stable idempotency key so retries never double-send.
      *
-     * @param array<string, mixed> $invoicePayload
      * @return array<string, mixed>
      */
-    public function sendInvoiceReminder(string $phone, string $body, string $idempotencyKey, array $invoicePayload = []): array
+    public function sendInvoiceReminder(string $phone, string $body, string $idempotencyKey): array
     {
         // Reminder delivery has no unkeyed fallback: the contract requires the
         // provider identity so every retry is deduplicated at the boundary.
@@ -128,7 +127,24 @@ class WhatsAppOutboundService
     /** @param array<int, array<string, mixed>>|null $catalog @return array{message: WhatsAppMessage, status: string} */
     private function deliver(WhatsAppMessage $message, ?array $catalog = null): array|WhatsAppMessage
     {
-        $claimed = DB::transaction(function () use ($message): ?WhatsAppMessage {
+        $claimed = $this->claimForDelivery($message);
+        if (! $claimed) {
+            return $this->deliveryResult($message, $catalog);
+        }
+
+        try {
+            $response = $this->dispatchDelivery($claimed, $catalog);
+            $this->completeDelivery($claimed, $response);
+        } catch (Throwable $exception) {
+            $this->failDelivery($claimed, $exception);
+        }
+
+        return $this->deliveryResult($claimed, $catalog);
+    }
+
+    private function claimForDelivery(WhatsAppMessage $message): ?WhatsAppMessage
+    {
+        return DB::transaction(function () use ($message): ?WhatsAppMessage {
             $locked = WhatsAppMessage::lockForUpdate()->findOrFail($message->id);
             if ($locked->status === 'sent') {
                 return null;
@@ -144,33 +160,42 @@ class WhatsAppOutboundService
 
             return $locked;
         });
-        if (! $claimed) {
-            $fresh = $message->fresh();
+    }
 
-            return is_array($catalog) ? ['message' => $fresh, 'status' => $fresh->status] : $fresh;
-        }
-        $message = $claimed;
-        try {
-            $response = $message->message_type === 'catalog'
-                ? $this->client->sendCatalog($message->phone, $catalog ?? ($message->payload['catalog'] ?? []))
-                : $this->sendText($message->phone, (string) $message->body, (string) $message->provider_idempotency_key);
-            $message->update([
-                'provider_message_id' => $this->providerIdFromResponse($response),
-                'status' => 'sent',
-                'attempts' => $message->attempts + 1,
-                'error' => null,
-                'claimed_at' => null,
-                'sent_at' => now(),
-            ]);
-        } catch (Throwable $exception) {
-            $message->update([
-                'status' => 'failed',
-                'attempts' => $message->attempts + 1,
-                'claimed_at' => null,
-                'error' => $exception->getMessage(),
-            ]);
-        }
+    /** @param array<int, array<string, mixed>>|null $catalog @return array<string, mixed> */
+    private function dispatchDelivery(WhatsAppMessage $message, ?array $catalog): array
+    {
+        return $message->message_type === 'catalog'
+            ? $this->client->sendCatalog($message->phone, $catalog ?? ($message->payload['catalog'] ?? []))
+            : $this->sendText($message->phone, (string) $message->body, (string) $message->provider_idempotency_key);
+    }
 
+    /** @param array<string, mixed> $response */
+    private function completeDelivery(WhatsAppMessage $message, array $response): void
+    {
+        $message->update([
+            'provider_message_id' => $this->providerIdFromResponse($response),
+            'status' => 'sent',
+            'attempts' => $message->attempts + 1,
+            'error' => null,
+            'claimed_at' => null,
+            'sent_at' => now(),
+        ]);
+    }
+
+    private function failDelivery(WhatsAppMessage $message, Throwable $exception): void
+    {
+        $message->update([
+            'status' => 'failed',
+            'attempts' => $message->attempts + 1,
+            'claimed_at' => null,
+            'error' => $exception->getMessage(),
+        ]);
+    }
+
+    /** @param array<int, array<string, mixed>>|null $catalog */
+    private function deliveryResult(WhatsAppMessage $message, ?array $catalog): array|WhatsAppMessage
+    {
         $fresh = $message->fresh();
 
         return is_array($catalog) ? ['message' => $fresh, 'status' => $fresh->status] : $fresh;

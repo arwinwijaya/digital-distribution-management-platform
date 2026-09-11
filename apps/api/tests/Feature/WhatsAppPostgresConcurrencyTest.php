@@ -82,7 +82,7 @@ class WhatsAppPostgresConcurrencyTest extends TestCase
             if ($orderIds->isNotEmpty()) {
                 DB::table('whatsapp_messages')->whereIn('order_id', $orderIds)->delete();
                 DB::table('order_items')->whereIn('order_id', $orderIds)->delete();
-                DB::table('order_status_histories')->whereIn('order_id', $orderIds)->delete();
+                DB::table('order_status_history')->whereIn('order_id', $orderIds)->delete();
                 DB::table('orders')->whereIn('id', $orderIds)->delete();
             }
             $this->admin?->delete();

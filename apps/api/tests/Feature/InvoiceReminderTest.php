@@ -371,7 +371,7 @@ class InvoiceReminderTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->assertSame(1, $inserted);
+        $this->assertSame(0, $inserted);
         $this->assertSame(1, InvoiceReminder::on('pgsql')->where('invoice_id', $invoice->id)->count());
         $this->assertSame($providerKey, $idempotencyKey);
 

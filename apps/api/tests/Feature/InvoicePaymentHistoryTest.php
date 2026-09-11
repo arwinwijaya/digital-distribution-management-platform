@@ -2,53 +2,29 @@
 
 namespace Tests\Feature;
 
-use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Outlet;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Tests\Feature\Concerns\InvoicePaymentFixture;
 use Tests\TestCase;
 
 class InvoicePaymentHistoryTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected User $finance;
-    protected string $financeToken;
-    protected string $adminToken;
-    protected Outlet $outlet;
+    use InvoicePaymentFixture;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->finance = User::factory()->create([
-            'email' => 'invoice-history-finance@example.test',
-            'password' => Hash::make('password123'),
-            'role' => 'finance',
-        ]);
-        $outletUser = User::factory()->outlet()->create([
-            'email' => 'invoice-history-outlet@example.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $this->outlet = Outlet::factory()->create([
-            'user_id' => $outletUser->id,
-            'is_active' => true,
-        ]);
-        $this->financeToken = $this->postJson('/api/auth/login', [
-            'email' => $this->finance->email,
-            'password' => 'password123',
-        ])->assertOk()->json('data.token');
-        $admin = User::factory()->admin()->create([
-            'email' => 'invoice-history-admin@example.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $this->adminToken = $this->postJson('/api/auth/login', [
-            'email' => $admin->email,
-            'password' => 'password123',
-        ])->assertOk()->json('data.token');
+        $this->initInvoicePaymentFixture(
+            'invoice-history-finance@example.test',
+            'invoice-history-outlet@example.test',
+            'invoice-history-admin@example.test',
+        );
     }
 
     public function test_payment_history_is_bounded_and_scoped(): void
@@ -100,30 +76,4 @@ class InvoicePaymentHistoryTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors(['page', 'limit']);
     }
 
-    /** @return array{0: Order, 1: Invoice} */
-    protected function deliveredInvoice(int $total = 1000000): array
-    {
-        $order = Order::create([
-            'order_id' => 'ORD-INVOICE-'.uniqid(),
-            'outlet_id' => $this->outlet->id,
-            'status' => 'Delivered',
-            'total_amount' => $total,
-            'paid_amount' => 0,
-            'commission_percentage' => 2,
-            'idempotency_key' => 'order-invoice-'.uniqid(),
-        ]);
-        $invoice = Invoice::create([
-            'order_id' => $order->id,
-            'outlet_id' => $order->outlet_id,
-            'invoice_number' => 'INV-'.uniqid(),
-            'issue_date' => now()->subDays(7)->toDateString(),
-            'due_date' => now()->addDays(7)->toDateString(),
-            'total_amount' => $total,
-            'paid_amount' => 0,
-            'balance_amount' => $total,
-            'status' => Invoice::UNPAID,
-        ]);
-
-        return [$order, $invoice];
-    }
 }

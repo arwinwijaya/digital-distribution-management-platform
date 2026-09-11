@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\FinanceRoleController;
+use App\Http\Controllers\FinanceMetricsController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\OutletController;
@@ -105,6 +106,7 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/whatsapp/orders/{orderId}/notification', [WhatsAppController::class, 'notify']);
     Route::post('/whatsapp/messages/{messageId}/retry', [WhatsAppController::class, 'retry']);
 
+    Route::get('/finance/metrics', [FinanceMetricsController::class, 'index']);
     Route::get('/finance/reminders', [InvoiceReminderController::class, 'index']);
     Route::get('/reminders', [InvoiceReminderController::class, 'index']);
 

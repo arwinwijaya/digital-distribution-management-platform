@@ -24,25 +24,59 @@ const NAV_ITEMS: NavItem[] = [
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
 
   useEffect(() => {
-    const token = getStoredToken();
-    if (!token) return;
-
     let active = true;
-    fetch(apiUrl('/auth/me'), { headers: authHeaders(token) })
-      .then((response) => response.ok ? response.json() : null)
-      .then((body) => {
-        if (active) setRole(body?.data?.role ?? null);
-      })
-      .catch(() => {
-        if (active) setRole(null);
-      });
+    let requestId = 0;
 
-    return () => { active = false; };
+    const syncRole = (token: string | null, hintedRole?: string | null) => {
+      const currentRequest = ++requestId;
+      if (!token) {
+        setRole(null);
+        setAuthResolved(true);
+        return;
+      }
+
+      // Use the login response for an immediate navigation update, then verify it
+      // against the server so the API remains the source of truth.
+      setRole(hintedRole ?? null);
+      setAuthResolved(Boolean(hintedRole));
+      fetch(apiUrl('/auth/me'), { headers: authHeaders(token) })
+        .then((response) => response.ok ? response.json() : null)
+        .then((body) => {
+          if (active && currentRequest === requestId) {
+            setRole(body?.data?.role ?? null);
+            setAuthResolved(true);
+          }
+        })
+        .catch(() => {
+          if (active && currentRequest === requestId) {
+            setRole(null);
+            setAuthResolved(true);
+          }
+        });
+    };
+
+    const handleAuthChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ token?: string | null; role?: string | null }>).detail;
+      syncRole(detail?.token === undefined ? getStoredToken() : detail.token, detail?.role);
+    };
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'ddp_token') syncRole(event.newValue);
+    };
+
+    syncRole(getStoredToken());
+    window.addEventListener('ddp-auth-change', handleAuthChange);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      active = false;
+      window.removeEventListener('ddp-auth-change', handleAuthChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
-  const visibleItems = role === 'finance' ? NAV_ITEMS.filter((item) => item.finance) : NAV_ITEMS;
+  const visibleItems = !authResolved ? [] : role === 'finance' ? NAV_ITEMS.filter((item) => item.finance) : NAV_ITEMS;
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-white border-r border-gray-200 shadow-sidebar">

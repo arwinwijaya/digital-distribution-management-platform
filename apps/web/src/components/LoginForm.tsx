@@ -44,6 +44,9 @@ export default function LoginForm({ onLogin, expectedRole }: LoginFormProps) {
         throw new Error(`Halaman ini khusus untuk pengguna ${labels}.`);
       }
       storeToken(result.data.token);
+      window.dispatchEvent(new CustomEvent('ddp-auth-change', {
+        detail: { token: result.data.token as string, role },
+      }));
       onLogin(result.data.token, role);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Tidak dapat masuk.');

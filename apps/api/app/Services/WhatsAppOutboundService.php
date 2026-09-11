@@ -70,6 +70,25 @@ class WhatsAppOutboundService
         return $this->deliver($message);
     }
 
+    /**
+     * Send an invoice reminder text through the provider, reusing the
+     * reminder's stable idempotency key so retries never double-send.
+     *
+     * @param array<string, mixed> $invoicePayload
+     * @return array<string, mixed>
+     */
+    public function sendInvoiceReminder(string $phone, string $body, string $idempotencyKey, array $invoicePayload = []): array
+    {
+        if (method_exists($this->client, 'sendTextWithIdempotency')) {
+            /** @var array<string, mixed> $response */
+            $response = $this->client->sendTextWithIdempotency($phone, $body, $idempotencyKey);
+
+            return $response;
+        }
+
+        return $this->client->sendText($phone, $body);
+    }
+
     /** @return array{message: WhatsAppMessage, status: string} */
     public function shareCatalog(Outlet $outlet): array
     {

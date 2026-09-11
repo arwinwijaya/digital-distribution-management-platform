@@ -14,4 +14,14 @@ return [
     'send_lease_seconds' => (int) env('WHATSAPP_SEND_LEASE_SECONDS', 300),
     // Opt-in only: the PostgreSQL worker race suite enables this test barrier.
     'concurrency_barrier_enabled' => (bool) env('WHATSAPP_CONCURRENCY_BARRIER_ENABLED', false),
+    // Invoice reminder schedule settings.
+    'reminder_time_zone' => 'Asia/Jakarta',
+    'reminder_schedule' => [
+        'h_minus_one_offset_days' => (int) env('WHATSAPP_REMINDER_H_MINUS_ONE_OFFSET_DAYS', 1),
+        'overdue_offset_days' => (int) env('WHATSAPP_REMINDER_OVERDUE_OFFSET_DAYS', 0),
+        'max_attempts' => (int) env('WHATSAPP_REMINDER_MAX_ATTEMPTS', 3),
+        'backoff_minutes' => array_map('intval', array_filter(explode(',', (string) env('WHATSAPP_REMINDER_BACKOFF_MINUTES', '1,5,15')), fn ($v) => $v !== '')),
+    ],
+    'reminder_max_attempts' => (int) env('WHATSAPP_REMINDER_MAX_ATTEMPTS', 3),
+    'reminder_backoff_minutes' => array_map('intval', array_filter(explode(',', (string) env('WHATSAPP_REMINDER_BACKOFF_MINUTES', '1,5,15')), fn ($v) => $v !== '')),
 ];

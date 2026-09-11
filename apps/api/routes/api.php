@@ -13,6 +13,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\InvoiceReminderController;
 use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
@@ -103,6 +104,9 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/whatsapp/catalog', [WhatsAppController::class, 'catalog']);
     Route::post('/whatsapp/orders/{orderId}/notification', [WhatsAppController::class, 'notify']);
     Route::post('/whatsapp/messages/{messageId}/retry', [WhatsAppController::class, 'retry']);
+
+    Route::get('/finance/reminders', [InvoiceReminderController::class, 'index']);
+    Route::get('/reminders', [InvoiceReminderController::class, 'index']);
 
     // Credit limit and outstanding balance routes
     Route::get('/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');

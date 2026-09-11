@@ -81,8 +81,8 @@ class PaymentController extends Controller
     {
         $payment->loadMissing('order.items.product');
         $order = $payment->order;
-        $paidCents = (int) round(((float) $order->paid_amount) * 100);
-        $totalCents = (int) round(((float) $order->total_amount) * 100);
+        $paidCents = $this->moneyToCents($order->paid_amount);
+        $totalCents = $this->moneyToCents($order->total_amount);
 
         return [
             'id' => $payment->id,
@@ -117,5 +117,18 @@ class PaymentController extends Controller
             ],
             'created_at' => $payment->created_at,
         ];
+    }
+
+    private function moneyToCents(mixed $amount): int
+    {
+        $normalized = trim((string) $amount);
+        if (! preg_match('/^(\d+)(?:\.(\d{1,2}))?$/', $normalized, $matches)) {
+            throw new \InvalidArgumentException('Money values must contain at most two decimal places.');
+        }
+
+        $wholeCents = ((int) $matches[1]) * 100;
+        $fractionCents = (int) str_pad($matches[2] ?? '', 2, '0');
+
+        return $wholeCents + $fractionCents;
     }
 }

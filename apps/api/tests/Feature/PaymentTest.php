@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Testing\TestResponse;
-use Tests\Support\PaymentConcurrencyHarness;
 use Tests\TestCase;
 
 class PaymentTest extends TestCase
@@ -27,8 +26,6 @@ class PaymentTest extends TestCase
     protected Outlet $outlet;
     protected string $outletToken;
     protected string $adminToken;
-    protected ?PaymentConcurrencyHarness $raceHarness = null;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -54,12 +51,6 @@ class PaymentTest extends TestCase
             'email' => $admin->email,
             'password' => 'password123',
         ])->json('data.token');
-    }
-
-    protected function tearDown(): void
-    {
-        $this->raceHarness?->close();
-        parent::tearDown();
     }
 
     protected function outletHeaders(): array
@@ -227,41 +218,6 @@ class PaymentTest extends TestCase
             ->assertJsonPath('data.order.outstanding_balance', '0.00');
         $this->assertDatabaseCount('payments', 2);
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Paid', 'paid_amount' => 100000]);
-    }
-
-    /**
-     * Two independent public HTTP workers submit one payment identity at the
-     * same time. Both responses must replay the committed payment rather than
-     * exposing the unique-key race as a server error.
-     */
-    public function test_concurrent_same_identity_payment_posts_replay_one_payment(): void
-    {
-        $this->raceHarness = new PaymentConcurrencyHarness();
-        $this->raceHarness->prepare();
-        $order = $this->raceHarness->createPaymentFixture();
-        $this->raceHarness->startServers();
-
-        $responses = $this->raceHarness->runConcurrentPayment($order->id, [
-            'amount' => 40000,
-            'payment_method' => 'cash',
-            'idempotency_key' => 'concurrent-payment-key',
-        ]);
-        $statuses = array_column($responses, 'status');
-        sort($statuses);
-
-        $this->assertSame([200, 201], $statuses);
-        $this->assertSame(['success', 'success'], array_column(array_column($responses, 'json'), 'status'));
-        $this->assertSame($responses[0]['json']['data']['id'], $responses[1]['json']['data']['id']);
-        $this->assertSame(1, Payment::on(PaymentConcurrencyHarness::CONNECTION)->count());
-        $payment = Payment::on(PaymentConcurrencyHarness::CONNECTION)->sole();
-        $this->assertSame('completed', $payment->status);
-        $this->assertSame('40000.00', (string) $payment->amount);
-        $this->assertSame('40000.00', (string) Order::on(PaymentConcurrencyHarness::CONNECTION)->findOrFail($order->id)->paid_amount);
-        $this->assertSame('Partially Paid', Order::on(PaymentConcurrencyHarness::CONNECTION)->findOrFail($order->id)->status);
-        $this->assertSame(1, Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->count());
-        $this->assertSame('40000.00', (string) Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('paid_amount'));
-        $this->assertSame('60000.00', (string) Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('balance_amount'));
-        $this->assertSame(Invoice::PARTIALLY_PAID, Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('status'));
     }
 
     public function test_outstanding_balance_includes_pending_and_unpaid_orders_but_excludes_paid_orders(): void

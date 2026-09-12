@@ -19,6 +19,7 @@ class InvoiceReminder extends Model
     public const SENDING = 'sending';
     public const SENT = 'sent';
     public const FAILED = 'failed';
+    public const SUPPRESSED = 'suppressed';
 
     protected $fillable = [
         'invoice_id',
@@ -53,7 +54,7 @@ class InvoiceReminder extends Model
     /** @return array<int, string> */
     public static function statuses(): array
     {
-        return [self::PENDING, self::SENT, self::FAILED];
+        return [self::PENDING, self::SENT, self::FAILED, self::SUPPRESSED];
     }
 
     /** @return array<int, string> */

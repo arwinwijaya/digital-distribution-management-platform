@@ -15,9 +15,25 @@ data-driven business by utilizing:
 -   Operational automation
 -   AI-based recommendation and forecasting
 
+## Implementation Status Audit (2026-09-10)
+
+Roadmap ini **belum 100% terimplementasi**. Execution plan T1–T9 sudah selesai dan ditutup, tetapi cakupannya hanya sebagian dari roadmap bisnis Phase 0–4.
+
+Legend: `[x]` implemented · `[~]` partial/MVP · `[ ]` not implemented · `[?]` outcome belum terverifikasi.
+
+Detail checklist per fitur tersedia di [`checklist.md`](checklist.md).
+
+Ringkasan:
+
+- Phase 0 — Business Validation & Planning: `[~]` dokumen ada, tetapi riset bisnis, BRD, dan partner database belum terbukti.
+- Phase 1 — MVP Platform: `[~]` core flow sudah ada, tetapi role management, promosi, outlet scoring/category, dan sebagian analytics belum lengkap.
+- Phase 2 — Sales & Distribution Automation: `[~]` sales visit, delivery, payment, dan WhatsApp order ada; invoice, reminder, sales target, live tracking, dan broadcast promosi belum ada.
+- Phase 3 — Data Intelligence & AI: `[~]` recommendation, forecast, segmentation, dan basic BI ada; geographic/supplier BI, stock planning, ML pipeline, dan measurement belum ada.
+- Phase 4 — Ecosystem Expansion: `[~]` marketplace dasar ada; dynamic pricing, financial services, distributor network, dan predictive supply chain belum ada.
+
 ------------------------------------------------------------------------
 
-# Phase 0 - Business Validation & Planning
+# Phase 0 - Business Validation & Planning — `[~] PARTIAL`
 
 ## Objective
 
@@ -41,14 +57,16 @@ representative - Warung/store owner - Delivery team
 
 ### Output
 
--   Business requirement document
--   Product roadmap
--   MVP scope
--   Initial partner database
+-   Business requirement document — `[ ]` belum ditemukan
+-   Product roadmap — `[x]` tersedia di file ini
+-   MVP scope — `[x]` tersedia di `docs/pocket/spec/` dan execution plan
+-   Initial partner database — `[ ]` belum tersedia; fixture bukan database partner produksi
+
+**Current status:** `[~] PARTIAL`. Process mapping dan user research belum memiliki bukti validasi lapangan.
 
 ------------------------------------------------------------------------
 
-# Phase 1 - MVP Platform Development
+# Phase 1 - MVP Platform Development — `[~] PARTIAL`
 
 ## Objective
 
@@ -140,13 +158,15 @@ Metrics:
 
 Target:
 
--   500 registered outlets
--   100 active ordering outlets
--   5-10 supplier partners
+-   500 registered outlets — `[?]` belum terbukti sebagai adoption produksi
+-   100 active ordering outlets — `[?]` belum terbukti sebagai adoption produksi
+-   5-10 supplier partners — `[?]` belum terbukti sebagai partner aktif produksi
+
+**Current status:** `[~] PARTIAL`. Core register → browse → order → approval flow berjalan, tetapi role management, outlet category/scoring, promotion, dan sebagian analytics belum tersedia.
 
 ------------------------------------------------------------------------
 
-# Phase 2 - Sales & Distribution Automation
+# Phase 2 - Sales & Distribution Automation — `[~] PARTIAL`
 
 ## Objective
 
@@ -206,13 +226,15 @@ Features:
 
 Target:
 
--   1,000+ active outlets
--   Digital ordering adoption \>70%
--   Reduced manual order processing
+-   1,000+ active outlets — `[?]` belum terbukti sebagai adoption produksi
+-   Digital ordering adoption \>70% — `[?]` belum ada measurement
+-   Reduced manual order processing — `[?]` belum ada measurement
+
+**Current status:** `[~] PARTIAL`. Sales visit, delivery, payment/credit, dan WhatsApp ordering tersedia; invoice, reminder, sales target/dashboard, live tracking, dan promotion broadcast belum tersedia.
 
 ------------------------------------------------------------------------
 
-# Phase 3 - Data Intelligence & AI Capability
+# Phase 3 - Data Intelligence & AI Capability — `[~] PARTIAL`
 
 ## Objective
 
@@ -280,7 +302,11 @@ Features:
 
 ------------------------------------------------------------------------
 
-# Phase 4 - Ecosystem Expansion
+**Current status:** `[~] PARTIAL`. Recommendation, deterministic forecasting, segmentation, dan basic sales/outlet BI tersedia. Geographic BI, supplier BI, stock planning, ML pipeline, LLM integration, dan accuracy/acceptance measurement belum tersedia.
+
+------------------------------------------------------------------------
+
+# Phase 4 - Ecosystem Expansion — `[~] PARTIAL`
 
 ## Objective
 
@@ -324,9 +350,11 @@ Potential:
 
 Capability:
 
--   Demand prediction
--   Inventory optimization
--   Automated replenishment
+-   Demand prediction — `[~]` forecasting dasar tersedia
+-   Inventory optimization — `[ ]` belum tersedia
+-   Automated replenishment — `[ ]` belum tersedia
+
+**Current status:** `[~] PARTIAL`. Marketplace multi-supplier dasar tersedia, tetapi distributor network, dynamic pricing, financial services, dan predictive supply-chain automation belum diimplementasikan.
 
 ------------------------------------------------------------------------
 
@@ -334,9 +362,9 @@ Capability:
 
 ## Frontend
 
-Phase 1: - Next.js Web Application
-
-Phase 2: - Progressive Web App (PWA) - Mobile Sales Application
+-   Phase 1: Next.js Web Application — `[x]` implemented di `apps/web/`
+-   Phase 2: Progressive Web App (PWA) — `[ ]` belum tersedia
+-   Phase 2: Mobile Sales Application — `[ ]` belum tersedia
 
 ------------------------------------------------------------------------
 
@@ -376,10 +404,12 @@ Recommended:
 
 Phase 3:
 
--   Python ML Service
--   Machine Learning Pipeline
--   LLM Integration
--   Analytics Platform
+-   Python ML Service — `[ ]` belum tersedia; AI saat ini berupa PHP heuristics
+-   Machine Learning Pipeline — `[ ]` belum tersedia
+-   LLM Integration — `[ ]` belum tersedia
+-   Analytics Platform — `[~]` masih berupa in-application Laravel aggregates
+
+**Architecture status:** `[~] PARTIAL`. Laravel REST API, PostgreSQL, Docker, dan CI/CD tersedia; object storage dan AWS deployment belum tersedia.
 
 ------------------------------------------------------------------------
 

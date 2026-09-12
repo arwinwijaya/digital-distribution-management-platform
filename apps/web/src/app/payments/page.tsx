@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { Button, Card, EmptyState, Input, PageHeader, StatCard, Table } from '@/components/ui';
@@ -146,12 +146,18 @@ function PaymentHistory({ data, token, role }: { data: PaymentState; token: stri
   </Card>;
 }
 
+function createPaymentIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function PaymentsPage() {
   const data = usePaymentData();
   const session = usePaymentSession(data.load, data.setError);
   const [orderId, setOrderId] = useState('');
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
+  const pendingPaymentKey = useRef<{ signature: string; key: string } | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -159,12 +165,18 @@ export default function PaymentsPage() {
     data.setError('');
     setMessage('');
     try {
-      const response = await fetch(apiUrl('/payments'), { method: 'POST', headers: authHeaders(session.token), body: JSON.stringify({ order_id: Number(orderId), amount: Number(amount), payment_method: 'cash', idempotency_key: `web-${orderId}-${amount}` }) });
+      const signature = `${orderId}:${amount}`;
+      if (!pendingPaymentKey.current || pendingPaymentKey.current.signature !== signature) {
+        pendingPaymentKey.current = { signature, key: createPaymentIdempotencyKey() };
+      }
+      const idempotencyKey = pendingPaymentKey.current.key;
+      const response = await fetch(apiUrl('/payments'), { method: 'POST', headers: authHeaders(session.token), body: JSON.stringify({ order_id: Number(orderId), amount: Number(amount), payment_method: 'cash', idempotency_key: idempotencyKey }) });
       const body = await response.json();
       if (!response.ok) {
         data.setError(body.message || 'Pembayaran tidak dapat dicatat.');
         return;
       }
+      pendingPaymentKey.current = null;
       setMessage(`Pembayaran berhasil dicatat. Referensi: ${body.data.receipt_reference || 'tersedia'}.`);
       setOrderId('');
       setAmount('');

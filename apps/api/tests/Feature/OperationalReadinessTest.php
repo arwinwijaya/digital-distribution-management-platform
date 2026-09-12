@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Models\Delivery;
 use App\Models\Invoice;
 use App\Models\InvoiceReminder;
+use App\Models\Order;
 use App\Models\OrderStatusHistory;
+use App\Models\Outlet;
 use App\Models\Payment;
+use App\Models\Product;
 use App\Models\RoleAssignmentAudit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -278,5 +281,275 @@ class OperationalReadinessTest extends TestCase
         $this->assertSame(1, $reminder->attempts);
         $this->assertSame($callsBeforeReminder + 1, count($this->whatsAppClient->idempotencyKeys), 'Reminder retry must not call the provider twice.');
         $this->assertSame($reminder->idempotency_key, $this->whatsAppClient->idempotencyKeys[$callsBeforeReminder]);
+    }
+
+    /**
+     * Re-login the finance user to get a fresh JWT after time-travel.
+     * Existing tests face the same issue and re-login explicitly (see
+     * test_e2e_metrics_and_histories_are_bounded_scoped).
+     */
+    private function refreshFinanceToken(): string
+    {
+        return $this->login($this->financeUser->fresh());
+    }
+
+    /**
+     * Combined operational-readiness scenario that creates its dataset entirely
+     * through authenticated HTTP routes and the real invoices:reminders Artisan
+     * command, then queries finance metrics plus invoice/payment/reminder
+     * histories for those exact produced identities, including a second outlet
+     * for isolation and a zero-safe empty outlet boundary.
+     *
+     * Lifecycle produced records (no model-factory seeding for the primary
+     * dataset): two outlet-1 orders approved via HTTP, delivered via the real
+     * driver flow, paid via the finance payment route, and reminded via the
+     * Artisan scheduler. A second outlet's order is created and settled through
+     * the same HTTP surface to prove cross-outlet isolation.
+     */
+    public function test_e2e_http_driven_dataset_composes_metrics_and_histories(): void
+    {
+        // ── Phase 1: Approve two outlet-1 orders via HTTP ──────────────────
+        Carbon::setTestNow(Carbon::parse('2026-09-10 07:00:00', 'Asia/Jakarta'));
+        $financeToken = $this->assignFinanceAndLogin();
+
+        [$orderA, $invoiceA] = $this->createApprovedOrder('http-metrics-a', 1000000);
+        [$orderB, $invoiceB] = $this->createApprovedOrder('http-metrics-b', 1000000);
+
+        $this->assertSame(Invoice::UNPAID, $invoiceA->status, 'Freshly approved invoice must be unpaid.');
+        $this->assertSame(Invoice::UNPAID, $invoiceB->status, 'Freshly approved invoice must be unpaid.');
+        $this->assertSame('2026-09-17', $invoiceA->due_date->toDateString(), 'Default 7-day term must set the due date.');
+        $this->assertSame('2026-09-17', $invoiceB->due_date->toDateString(), 'Default 7-day term must set the due date.');
+
+        // ── Phase 2: Deliver both orders via the real driver flow ───────────
+        $this->deliver($this->startDelivery($orderA))->assertOk();
+        $this->deliver($this->startDelivery($orderB))->assertOk();
+        $this->assertDatabaseHas('orders', ['id' => $orderA->id, 'status' => 'Delivered']);
+        $this->assertDatabaseHas('orders', ['id' => $orderB->id, 'status' => 'Delivered']);
+
+        // ── Phase 3: Second outlet via HTTP ─────────────────────────────────
+        $secondUser = $this->operationalUser('outlet', 't10-second-http@example.test');
+        $secondOutlet = Outlet::factory()->create([
+            'user_id' => $secondUser->id,
+            'phone' => '+628987654321',
+            'is_active' => true,
+        ]);
+        $secondToken = $this->login($secondUser);
+
+        $this->withToken($this->adminToken)
+            ->putJson('/api/admin/outlets/'.$secondOutlet->id.'/payment-terms', ['payment_term_days' => 7])
+            ->assertOk();
+
+        $productC = Product::factory()->create(['price' => 1000000, 'stock_quantity' => 20, 'is_active' => true]);
+        $orderCResponse = $this->withToken($secondToken)->postJson('/api/orders', [
+            'items' => [['product_id' => $productC->id, 'quantity' => 1]],
+            'idempotency_key' => 't10-http-metrics-c',
+        ])->assertCreated();
+        $orderC = Order::findOrFail($orderCResponse->json('data.id'));
+
+        $approveC = $this->withToken($this->adminToken)
+            ->putJson('/api/orders/'.$orderC->id.'/approve')
+            ->assertOk();
+        $invoiceC = Invoice::findOrFail($approveC->json('data.invoice.id'));
+        $this->assertSame(Invoice::UNPAID, $invoiceC->status);
+
+        $this->deliver($this->startDelivery($orderC))->assertOk();
+
+        // ── Phase 4: Payments via HTTP at controlled time points ────────────
+        // Re-login finance user: JWT TTL is 24 h but we travel 2+ days ahead.
+        Carbon::setTestNow(Carbon::parse('2026-09-12 10:00:00', 'Asia/Jakarta'));
+        $financeToken = $this->refreshFinanceToken();
+
+        // Order A: full payment → invoice becomes PAID
+        $this->postPayment($financeToken, $orderA, 1000000, 'http-pay-a-full')
+            ->assertCreated()
+            ->assertJsonPath('data.order.status', 'Paid');
+        $invoiceA->refresh();
+        $this->assertSame(Invoice::PAID, $invoiceA->status, 'Full payment must advance invoice to paid.');
+        $this->assertSame('0.00', (string) $invoiceA->balance_amount);
+
+        // Order B: partial payment → invoice becomes PARTIALLY_PAID
+        Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Jakarta'));
+        $financeToken = $this->refreshFinanceToken();
+        $this->postPayment($financeToken, $orderB, 300000, 'http-pay-b-partial')
+            ->assertCreated()
+            ->assertJsonPath('data.order.status', 'Partially Paid');
+        $invoiceB->refresh();
+        $this->assertSame(Invoice::PARTIALLY_PAID, $invoiceB->status, 'Partial payment must advance invoice to partially_paid.');
+        $this->assertSame('700000.00', (string) $invoiceB->balance_amount);
+
+        // Order C (second outlet): full payment → invoice becomes PAID
+        Carbon::setTestNow(Carbon::parse('2026-09-15 10:00:00', 'Asia/Jakarta'));
+        $financeToken = $this->refreshFinanceToken();
+        $this->postPayment($financeToken, $orderC, 1000000, 'http-pay-c-full')
+            ->assertCreated()
+            ->assertJsonPath('data.order.status', 'Paid');
+        $invoiceC->refresh();
+        $this->assertSame(Invoice::PAID, $invoiceC->status, 'Full payment must advance second-outlet invoice to paid.');
+
+        // ── Phase 5: Real invoices:reminders Artisan command ────────────────
+        // At 2026-09-16: today=9/16, tomorrow=9/17. Invoice B (PARTIALLY_PAID,
+        // due 9/17) matches h_minus_one candidate. Invoice A and C are PAID and
+        // excluded by the candidate selector.
+        Carbon::setTestNow(Carbon::parse('2026-09-16 07:00:00', 'Asia/Jakarta'));
+        $this->artisan('invoices:reminders')->assertExitCode(0)->run();
+
+        $reminderBH1 = InvoiceReminder::where('invoice_id', $invoiceB->id)
+            ->where('event_type', InvoiceReminder::EVENT_H_MINUS_ONE)
+            ->sole();
+        $this->assertSame(InvoiceReminder::SENT, $reminderBH1->status);
+        $this->assertNotNull($reminderBH1->sent_at, 'Sent reminder must record the send timestamp.');
+        $this->assertSame(1, $reminderBH1->attempts);
+
+        // At 2026-09-17: today=9/17. Invoice B overdue event fires.
+        Carbon::setTestNow(Carbon::parse('2026-09-17 07:00:00', 'Asia/Jakarta'));
+        $this->artisan('invoices:reminders')->assertExitCode(0)->run();
+
+        $reminderBOverdue = InvoiceReminder::where('invoice_id', $invoiceB->id)
+            ->where('event_type', InvoiceReminder::EVENT_OVERDUE)
+            ->sole();
+        $this->assertSame(InvoiceReminder::SENT, $reminderBOverdue->status);
+        $this->assertNotNull($reminderBOverdue->sent_at, 'Sent reminder must record the send timestamp.');
+        $this->assertSame(1, $reminderBOverdue->attempts);
+
+        // Only Invoice B (PARTIALLY_PAID) generated reminders; A and C (PAID)
+        // must have zero reminder rows.
+        $this->assertSame(0, InvoiceReminder::where('invoice_id', $invoiceA->id)->count(), 'Paid invoice must not produce reminders.');
+        $this->assertSame(0, InvoiceReminder::where('invoice_id', $invoiceC->id)->count(), 'Paid second-outlet invoice must not produce reminders.');
+
+        // ── Phase 6: Finance metrics via HTTP for outlet 1 ──────────────────
+        // Window: 2026-08-22 → 2026-09-20 (default 30-day from as-of date).
+        // Invoices A and B both have issue_date 2026-09-10 (inside window).
+        // Invoice A paid on 2026-09-12: collection_time = 2 days.
+        // Invoice B partially paid: outstanding balance = 700000.
+        // Two sent reminders with event_dates 2026-09-17 and 2026-09-17 (inside window).
+        Carbon::setTestNow(Carbon::parse('2026-09-20 12:00:00', 'Asia/Jakarta'));
+        $financeToken = $this->refreshFinanceToken();
+        $this->adminToken = $this->login($this->admin);
+        $this->outletToken = $this->login($this->outletUser);
+        $secondToken = $this->login($secondUser);
+        $this->withToken($financeToken)->getJson('/api/finance/metrics?outlet_id='.$this->outlet->id)
+            ->assertOk()
+            ->assertJsonPath('data.window.start_date', '2026-08-22')
+            ->assertJsonPath('data.window.end_date', '2026-09-20')
+            ->assertJsonPath('data.issued_invoices.count', 2)
+            ->assertJsonPath('data.outstanding_balance.amount', 700000)
+            ->assertJsonPath('data.overdue_rate.overdue_count', 1)
+            ->assertJsonPath('data.overdue_rate.active_count', 1)
+            ->assertJsonPath('data.collection_time.average_days', 2)
+            ->assertJsonPath('data.collection_time.fully_collected_count', 1)
+            ->assertJsonPath('data.payment_status_breakdown.paid', 1)
+            ->assertJsonPath('data.payment_status_breakdown.partially_paid', 1)
+            ->assertJsonPath('data.payment_status_breakdown.unpaid', 0)
+            ->assertJsonPath('data.reminders.success', 2)
+            ->assertJsonPath('data.reminders.failure', 0);
+
+        // ── Phase 7: Finance histories are bounded ──────────────────────────
+        $this->withToken($financeToken)->getJson('/api/invoices?page=1&limit=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.has_more', true);
+
+        $this->withToken($financeToken)->getJson('/api/payments?page=1&limit=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.has_more', true);
+
+        $this->withToken($financeToken)->getJson('/api/finance/reminders?page=1&limit=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.has_more', true);
+
+        // ── Phase 8: Outlet 1 histories are scoped ──────────────────────────
+        $outlet1Invoices = $this->withToken($this->outletToken)
+            ->getJson('/api/invoices?page=1&limit=100')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->json('data');
+        $this->assertTrue(
+            collect($outlet1Invoices)->every(fn (array $row) => $row['outlet_id'] === $this->outlet->id),
+            'Outlet-1 invoice history must exclude second outlet.'
+        );
+
+        $outlet1Payments = $this->withToken($this->outletToken)
+            ->getJson('/api/payments?page=1&limit=100')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->json('data');
+        $this->assertTrue(
+            collect($outlet1Payments)->every(fn (array $row) => $row['outlet_id'] === $this->outlet->id),
+            'Outlet-1 payment history must exclude second outlet.'
+        );
+
+        $outlet1Reminders = $this->withToken($this->outletToken)
+            ->getJson('/api/finance/reminders?page=1&limit=100')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->json('data');
+        $this->assertTrue(
+            collect($outlet1Reminders)->every(fn (array $row) => ($row['outlet_id'] ?? null) === $this->outlet->id),
+            'Outlet-1 reminder history must exclude second outlet.'
+        );
+        $this->assertContains($reminderBH1->id, collect($outlet1Reminders)->pluck('id')->all());
+        $this->assertContains($reminderBOverdue->id, collect($outlet1Reminders)->pluck('id')->all());
+
+        // ── Phase 9: Second outlet isolation ────────────────────────────────
+        $secondInvoices = $this->withToken($secondToken)
+            ->getJson('/api/invoices?page=1&limit=100')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->json('data');
+        $this->assertSame($invoiceC->id, $secondInvoices[0]['id'], 'Second outlet must see only its own invoice.');
+
+        $secondPayments = $this->withToken($secondToken)
+            ->getJson('/api/payments?page=1&limit=100')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->json('data');
+        $this->assertTrue(
+            collect($secondPayments)->every(fn (array $row) => $row['outlet_id'] === $secondOutlet->id),
+            'Second outlet payment history must be scoped to its own outlet.'
+        );
+
+        $this->withToken($secondToken)
+            ->getJson('/api/finance/reminders?page=1&limit=100')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0)
+            ->assertJsonPath('meta.has_more', false);
+
+        $this->withToken($financeToken)
+            ->getJson('/api/finance/metrics?outlet_id='.$secondOutlet->id)
+            ->assertOk()
+            ->assertJsonPath('data.issued_invoices.count', 1)
+            ->assertJsonPath('data.outstanding_balance.amount', 0)
+            ->assertJsonPath('data.overdue_rate.overdue_count', 0)
+            ->assertJsonPath('data.overdue_rate.active_count', 0)
+            ->assertJsonPath('data.collection_time.average_days', 5)
+            ->assertJsonPath('data.collection_time.fully_collected_count', 1)
+            ->assertJsonPath('data.payment_status_breakdown.paid', 1)
+            ->assertJsonPath('data.reminders.success', 0)
+            ->assertJsonPath('data.reminders.failure', 0);
+
+        // ── Phase 10: Zero-safe empty outlet ────────────────────────────────
+        $emptyUser = $this->operationalUser('outlet', 't10-empty-http@example.test');
+        Outlet::factory()->create(['user_id' => $emptyUser->id, 'phone' => '+628166666666', 'is_active' => true]);
+        $emptyToken = $this->login($emptyUser);
+        $this->withToken($emptyToken)->getJson('/api/finance/metrics')
+            ->assertOk()
+            ->assertJsonPath('data.issued_invoices.count', 0)
+            ->assertJsonPath('data.outstanding_balance.amount', 0)
+            ->assertJsonPath('data.overdue_rate.rate', 0)
+            ->assertJsonPath('data.overdue_rate.overdue_count', 0)
+            ->assertJsonPath('data.overdue_rate.active_count', 0)
+            ->assertJsonPath('data.collection_time.average_days', 0)
+            ->assertJsonPath('data.collection_time.fully_collected_count', 0)
+            ->assertJsonPath('data.payment_status_breakdown.unpaid', 0)
+            ->assertJsonPath('data.payment_status_breakdown.partially_paid', 0)
+            ->assertJsonPath('data.payment_status_breakdown.paid', 0)
+            ->assertJsonPath('data.payment_status_breakdown.cancelled', 0)
+            ->assertJsonPath('data.reminders.success', 0)
+            ->assertJsonPath('data.reminders.failure', 0);
     }
 }

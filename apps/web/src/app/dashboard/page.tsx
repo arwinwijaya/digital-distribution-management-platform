@@ -25,33 +25,38 @@ type DashboardState = {
   error: string | null;
   setError: (error: string | null) => void;
 };
-type DashboardLoader = (token: string, role: string) => Promise<void>;
+type DashboardLoader = (token: string, role: string, startDate?: string, endDate?: string) => Promise<void>;
 
-function defaultStartDate(): string { const date = new Date(); date.setDate(date.getDate() - 29); return date.toISOString().slice(0, 10); }
-function today(): string { return new Date().toISOString().slice(0, 10); }
+function jakartaDateString(offsetDays: number): string {
+  const shifted = new Date();
+  shifted.setDate(shifted.getDate() + offsetDays);
+  return shifted.toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' });
+}
 function safeNumber(value: unknown): number { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 function rupiah(value: unknown): string { return `Rp ${safeNumber(value).toLocaleString('id-ID')}`; }
 function integer(value: unknown): string { return safeNumber(value).toLocaleString('id-ID'); }
 
-function useDashboardData(startDate: string, endDate: string, group: Group): DashboardState & { loadForRole: (token: string, role: string) => Promise<void> } {
+function useDashboardData(group: Group): DashboardState & { loadForRole: DashboardLoader } {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [financeMetrics, setFinanceMetrics] = useState<FinanceMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadForRole = useCallback(async (authToken: string, currentRole: string) => {
+  const loadForRole = useCallback(async (authToken: string, currentRole: string, startDate?: string, endDate?: string) => {
     setLoading(true);
     setError(null);
     try {
+      const hasDateFilter = Boolean(startDate && endDate);
       if (currentRole === 'finance') {
-        const query = new URLSearchParams({ start_date: startDate, end_date: endDate });
-        const response = await fetch(`${apiUrl('/finance/metrics')}?${query}`, { headers: authHeaders(authToken) });
+        const query = new URLSearchParams(hasDateFilter ? { start_date: startDate as string, end_date: endDate as string } : {});
+        const queryString = query.toString();
+        const response = await fetch(`${apiUrl('/finance/metrics')}${queryString ? `?${queryString}` : ''}`, { headers: authHeaders(authToken) });
         const body = await response.json();
         if (!response.ok) throw new Error(body.message || 'Metrik keuangan tidak dapat dimuat.');
         setFinanceMetrics(body.data);
         setDashboard(null);
       } else {
-        const query = new URLSearchParams({ start_date: startDate, end_date: endDate, group });
+        const query = new URLSearchParams(hasDateFilter ? { start_date: startDate as string, end_date: endDate as string, group } : { group });
         const response = await fetch(`${apiUrl('/analytics/dashboard')}?${query}`, { headers: authHeaders(authToken) });
         const body = await response.json();
         if (!response.ok) throw new Error(body.message || 'Data dasbor tidak dapat dimuat.');
@@ -65,7 +70,7 @@ function useDashboardData(startDate: string, endDate: string, group: Group): Das
     } finally {
       setLoading(false);
     }
-  }, [endDate, group, startDate]);
+  }, [group]);
 
   return { dashboard, financeMetrics, loading, error, setError, loadForRole };
 }
@@ -179,10 +184,10 @@ function DashboardDataView({ role, dashboard, financeMetrics, loading }: { role:
 }
 
 export default function DashboardPage() {
-  const [startDate, setStartDate] = useState(defaultStartDate);
-  const [endDate, setEndDate] = useState(today);
+  const [startDate, setStartDate] = useState(() => jakartaDateString(-29));
+  const [endDate, setEndDate] = useState(() => jakartaDateString(0));
   const [group, setGroup] = useState<Group>('daily');
-  const data = useDashboardData(startDate, endDate, group);
+  const data = useDashboardData(group);
   const session = useDashboardSession(data.loadForRole, data.setError);
 
   if (!session.ready) return <p className="text-sm text-gray-500">Memuat...</p>;
@@ -190,7 +195,7 @@ export default function DashboardPage() {
 
   return <div className="mx-auto max-w-6xl">
     <PageHeader title={session.role === 'finance' ? 'Dasbor keuangan' : 'Dasbor eksekutif'} description={session.role === 'finance' ? 'Pantau invoice, piutang, pembayaran, dan pengingat.' : 'Ringkasan performa penjualan, pembayaran, produk, dan outlet.'} />
-    <DashboardFilters startDate={startDate} endDate={endDate} group={group} role={session.role} loading={data.loading} onStartDateChange={setStartDate} onEndDateChange={setEndDate} onGroupChange={setGroup} onSubmit={(event) => { event.preventDefault(); if (session.token && session.role) void data.loadForRole(session.token, session.role); }} />
+    <DashboardFilters startDate={startDate} endDate={endDate} group={group} role={session.role} loading={data.loading} onStartDateChange={setStartDate} onEndDateChange={setEndDate} onGroupChange={setGroup} onSubmit={(event) => { event.preventDefault(); if (session.token && session.role) void data.loadForRole(session.token, session.role, startDate || jakartaDateString(-29), endDate || jakartaDateString(0)); }} />
     {data.error && <p role="alert" className="mb-6 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{data.error}</p>}
     <DashboardDataView role={session.role ?? ''} dashboard={data.dashboard} financeMetrics={data.financeMetrics} loading={data.loading} />
   </div>;

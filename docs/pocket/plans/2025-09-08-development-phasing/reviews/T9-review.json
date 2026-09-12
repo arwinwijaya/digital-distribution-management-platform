@@ -2,30 +2,25 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "task_id": "T9",
   "task_name": "Polish & Scale",
-  "cycle": 1,
-  "timestamp": "2026-09-09T03:06:29Z",
+  "cycle": 2,
+  "timestamp": "2026-09-10T01:45:44Z",
   "reviewer_mode": "read-only",
   "reviewer_config": "batch-parallel",
   "stage_1": {
     "status": "PASS",
     "issues": [],
     "concerns_addressed": [
-      "LoadTest.php performs real HTTP curl_multi requests at exactly 100 concurrent requests and fails on non-200/non-JSON responses plus p95 and maximum timings over the strict 2.0 second threshold; no fake timing or unconditional PASS path was found.",
-      "Without PERFORMANCE_BASE_URL and without explicit PERFORMANCE_LOCAL=true, the benchmark uses an explicit PHPUnit skip and does not claim a performance PASS.",
-      "PERFORMANCE_LOCAL=true was exercised and honestly reported 100 requests, 81 status/connection failures, approximately 10 second p95/max timings, and threshold_passed=false; the documented local SQLite/PHP built-in-server limitation matches this failure behavior.",
-      "ScaleFixtureSeeder generates 500 outlets with exactly 100 active outlets, five suppliers, 220 products, and 500 orders.",
-      "Marketplace supplier/product APIs are authenticated, bounded, paginated, and filter inactive suppliers and inactive products before pagination; supplier-less legacy products remain intentionally visible.",
-      "Full API tests passed (79 tests, 475 assertions, with only environment-conditional skips), the targeted marketplace/product tests passed, and the web test plus production build passed."
+      "The correction closes the cross-task supplier-scope gap at both purchase boundaries: REST direct product_id submissions and WhatsApp SKU/name resolution now use the same active-supplier rule while preserving supplier-less legacy compatibility.",
+      "The correction is compatible with T9 marketplace filtering and multi-supplier behavior; no marketplace bounds, inactive-supplier filtering, fixture, or performance-benchmark requirement is weakened.",
+      "The correction's focused tests verify the rejected inactive-supplier path and successful supplier-less path without order or stock leakage."
     ]
   },
   "stage_2": {
     "status": "PASS",
     "strengths": [
-      "Marketplace responses use Cache-Control: no-store and feature coverage verifies supplier deactivation is immediately reflected, avoiding shared-cache leakage.",
-      "Queries select only listing fields, apply server-side page limits, use deterministic ordering, and add matching marketplace/latest-order indexes.",
-      "The change is bounded to the requested performance, marketplace, fixture, API, UI, and test scope; no premature broad rewrite was introduced.",
-      "Authentication remains enforced by the protected route group, inactive supplier/product filtering is SQL-side, and existing order/payment/authorization behavior remains green under the full API suite.",
-      "The benchmark emits structured evidence by path and rejects failures rather than converting environmental limitations into a false performance result."
+      "The change is a small, cohesive eligibility abstraction and targeted boundary integration rather than an over-optimization or broad rewrite.",
+      "Cross-task behavior is consistent: marketplace visibility and purchase resolution agree on active supplier eligibility, and existing bounded query behavior remains outside the correction's scope and intact.",
+      "Regression tests cover both supplier-backed rejection and supplier-less compatibility, documenting the intended legacy behavior."
     ],
     "issues": [
       {
@@ -39,9 +34,9 @@
   "overall": "REVIEW_PASS",
   "fix_instructions": "",
   "loop_info": {
-    "current_cycle": 1,
+    "current_cycle": 2,
     "max_cycles": 2,
     "cycles_remaining": 2
   },
-  "reviewed_sha": "3e2601a"
+  "reviewed_sha": "6723d98f86d8fd41821cf0fa78fb440c5ed255ec"
 }

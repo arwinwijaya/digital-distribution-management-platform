@@ -2,30 +2,25 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "task_id": "T4",
   "task_name": "Payment & Credit Management",
-  "cycle": 3,
-  "timestamp": "2026-09-08T07:15:53Z",
+  "cycle": 4,
+  "timestamp": "2026-09-10T01:45:44Z",
   "reviewer_mode": "read-only",
   "reviewer_config": "batch-parallel",
   "stage_1": {
     "status": "PASS",
     "issues": [],
     "concerns_addressed": [
-      "PaymentService::record now delegates the transaction body to cohesive helpers without changing the transaction boundary, outlet-then-order lock ordering, post-lock idempotency lookup, validation, persistence, receipt generation, or order mutation behavior.",
-      "The concurrent public HTTP race remains covered by two independent PHP workers and the filesystem barrier. PaymentTest passes with one payment row, identical replayed payment IDs, 201/200 success responses, and exactly one order balance mutation.",
-      "Idempotency replay validates authorization, order identity, and amount; unique-key fallback reloads the committed winner rather than returning a 500.",
-      "Payment recording remains transaction-wrapped, so receipt-generation failure rolls back payment, receipt state, order balance/status, and status history. Partial payments, overpayment rejection, delivered-status enforcement, and non-negative outstanding balances remain intact.",
-      "Credit enforcement still occurs at order submission under the outlet lock, includes New/Confirmed/Delivered/Partially Paid outstanding orders, blocks zero and cumulative over-limit submissions before order or stock mutation, and exposes the expected outstanding calculation.",
-      "PaymentTest passes all 7 tests and 75 assertions; the complete API suite passes all 43 tests and 262 assertions."
+      "The correction's Product::purchasable scope requires an active product and either no supplier or an active supplier subscription.",
+      "OrderCreationService eager-loads the supplier and checks isPurchasable after product row locking, before stock reservation or order persistence; the added regression test verifies inactive-supplier rejection without mutation and supplier-less legacy ordering.",
+      "The correction does not alter T4 payment, partial-payment, outstanding-balance, or submission-time credit-limit behavior already covered by the preceding T4 audit."
     ]
   },
   "stage_2": {
     "status": "PASS",
     "strengths": [
-      "PaymentService::record is now a short retry/orchestration method; recordInTransaction, locking, replay, validation, balance calculation, record creation, and order mutation are separated into cohesive private helpers, all clearing the prior approximately 95-line heuristic.",
-      "The refactor preserves consistent outlet-before-order locking with order creation and keeps all financial mutations and status-history writes inside one transaction.",
-      "Money calculations remain normalized to integer cents, with bounded response balances and atomic partial/full payment status updates.",
-      "Authorization and outlet scoping are preserved for payment recording, payment reads, and credit-limit reads/configuration.",
-      "The critical path has real HTTP concurrency regression coverage and the full API regression suite is green."
+      "Eligibility logic is centralized in the Product model and the REST order boundary applies it through a small, cohesive change.",
+      "Supplier eager loading avoids per-product relation queries in the locked validation path, and rejection occurs before stock or order writes.",
+      "The correction is narrowly scoped, preserves the existing transaction and authorization boundaries, and adds focused regression coverage for both supplier-backed and supplier-less products."
     ],
     "issues": [],
     "assessment": "Approved"
@@ -33,9 +28,9 @@
   "overall": "REVIEW_PASS",
   "fix_instructions": "",
   "loop_info": {
-    "current_cycle": 3,
+    "current_cycle": 4,
     "max_cycles": 2,
     "cycles_remaining": 0
   },
-  "reviewed_sha": "ff4537d"
+  "reviewed_sha": "6723d98f86d8fd41821cf0fa78fb440c5ed255ec"
 }

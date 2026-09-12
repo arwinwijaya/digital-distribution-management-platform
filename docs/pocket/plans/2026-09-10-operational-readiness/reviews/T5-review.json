@@ -1,0 +1,52 @@
+{
+  "task_id": "T5",
+  "task_name": "Add idempotent legacy invoice backfill",
+  "cycle": 1,
+  "timestamp": "2026-09-11T04:10:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "deep",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": []
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Idempotent unique lookup via order_id with lockForUpdate and unique DB constraint; reuse path correctly reuses existing invoice without duplicate creation (InvoiceBackfillService.php:56-59,68)",
+      "Chunked bounded processing via Order::chunkById with configurable --chunk option and explicit validation (InvoiceBackfillService.php:42-44, BackfillInvoices.php:19-26)",
+      "Per-row failure visibility with try/catch per order, onRow callback reporting created/reused/skipped/failed events and explicit command counters with FAILURE exit when failed>0 (InvoiceBackfillService.php:52-79, BackfillInvoices.php:28-42)",
+      "No synthetic payment mutation: payments only read via sum where status=completed and amount>0; never creates or modifies Payment rows (InvoiceBackfillService.php:101-107); verified zero Payment::create/update in scope",
+      "Deterministic dates delegated to InvoiceService::createForApprovedOrder using Carbon::today() and outlet effectivePaymentTermDays with 7-day fallback; due-date logic verified in test via 14-day diff assertion",
+      "Transaction boundary correctness: per-row DB::transaction enclosing order lock, invoice lookup/creation, and synchronizeAmounts update atomically; failure rolls back single row without aborting remaining chunk",
+      "Additive-only behavior confirmed: no DELETE/TRUNCATE/destroy, no destructive cleanup, no automatic web-request invocation; command is admin-controlled Artisan only",
+      "All three RED/GREEN scenarios exercised through real Artisan and database with no application mocks; 3 passed, 31 assertions green"
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "backfill() is 56 lines (29-84) marginally over the ~50-line heuristic; method remains cohesive as a chunk-orchestrator with predicates and counters co-located per quality bar, so no split is mandated — consider extracting per-order processing to a private method if the method grows further",
+        "location": "apps/api/app/Services/InvoiceBackfillService.php:29"
+      },
+      {
+        "severity": "Minor",
+        "description": "hasInvoiceNumberConflict() queries without row lock inside the per-row transaction; race is ultimately guarded by the invoices.invoice_number unique constraint and outer Throwable catch (counted as failed), but an explicit lock or relying solely on constraint exception handling would make the intent clearer",
+        "location": "apps/api/app/Services/InvoiceBackfillService.php:91"
+      },
+      {
+        "severity": "Minor",
+        "description": "Deterministic issue/due dates use Carbon::today() directly; tests pin to today consistently and are green, but injecting a clock or Carbon::setTestNow would make date-dependent behavior more explicit for future time-sensitive tests",
+        "location": "apps/api/app/Services/InvoiceBackfillService.php:93"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "536ffec61b10f0f28bb76bc6b5ce11d8975fad8d"
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { OutletPerformanceChart, SalesTrendChart, OutletPoint, TrendPoint } from '@/components/Charts';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
@@ -18,19 +18,22 @@ type FinanceMetrics = {
   reminders: { success: number; failure: number; sent: number; failed: number };
 };
 
+type DashboardState = {
+  dashboard: DashboardData | null;
+  financeMetrics: FinanceMetrics | null;
+  loading: boolean;
+  error: string | null;
+  setError: (error: string | null) => void;
+};
+type DashboardLoader = (token: string, role: string) => Promise<void>;
+
 function defaultStartDate(): string { const date = new Date(); date.setDate(date.getDate() - 29); return date.toISOString().slice(0, 10); }
 function today(): string { return new Date().toISOString().slice(0, 10); }
 function safeNumber(value: unknown): number { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 function rupiah(value: unknown): string { return `Rp ${safeNumber(value).toLocaleString('id-ID')}`; }
 function integer(value: unknown): string { return safeNumber(value).toLocaleString('id-ID'); }
 
-export default function DashboardPage() {
-  const [token, setToken] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-  const [startDate, setStartDate] = useState(defaultStartDate);
-  const [endDate, setEndDate] = useState(today);
-  const [group, setGroup] = useState<Group>('daily');
+function useDashboardData(startDate: string, endDate: string, group: Group): DashboardState & { loadForRole: (token: string, role: string) => Promise<void> } {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [financeMetrics, setFinanceMetrics] = useState<FinanceMetrics | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,6 +67,14 @@ export default function DashboardPage() {
     }
   }, [endDate, group, startDate]);
 
+  return { dashboard, financeMetrics, loading, error, setError, loadForRole };
+}
+
+function useDashboardSession(loadForRole: DashboardLoader, onAuthError: (error: string | null) => void) {
+  const [token, setToken] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
   useEffect(() => {
     const storedToken = getStoredToken();
     if (!storedToken) {
@@ -87,50 +98,100 @@ export default function DashboardPage() {
       })
       .catch((reason) => {
         if (!active) return;
-        setError(reason instanceof Error ? reason.message : 'Sesi tidak dapat diverifikasi.');
+        onAuthError(reason instanceof Error ? reason.message : 'Sesi tidak dapat diverifikasi.');
         setReady(true);
       });
 
     return () => { active = false; };
-  }, [loadForRole]);
+  }, [loadForRole, onAuthError]);
 
+  return { token, role, ready, setToken, setRole, setReady };
+}
+
+function DashboardFilters({ startDate, endDate, group, role, loading, onStartDateChange, onEndDateChange, onGroupChange, onSubmit }: {
+  startDate: string;
+  endDate: string;
+  group: Group;
+  role: string | null;
+  loading: boolean;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  onGroupChange: (value: Group) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return <Card className="mb-6 p-4">
+    <form className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={onSubmit}>
+      <Input label="Dari tanggal" type="date" value={startDate} onChange={(event) => onStartDateChange(event.target.value)} />
+      <Input label="Sampai tanggal" type="date" value={endDate} onChange={(event) => onEndDateChange(event.target.value)} />
+      {role !== 'finance' && <Select label="Kelompok tren" value={group} onChange={(event) => onGroupChange(event.target.value as Group)}><option value="daily">Harian</option><option value="weekly">Mingguan</option><option value="monthly">Bulanan</option></Select>}
+      <Button type="submit" disabled={loading}>{loading ? 'Memuat...' : 'Terapkan filter'}</Button>
+    </form>
+  </Card>;
+}
+
+function FinanceMetricCards({ metrics }: { metrics: FinanceMetrics }) {
+  const statusTotal = Object.values(metrics.payment_status_breakdown ?? {}).reduce((sum, count) => sum + safeNumber(count), 0);
+  const reminderSuccess = safeNumber(metrics.reminders?.success ?? metrics.reminders?.sent);
+  const reminderFailure = safeNumber(metrics.reminders?.failure ?? metrics.reminders?.failed);
+
+  return <section aria-label="Metrik keuangan" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <StatCard label="Invoice diterbitkan" value={integer(metrics.issued_invoices?.count)} icon="🧾" />
+    <StatCard label="Saldo piutang" value={rupiah(metrics.outstanding_balance?.amount)} icon="💰" />
+    <StatCard label="Tingkat jatuh tempo" value={`${safeNumber(metrics.overdue_rate?.rate)}%`} icon="⏱️" />
+    <StatCard label="Waktu penagihan rata-rata" value={`${safeNumber(metrics.collection_time?.average_days)} hari`} icon="📅" />
+    <StatCard label="Status pembayaran" value={integer(statusTotal)} icon="✅" />
+    <StatCard label="Pengingat invoice" value={`${integer(reminderSuccess)} berhasil`} change={`${integer(reminderFailure)} gagal`} changeType={reminderFailure > 0 ? 'down' : 'neutral'} icon="🔔" />
+  </section>;
+}
+
+function AnalyticsContent({ dashboard, loading }: { dashboard: DashboardData | null; loading: boolean }) {
   const hasData = useMemo(() => dashboard && (
     safeNumber(dashboard.metrics.orders_total) > 0
     || safeNumber(dashboard.metrics.sales_total) > 0
     || safeNumber(dashboard.metrics.payments_total) > 0
   ), [dashboard]);
 
-  const statusTotal = financeMetrics
-    ? Object.values(financeMetrics.payment_status_breakdown ?? {}).reduce((sum, count) => sum + safeNumber(count), 0)
-    : 0;
-  const reminderSuccess = safeNumber(financeMetrics?.reminders?.success ?? financeMetrics?.reminders?.sent);
-  const reminderFailure = safeNumber(financeMetrics?.reminders?.failure ?? financeMetrics?.reminders?.failed);
+  if (loading && !dashboard) return <p className="text-sm text-gray-500">Memuat data analitik...</p>;
+  if (!loading && dashboard && !hasData) return <Card className="mb-6 p-6 text-sm text-gray-500">Belum ada data pada rentang tanggal ini.</Card>;
+  if (!dashboard) return null;
 
-  if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
-  if (!token) return <div className="mx-auto max-w-6xl"><PageHeader title="Dasbor eksekutif" description="Ringkasan performa bisnis dan keuangan." /><LoginForm expectedRole={['admin', 'finance']} onLogin={(nextToken, nextRole) => { setToken(nextToken); setRole(nextRole); setReady(true); void loadForRole(nextToken, nextRole); }} /></div>;
+  return <>
+    <section aria-label="Metrik utama" className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <StatCard label="Total penjualan" value={rupiah(dashboard.metrics.sales_total)} icon="💰" />
+      <StatCard label="Total pesanan" value={integer(dashboard.metrics.orders_total)} icon="🛒" />
+      <StatCard label="Outlet aktif" value={integer(dashboard.metrics.outlets_total)} icon="🏪" />
+      <StatCard label="Produk aktif" value={integer(dashboard.metrics.products_total)} icon="📦" />
+      <StatCard label="Pembayaran selesai" value={rupiah(dashboard.metrics.payments_total)} icon="💳" />
+      <StatCard label="Piutang" value={rupiah(dashboard.metrics.outstanding_total)} icon="⏱️" changeType="down" />
+    </section>
+    <section className="grid gap-5 lg:grid-cols-2">
+      <Card className="p-5"><h2 className="mb-4 text-base font-semibold text-gray-900">Tren penjualan</h2><SalesTrendChart points={dashboard.sales_trends} /></Card>
+      <Card className="p-5"><h2 className="mb-4 text-base font-semibold text-gray-900">Performa outlet</h2><OutletPerformanceChart outlets={dashboard.outlet_performance} /></Card>
+    </section>
+  </>;
+}
+
+function DashboardDataView({ role, dashboard, financeMetrics, loading }: { role: string; dashboard: DashboardData | null; financeMetrics: FinanceMetrics | null; loading: boolean }) {
+  if (role === 'finance') {
+    return <>{financeMetrics && <FinanceMetricCards metrics={financeMetrics} />}{loading && !financeMetrics && <p className="text-sm text-gray-500">Memuat metrik keuangan...</p>}</>;
+  }
+  return <AnalyticsContent dashboard={dashboard} loading={loading} />;
+}
+
+export default function DashboardPage() {
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const [endDate, setEndDate] = useState(today);
+  const [group, setGroup] = useState<Group>('daily');
+  const data = useDashboardData(startDate, endDate, group);
+  const session = useDashboardSession(data.loadForRole, data.setError);
+
+  if (!session.ready) return <p className="text-sm text-gray-500">Memuat...</p>;
+  if (!session.token) return <div className="mx-auto max-w-6xl"><PageHeader title="Dasbor eksekutif" description="Ringkasan performa bisnis dan keuangan." /><LoginForm expectedRole={['admin', 'finance']} onLogin={(nextToken, nextRole) => { session.setToken(nextToken); session.setRole(nextRole); session.setReady(true); void data.loadForRole(nextToken, nextRole); }} /></div>;
 
   return <div className="mx-auto max-w-6xl">
-    <PageHeader title={role === 'finance' ? 'Dasbor keuangan' : 'Dasbor eksekutif'} description={role === 'finance' ? 'Pantau invoice, piutang, pembayaran, dan pengingat.' : 'Ringkasan performa penjualan, pembayaran, produk, dan outlet.'} />
-    <Card className="mb-6 p-4">
-      <form className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(event) => { event.preventDefault(); if (token && role) void loadForRole(token, role); }}>
-        <Input label="Dari tanggal" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-        <Input label="Sampai tanggal" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-        {role !== 'finance' && <Select label="Kelompok tren" value={group} onChange={(event) => setGroup(event.target.value as Group)}><option value="daily">Harian</option><option value="weekly">Mingguan</option><option value="monthly">Bulanan</option></Select>}
-        <Button type="submit" disabled={loading}>{loading ? 'Memuat...' : 'Terapkan filter'}</Button>
-      </form>
-    </Card>
-    {error && <p role="alert" className="mb-6 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
-    {role === 'finance' && financeMetrics && <section aria-label="Metrik keuangan" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <StatCard label="Invoice diterbitkan" value={integer(financeMetrics.issued_invoices?.count)} icon="🧾" />
-      <StatCard label="Saldo piutang" value={rupiah(financeMetrics.outstanding_balance?.amount)} icon="💰" />
-      <StatCard label="Tingkat jatuh tempo" value={`${safeNumber(financeMetrics.overdue_rate?.rate)}%`} icon="⏱️" />
-      <StatCard label="Waktu penagihan rata-rata" value={`${safeNumber(financeMetrics.collection_time?.average_days)} hari`} icon="📅" />
-      <StatCard label="Status pembayaran" value={integer(statusTotal)} icon="✅" />
-      <StatCard label="Pengingat invoice" value={`${integer(reminderSuccess)} berhasil`} change={`${integer(reminderFailure)} gagal`} changeType={reminderFailure > 0 ? 'down' : 'neutral'} icon="🔔" />
-    </section>}
-    {role === 'finance' && loading && !financeMetrics && <p className="text-sm text-gray-500">Memuat metrik keuangan...</p>}
-    {role !== 'finance' && loading && !dashboard && <p className="text-sm text-gray-500">Memuat data analitik...</p>}
-    {role !== 'finance' && !loading && dashboard && !hasData && <Card className="mb-6 p-6 text-sm text-gray-500">Belum ada data pada rentang tanggal ini.</Card>}
-    {role !== 'finance' && dashboard && <><section aria-label="Metrik utama" className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><StatCard label="Total penjualan" value={rupiah(dashboard.metrics.sales_total)} icon="💰" /><StatCard label="Total pesanan" value={integer(dashboard.metrics.orders_total)} icon="🛒" /><StatCard label="Outlet aktif" value={integer(dashboard.metrics.outlets_total)} icon="🏪" /><StatCard label="Produk aktif" value={integer(dashboard.metrics.products_total)} icon="📦" /><StatCard label="Pembayaran selesai" value={rupiah(dashboard.metrics.payments_total)} icon="💳" /><StatCard label="Piutang" value={rupiah(dashboard.metrics.outstanding_total)} icon="⏱️" changeType="down" /></section><section className="grid gap-5 lg:grid-cols-2"><Card className="p-5"><h2 className="mb-4 text-base font-semibold text-gray-900">Tren penjualan</h2><SalesTrendChart points={dashboard.sales_trends} /></Card><Card className="p-5"><h2 className="mb-4 text-base font-semibold text-gray-900">Performa outlet</h2><OutletPerformanceChart outlets={dashboard.outlet_performance} /></Card></section></>}
+    <PageHeader title={session.role === 'finance' ? 'Dasbor keuangan' : 'Dasbor eksekutif'} description={session.role === 'finance' ? 'Pantau invoice, piutang, pembayaran, dan pengingat.' : 'Ringkasan performa penjualan, pembayaran, produk, dan outlet.'} />
+    <DashboardFilters startDate={startDate} endDate={endDate} group={group} role={session.role} loading={data.loading} onStartDateChange={setStartDate} onEndDateChange={setEndDate} onGroupChange={setGroup} onSubmit={(event) => { event.preventDefault(); if (session.token && session.role) void data.loadForRole(session.token, session.role); }} />
+    {data.error && <p role="alert" className="mb-6 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{data.error}</p>}
+    <DashboardDataView role={session.role ?? ''} dashboard={data.dashboard} financeMetrics={data.financeMetrics} loading={data.loading} />
   </div>;
 }

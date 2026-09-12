@@ -149,17 +149,24 @@ class InvoiceMetricsService
     {
         $counts = InvoiceReminder::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_reminders.invoice_id')
+            ->where('invoice_reminders.event_date', '>=', $startDate)
+            ->where('invoice_reminders.event_date', '<=', $endDate)
+            ->where(function (Builder $query) use ($outletId): void {
+                $query->where('invoice_reminders.status', InvoiceReminder::FAILED)
+                    ->orWhere(function (Builder $query) use ($outletId): void {
+                        $query->where('invoice_reminders.status', InvoiceReminder::SENT)
+                            ->whereNotNull('invoice_reminders.sent_at');
+                    });
+            })
             ->when($outletId !== null, fn (Builder $query) => $query->where('invoices.outlet_id', $outletId))
-            ->whereBetween('invoice_reminders.event_date', [$startDate, $endDate])
-            ->whereIn('invoice_reminders.status', [InvoiceReminder::SENT, InvoiceReminder::FAILED])
-            ->select('invoice_reminders.status')
+            ->selectRaw("CASE WHEN invoice_reminders.status = ? THEN ? ELSE ? END as category", [InvoiceReminder::SENT, 'sent', 'failed'])
             ->selectRaw('COUNT(*) as aggregate_count')
-            ->groupBy('invoice_reminders.status')
-            ->pluck('aggregate_count', 'status');
+            ->groupBy('category')
+            ->pluck('aggregate_count', 'category');
 
         return [
-            'sent' => (int) ($counts[InvoiceReminder::SENT] ?? 0),
-            'failed' => (int) ($counts[InvoiceReminder::FAILED] ?? 0),
+            'sent' => (int) ($counts['sent'] ?? 0),
+            'failed' => (int) ($counts['failed'] ?? 0),
         ];
     }
 

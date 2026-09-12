@@ -11,7 +11,7 @@ final class InvoiceReminderStateService
 {
     public function claimLocked(InvoiceReminder $reminder, Carbon $now): ?InvoiceReminder
     {
-        if (in_array($reminder->status, [InvoiceReminder::SENT, InvoiceReminder::FAILED], true)) {
+        if (in_array($reminder->status, [InvoiceReminder::SENT, InvoiceReminder::FAILED, InvoiceReminder::SUPPRESSED], true)) {
             return null;
         }
         if ($reminder->status === InvoiceReminder::SENDING
@@ -39,11 +39,11 @@ final class InvoiceReminderStateService
     {
         DB::transaction(function () use ($reminder): void {
             $locked = InvoiceReminder::query()->lockForUpdate()->find($reminder->id);
-            if (! $locked || in_array($locked->status, [InvoiceReminder::SENT, InvoiceReminder::FAILED], true)) {
+            if (! $locked || in_array($locked->status, [InvoiceReminder::SENT, InvoiceReminder::FAILED, InvoiceReminder::SUPPRESSED], true)) {
                 return;
             }
             $locked->update([
-                'status' => InvoiceReminder::SENT,
+                'status' => InvoiceReminder::SUPPRESSED,
                 'sent_at' => null,
                 'claimed_at' => null,
                 'claim_token' => null,
@@ -61,7 +61,7 @@ final class InvoiceReminderStateService
                 return;
             }
             $locked->update([
-                'status' => InvoiceReminder::SENT,
+                'status' => InvoiceReminder::SUPPRESSED,
                 'sent_at' => null,
                 'claimed_at' => null,
                 'claim_token' => null,

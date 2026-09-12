@@ -148,7 +148,7 @@ trait InvoiceReminderRetryScenarios
         $this->artisan('invoices:reminders');
         $reminder->refresh();
 
-        $this->assertSame(InvoiceReminder::SENT, $reminder->status);
+        $this->assertSame(InvoiceReminder::SUPPRESSED, $reminder->status);
         $this->assertSame($beforeAttempts, $reminder->attempts);
         $this->assertSame($callsBeforeRetry, $client->sendTextCalls);
 

@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "task_id": "T6",
+  "task_name": "Implement idempotent WhatsApp invoice reminders and scheduler",
+  "cycle": 4,
+  "timestamp": "2026-09-12T03:36:35Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "P3-INT-001 resolved: closed-invoice suppression is now persisted as InvoiceReminder::SUPPRESSED (apps/api/app/Models/InvoiceReminder.php:23) instead of SENT, so it is no longer double-counted as provider success.",
+      "Both suppression paths set SUPPRESSED with sent_at null and recording suppression last_error (apps/api/app/Services/InvoiceReminderStateService.php:47-55 and :52-65), matching the phase-pass fix instruction.",
+      "Terminal-state guards now treat SUPPRESSED as terminal: claimLocked returns null for SUPPRESSED (InvoiceReminderStateService.php:14) and suppressClosedRetry bails if already SUPPRESSED (InvoiceReminderStateService.php:42), so suppressed rows are never retried.",
+      "No provider call on closed-before-retry: corrected RetryScenarios asserts callsBeforeRetry == sendTextCalls (apps/api/tests/Feature/Support/InvoiceReminderRetryScenarios.php:148-153) and the new cross-service test asserts providerCallCount unchanged (apps/api/tests/Feature/InvoiceReminderSuppressionMetricsTest.php:48,102).",
+      "Bounded history remains visible: the new test fetches /api/finance/reminders and asserts the suppressed row is present with status SUPPRESSED, sent_at null, failed_at null and invoice_id preserved (InvoiceReminderSuppressionMetricsTest.php:142-152), and the history controller still exposes status/sent_at/failed_at unfiltered (apps/api/app/Http/Controllers/InvoiceReminderController.php:62-83).",
+      "Invoice immutability preserved: the new test asserts the closed invoice still reads PAID with paid_amount and balance_amount unchanged (InvoiceReminderSuppressionMetricsTest.php:154-156); the corrected trait still asserts attempt and idempotencyKey stability (InvoiceReminderRetryScenarios.php:148-150).",
+      "Attempts are bounded: closed-before-retry asserts same beforeAttempts after suppression (InvoiceReminderRetryScenarios.php:150) and new test asserts attempts==0 (InvoiceReminderSuppressionMetricsTest.php:108).",
+      "Verification on the correction included the new regression (InvoiceReminderSuppressionMetricsTest: 1 test, 22 assertions) alongside Timing/Retry/History/PostgreSQL concurrency coverage on HEAD; the correction INFO note records 71 tests / 885 assertions passing with 1 known PostgreSQL-only skip."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Correction diff is surgical: 3 production hunks (SUPPRESSED constant, two terminal guards, two suppression branches) plus a focused metrics guard, no out-of-scope file changes.",
+      "Status naming is cohesive: SUPPRESSED is a verb-derived complement to SENT/FAILED/PENDING and is included in InvoiceReminder::statuses() (InvoiceReminder.php:57) without adding any new enum validation.",
+      "Terminal-state handling is consistent: both claimLocked and suppressClosedRetry batch the same three-element terminal set, avoiding split-logic drift.",
+      "Test isolation is clean: InvoiceReminderSuppressionMetricsTest uses RefreshDatabase, counting WhatsAppClient wrapper (lines 131-155), and direct InvoiceReminder seed (lines 64-71) without mocking invoice/reminder/database, matching the packet's test-doubles rule; Carbon is restored in tearDown.",
+      "No function-size regression: the longest touched helpers remain single-purpose (claimLocked, suppressClosedRetry, suppressClaim, reminderCounts) with no new branching complexity beyond the SUPPRESSED guard."
+    ],
+    "issues": [],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 4,
+    "max_cycles": 4,
+    "cycles_remaining": 0
+  },
+  "reviewed_sha": "f7658c125919c31cacd568d5e49cc88894f0b895"
+}

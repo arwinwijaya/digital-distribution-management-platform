@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "task_id": "T7",
+  "task_name": "Add finance invoice/payment metrics API",
+  "cycle": 3,
+  "timestamp": "2026-09-12T03:36:35Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "P3-INT-001 bleed resolved: reminderCounts now requires a non-null sent_at for SENT rows to be counted as success (apps/api/app/Services/InvoiceMetricsService.php:154-160), so legacy suppressed-as-SENT rows with sent_at null cannot inflate success.",
+      "SUPPRESSED rows are excluded from both success and failure: the status predicate is narrowed to FAILED or SENT (InvoiceMetricsService.php:154-161) and the CASE/GROUP BY aggregates category only 'sent'/'failed' (InvoiceMetricsService.php:162-166), ignoring the new suppressed status.",
+      "Canonical sent/failed rows still counted correctly: the new cross-service test seeds a SENT row with sent_at and a FAILED row with failed_at, then asserts reminders.success==1 and reminders.failure==1 via GET /api/finance/metrics after suppression (apps/api/tests/Feature/InvoiceReminderSuppressionMetricsTest.php:76-96 and :138-142).",
+      "Metrics suppression proof is end-to-end: the test closes the invoice before retry, runs the real 'invoices:reminders' Artisan command, proves SUPPRESSED status with null sent_at/failed_at and zero extra provider calls, then queries /api/finance/metrics and asserts no success/failure increment (InvoiceReminderSuppressionMetricsTest.php:98-142).",
+      "Event-window outlet semantics unchanged: the date bounds and outlet scoping predicate are preserved (InvoiceMetricsService.php:150-153 and :163); the metric response keys sent/failed remain (InvoiceMetricsService.php:98-103).",
+      "The T7-scoped existing suite still passes: InvoiceMetricsTest (11 filters) plus Analytics guard remain green alongside the new InvoiceReminderSuppressionMetricsTest proof."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Correction diff on the T7 surface is a targeted 14-line change to reminderCounts only; no other metric group (issued, outstanding, overdue, collection, status breakdown, response shape) is touched, preserving the dashboard contract.",
+      "The CASE/CASE-GROUP aggregation is a bounded single-query shape (category + COUNT) consistent with the existing aggregate-by-pluck discipline; no table hydration introduced.",
+      "Double guard (SENT-only status predicate plus sent_at NOT NULL) provides defense-in-depth without widening scope: SUPPRESSED exclusion plus legacy-null SENT exclusion.",
+      "No function-size regression: reminderCounts remains a short aggregate helper with explicit outlet scope and zero-safe output; the correction adds no new public method or route."
+    ],
+    "issues": [],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 3,
+    "max_cycles": 3,
+    "cycles_remaining": 0
+  },
+  "reviewed_sha": "f7658c125919c31cacd568d5e49cc88894f0b895"
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "task_id": "T10",
+  "task_name": "Verify complete operational readiness slice end to end",
+  "cycle": 3,
+  "timestamp": "2026-09-12T11:30:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "concerns_addressed": [
+      "P3-SPEC-001 resolved: the new test_e2e_http_driven_dataset_composes_metrics_and_histories (apps/api/tests/Feature/OperationalReadinessTest.php:314-547) composes the full flow on ONE HTTP/Artisan-driven dataset instead of separate refreshed tests with direct model seeding for metrics/history. Two outlet-1 orders are approved via HTTP (createApprovedOrder -> POST /api/orders + PUT /api/orders/{id}/approve, apps/api/tests/Support/OperationalReadinessFixtures.php:129-148), delivered via the real driver flow (startDelivery -> POST /api/deliveries + PATCH in-progress, deliver -> PATCH delivered with proof, Fixtures.php:154-180), paid via the finance payment route (postPayment -> POST /api/payments, Fixtures.php:182-189) at controlled times, and reminded via the real invoices:reminders Artisan command run twice at 2026-09-16 and 2026-09-17 (OperationalReadinessTest.php:398-418).",
+      "Authentication is real throughout: login via POST /api/auth/login (Fixtures.php:101), finance assignment via POST /api/admin/users/{id}/finance-role (Fixtures.php:114-119), payment-terms via PUT /api/admin/outlets/{id}/payment-terms, delivery via driver token, payments via finance token with JWT refresh after time-travel (OperationalReadinessTest.php:291-294). No withoutMiddleware, no application service/database mock, no transaction bypass anywhere in the new scenario; only the WhatsAppClient container seam is faked (Fixtures.php:62-86), matching the packet test-doubles rule.",
+      "Metrics are asserted for the exact produced identities: outlet-1 finance metrics pin window 2026-08-22/2026-09-20, issued count 2, outstanding 700000, overdue 1/1, collection_time 2 days with 1 fully collected, breakdown paid 1 / partially_paid 1 / unpaid 0, reminders success 2 / failure 0 (OperationalReadinessTest.php:428-444). Second-outlet metrics pin count 1, outstanding 0, collection 5 days with 1 collected, breakdown paid 1, reminders 0/0 (OperationalReadinessTest.php:501-511).",
+      "All three bounded histories are asserted for the exact dataset: finance limit=1 pagination returns meta.total 3 invoices / 3 payments / 2 reminders with has_more true (OperationalReadinessTest.php:447-461). Outlet-1 scoping returns meta.total 2/2/2 with every row outlet_id-checked and both produced reminder IDs contained (OperationalReadinessTest.php:464-491). Second-outlet isolation returns exactly invoice C by id, 1 scoped payment, 0 reminders (OperationalReadinessTest.php:494-508). Zero-safe empty outlet pins all six groups to zero including rate 0 and cancelled 0 (OperationalReadinessTest.php:514-531).",
+      "Reminder composition is exact-identity: H_MINUS_ONE and OVERDUE rows for invoice B are fetched with sole() and asserted SENT with sent_at and attempts 1 (OperationalReadinessTest.php:402-418); paid invoices A and C are asserted to have zero reminder rows (OperationalReadinessTest.php:422-423). Due-date control is exact: default 7-day term pins due 2026-09-17 (OperationalReadinessTest.php:322-323), full payment advances to PAID with 0.00 balance (OperationalReadinessTest.php:348-351), partial payment advances to PARTIALLY_PAID with 700000.00 balance (OperationalReadinessTest.php:360-363).",
+      "All nine prior scenarios remain intact under original names with no drop, rename, skip, or early return (OperationalReadinessTest.php:38,59,81,106,130,164,191,234,248); the correction is a pure +273/-0 addition. Mechanical evidence confirmed live: all 10 scenarios pass with 458 assertions (OperationalReadinessTest run 2026-09-12), matching the reported controller regression posture.",
+      "Direct model-factory use in the new scenario is limited to Outlet/Product shells (OperationalReadinessTest.php:333-343) â€” the same fixture-shell pattern the packet already authorizes â€” while every order, invoice, delivery, payment, and reminder under test is produced through HTTP/Artisan. No weakened assertions: prior scenario bodies are untouched."
+    ],
+    "issues": [],
+    "status": "PASS"
+  },
+  "stage_2": {
+    "assessment": "Approved",
+    "issues": [],
+    "status": "PASS",
+    "strengths": [
+      "Correction diff is a pure addition (+273/-0, one file): no prior assertion weakened, no scenario renamed or removed, no production/config change.",
+      "Naming is precise: test_e2e_http_driven_dataset_composes_metrics_and_histories states the composition proof, refreshFinanceToken names the JWT-after-time-travel seam it wraps (OperationalReadinessTest.php:291-294). Ten labeled phases (Phase 1-10 comments) decompose the long scenario into approve/deliver/second-outlet/pay/remind/metrics/bounded/scoped/isolated/zero-safe units with exact-value comments documenting the expected metric arithmetic.",
+      "Helper use stays cohesive: the single new private helper reuses the existing login() boundary rather than duplicating auth logic; all dataset production reuses the existing createApprovedOrder/startDelivery/deliver/postPayment helpers instead of inlining new HTTP drivers.",
+      "File-size growth (282 -> ~555 lines) is justified by the composition proof the phase-pass demanded: ten phases asserting six metric groups, three bounded histories, two-outlet isolation, and zero-safe boundary for exact produced identities cannot be meaningfully shortened without reintroducing the separate-seeding gap. The only near-duplication (refreshFinanceToken vs the inline re-login in test_e2e_metrics_and_histories_are_bounded_scoped) is a 4-line JWT-refresh idiom, rated Minor at most and not an Important/Critical finding.",
+      "No hidden weakening: due-date, status, balance, sole(), and exact-id assertions are strict (assertSame/assertContains/sole), pagination asserts both data count and meta.total/has_more, and paid-invoice suppression asserts zero reminder rows rather than absence of failure."
+    ]
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 3,
+    "cycles_remaining": 0,
+    "max_cycles": 3
+  },
+  "reviewed_sha": "b467f0a9db7b34731a5b873cb846af8a69b7fe59"
+}

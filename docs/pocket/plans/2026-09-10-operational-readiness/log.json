@@ -1,0 +1,147 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-10-operational-readiness",
+    "plan_type": "phased",
+    "status": "IN_PROGRESS",
+    "date_started": "2026-09-10",
+    "date_completed": null,
+    "baseline_sha": "6eeb3be66d8c96b4ccbccc0ba2f39b75ecbd632b",
+    "pipeline": 4,
+    "plan_file": "execution-plan/index.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/phase-1.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Create operational data foundation and shared domain records",
+          "status": "DONE",
+          "file": "execution-plan/tasks/T1-create-operational-data-foundation-and-shared-domain-records.md",
+          "done_sha": "c9a98b274daecbcda1e08ddd7f399f02806a5426"
+        },
+        {
+          "id": "T2",
+          "name": "Add finance role, request-time authorization, and payment terms",
+          "status": "DONE",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T2-add-finance-role-request-time-authorization-and-payment-terms.md",
+          "done_sha": "4f5fdfd2563dc89f379fb9bbcd5dd0428a383c9e"
+        },
+        {
+          "id": "T8",
+          "name": "Enforce delivery proof at the API boundary",
+          "status": "DONE",
+          "file": "execution-plan/tasks/T8-enforce-delivery-proof-at-the-api-boundary.md",
+          "done_sha": "e1a383e3e98fd2538fd98deefb6c25fc9a6c73f4"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "file": "execution-plan/phase-2.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T3",
+          "name": "Implement invoice lifecycle and cancellation",
+          "status": "DONE",
+          "depends": "T1, T2",
+          "file": "execution-plan/tasks/T3-implement-invoice-lifecycle-and-cancellation.md",
+          "done_sha": "26a0dce0637f725e746d21d78faab0f54dd3e4e2"
+        },
+        {
+          "id": "T4",
+          "name": "Complete payment lifecycle and bounded payment history",
+          "status": "DONE",
+          "depends": "T3",
+          "file": "execution-plan/tasks/T4-complete-payment-lifecycle-and-bounded-payment-history.md",
+          "done_sha": "efe3d7d966e02182b76808abcd81d71a659a6b59"
+        },
+        {
+          "id": "T5",
+          "name": "Add idempotent legacy invoice backfill",
+          "status": "DONE",
+          "depends": "T3",
+          "file": "execution-plan/tasks/T5-add-idempotent-legacy-invoice-backfill.md",
+          "done_sha": "ecaf55a2cdc6acf705beedd43a7710f8d206f19a"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "file": "execution-plan/phase-3.md",
+      "status": "REVIEW",
+      "tasks": [
+        {
+          "id": "T6",
+          "name": "Implement idempotent WhatsApp invoice reminders and scheduler",
+          "status": "DONE",
+          "depends": "T4",
+          "file": "execution-plan/tasks/T6-implement-idempotent-whatsapp-invoice-reminders-and-scheduler.md",
+          "done_sha": "a744d62f4588d526134090000e11557f7cb5d7b7"
+        },
+        {
+          "id": "T7",
+          "name": "Add finance invoice/payment metrics API",
+          "status": "DONE",
+          "depends": "T4, T6",
+          "file": "execution-plan/tasks/T7-add-finance-invoice-payment-metrics-api.md",
+          "done_sha": "800a72695f6d68d02c5e0e4bdc420d0475753a8f"
+        },
+        {
+          "id": "T9",
+          "name": "Add finance invoice/payment/metrics web surfaces",
+          "status": "DONE",
+          "depends": "T2, T3, T4, T7, T8",
+          "file": "execution-plan/tasks/T9-add-finance-invoice-payment-metrics-web-surfaces.md",
+          "done_sha": "3021493ea87da27792a369cc7e1d890a42479b54"
+        },
+        {
+          "id": "T10",
+          "name": "Verify the complete operational readiness slice end to end",
+          "status": "DONE",
+          "depends": "T5, T6, T7, T8, T9",
+          "file": "execution-plan/tasks/T10-verify-the-complete-operational-readiness-slice-end-to-end.md",
+          "done_sha": "abef6c5a4a12def9277a1b4d3f0891a48ed2f05b"
+        }
+      ],
+      "corrections": [
+        {
+          "sha": "f7658c125919c31cacd568d5e49cc88894f0b895",
+          "files": [
+            "apps/api/app/Models/InvoiceReminder.php",
+            "apps/api/app/Services/InvoiceMetricsService.php",
+            "apps/api/app/Services/InvoiceReminderStateService.php",
+            "apps/api/tests/Feature/InvoiceReminderSuppressionMetricsTest.php",
+            "apps/api/tests/Feature/Support/InvoiceReminderRetryScenarios.php"
+          ],
+          "for_task": "T6"
+        },
+        {
+          "sha": "90209975fd2f050306d4963d2facb29dedf43a92",
+          "files": [
+            "apps/web/src/app/payments/page.tsx"
+          ],
+          "for_task": "T9"
+        },
+        {
+          "sha": "51d836beb4ab974c487a0b78e1d02e7390fd7846",
+          "files": [
+            "apps/web/src/app/dashboard/page.tsx"
+          ],
+          "for_task": "T9"
+        },
+        {
+          "sha": "b467f0a9db7b34731a5b873cb846af8a69b7fe59",
+          "files": [
+            "apps/api/tests/Feature/OperationalReadinessTest.php"
+          ],
+          "for_task": "T10"
+        }
+      ]
+    }
+  ]
+}

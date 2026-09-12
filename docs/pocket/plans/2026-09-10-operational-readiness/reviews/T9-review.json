@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "task_id": "T9",
+  "task_name": "Add finance invoice/payment/metrics web surfaces",
+  "cycle": 4,
+  "timestamp": "2026-09-12T03:35:31Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "corrections_reviewed": [
+      {
+        "correction_sha": "90209975fd2f050306d4963d2facb29dedf43a92",
+        "spec_id": "P3-INT-002",
+        "subject": "fix(web): use distinct idempotency keys for separate payment installments",
+        "file_changed": "apps/web/src/app/payments/page.tsx",
+        "verdict": "PASS",
+        "evidence": [
+          "Retry-stable key: pendingPaymentKey ref is seeded once per unique orderId:amount signature (payments/page.tsx:168-170) and reused on subsequent submits for the same signature, so retries of the same installment share one idempotency key (payments/page.tsx:172).",
+          "Fresh key after success/new installment: pendingPaymentKey.current is set to null after a successful POST (payments/page.tsx:179); the next submit with any signature (same or different) generates a brand-new UUID (payments/page.tsx:169-170).",
+          "No random-per-render: createPaymentIdempotencyKey is only called inside submit (payments/page.tsx:170), not during render or in any useMemo/useEffect without a user gesture.",
+          "Retry-safe across failed attempts: on error the ref is intentionally NOT cleared (payments/page.tsx:175), so retrying the same order:amount pair reuses the same idempotency key, preserving server-side idempotency.",
+          "POST /payments payload still sends idempotency_key (payments/page.tsx:173); shape matches StorePaymentRequest and PaymentController without change.",
+          "Only payments/page.tsx changed; all other T9 pages (dashboard, invoices, delivery, LoginForm, Sidebar) are byte-untouched by this commit."
+        ]
+      },
+      {
+        "correction_sha": "51d836beb4ab974c487a0b78e1d02e7390fd7846",
+        "spec_id": "P3-INT-003",
+        "subject": "fix(web): make initial dashboard requests authoritative to server default window",
+        "file_changed": "apps/web/src/app/dashboard/page.tsx",
+        "verdict": "PASS",
+        "evidence": [
+          "Initial load omits explicit dates: useDashboardSession calls loadForRole(token, role) with no startDate/endDate (dashboard/page.tsx:114); loadForRole defaults to no date params (dashboard/page.tsx:46), and the finance path omits the query string entirely when no dates are present (dashboard/page.tsx:51-54); the analytics path sends only { group } (dashboard/page.tsx:59). Server default window is authoritative.",
+          "Custom filter preserved: DashboardFilters onSubmit sends both startDate and endDate when the user clicks 'Terapkan filter' (dashboard/page.tsx:198); both finance (/finance/metrics?start_date=...&end_date=...) and analytics (/analytics/dashboard?start_date=...&end_date=...&group=...) paths include date params when hasDateFilter is true (dashboard/page.tsx:49-51,59).",
+          "Jakarta-local dates: jakartaDateString uses toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' }) (dashboard/page.tsx:30-33), correcting the prior UTC toISOString() off-by-one for WIB+7; date inputs are prefilled with Jakarta-local 29-day window (dashboard/page.tsx:187-188).",
+          "Six metric groups intact: FinanceMetricCards renders all six groups—issued_invoices, outstanding_balance, overdue_rate, collection_time, payment_status_breakdown, reminders (dashboard/page.tsx:131-144)—unchanged by this commit.",
+          "Non-finance /analytics/dashboard path preserved: hasDateFilter guard omits start_date/end_date on initial load while always including group (dashboard/page.tsx:59); analytics and chart rendering is untouched.",
+          "Delivery proof untouched: delivery/page.tsx still sends recipient_name and proof_of_delivery_url (delivery/page.tsx:15); the correction does not touch delivery/page.tsx.",
+          "No new dependencies: useRef is now imported (payments/page.tsx:3) but only in the P3-INT-002 correction; dashboard imports are unchanged (dashboard/page.tsx:1-7).",
+          "useDashboardData dependency array correctly shrunk to [group] (dashboard/page.tsx:73) since dates are now passed as arguments rather than closures.",
+          "Lint and build pass: npm --workspace apps/web run lint (tsc --noEmit) clean; npm --workspace apps/web run build clean."
+        ]
+      }
+    ],
+    "concerns_addressed": [
+      "All T9 spec contracts verified against both correction diffs: retry-stable key, fresh key after success, no client-only auth, endpoint/payload shapes unchanged, pagination/metrics rendering intact, delivery proof untouched.",
+      "No regression to other T9 pages: invoices/page.tsx, delivery/page.tsx, Sidebar.tsx, LoginForm.tsx are unmodified by both correction commits.",
+      "Combined correction diff touches exactly 2 files (payments/page.tsx + dashboard/page.tsx); total change is 32 lines (14+18) across both."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "P3-INT-002 adds createPaymentIdempotencyKey as a named, testable function (payments/page.tsx:149-153) — 5 lines, not inlined. The useRef-based pendingPaymentKey ref is narrowly scoped to PaymentsPage (payments/page.tsx:160) with no leakage.",
+      "P3-INT-003 replaces two separate defaultStartDate/today helpers with one jakartaDateString(offsetDays) function (dashboard/page.tsx:30-33) — genuine deduplication of UTC date logic.",
+      "The hasDateFilter guard (dashboard/page.tsx:49) cleanly separates 'initial load' from 'user-filtered load' without duplicating fetch logic.",
+      "No oversized functions introduced: createPaymentIdempotencyKey is 5 lines, jakartaDateString is 4 lines; the largest changed function (submit in PaymentsPage) remains under 30 lines.",
+      "No duplication across the two corrections: payment idempotency and dashboard date concerns are entirely orthogonal."
+    ],
+    "issues": [],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 4,
+    "max_cycles": 4,
+    "cycles_remaining": 0
+  },
+  "reviewed_sha": "90209975fd2f050306d4963d2facb29dedf43a92"
+}

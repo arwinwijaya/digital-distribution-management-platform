@@ -131,18 +131,12 @@ class SupplierPerformanceService
             $fulfillmentRatio = $totalLines > 0 ? $fulfilledCount / $totalLines : null;
 
             // On-time: valid on-time records require BOTH completed delivery AND stored non-null due_date.
-            $validOnTime = $sItems->filter(static function ($row): bool {
-                return $row->delivered_at !== null && $row->due_date !== null;
-            });
+            $validOnTime = $sItems->filter(fn ($row) => self::isEligibleOnTime($row));
 
             $validCount = $validOnTime->count();
             $excludedOnTime = $totalLines - $validCount;
 
-            $onTimeCount = $validOnTime->filter(function ($row): bool {
-                $deliveredAt = Carbon::parse($row->delivered_at);
-                $dueDate = Carbon::parse($row->due_date)->endOfDay();
-                return $deliveredAt->lte($dueDate);
-            })->count();
+            $onTimeCount = $validOnTime->filter(fn ($row) => self::isOnTime($row))->count();
 
             $onTimeRatio = $validCount > 0 ? $onTimeCount / $validCount : null;
 
@@ -215,6 +209,26 @@ class SupplierPerformanceService
      * @param array $overrides
      * @return array
      */
+    /**
+     * Determine whether an order-item row qualifies for on-time evaluation.
+     * Requires both a completed delivery AND a stored due_date.
+     */
+    private static function isEligibleOnTime(object $row): bool
+    {
+        return $row->delivered_at !== null && $row->due_date !== null;
+    }
+
+    /**
+     * Compare delivery completion timestamp to the stored due_date.
+     * On-time when delivered_at <= end-of-day of due_date.
+     */
+    private static function isOnTime(object $row): bool
+    {
+        $deliveredAt = Carbon::parse($row->delivered_at);
+        $dueDate = Carbon::parse($row->due_date)->endOfDay();
+        return $deliveredAt->lte($dueDate);
+    }
+
     private function insufficientPayload(Supplier $supplier, array $overrides): array
     {
         return array_merge($overrides, [

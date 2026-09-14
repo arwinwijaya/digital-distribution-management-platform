@@ -17,6 +17,7 @@ use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\GeographicAnalyticsController;
+use App\Http\Controllers\MeasurementController;
 use App\Http\Controllers\StockPlanningController;
 use App\Http\Controllers\SupplierPerformanceController;
 use App\Http\Controllers\InvoiceReminderController;
@@ -133,6 +134,11 @@ Route::middleware('auth:api')->group(function () {
 
     // Stock planning BI (admin-only via controller boundary, reads active snapshot)
     Route::get('/admin/analytics/stock-planning', [StockPlanningController::class, 'index']);
+
+    // Measurement ingestion and admin-only BI (controller enforces admin boundary)
+    Route::post('/admin/measurement/events', [MeasurementController::class, 'storeEvent']);
+    Route::get('/admin/analytics/measurement/recommendations', [MeasurementController::class, 'recommendations']);
+    Route::get('/admin/analytics/measurement/forecasts', [MeasurementController::class, 'forecasts']);
 
     // Credit limit and outstanding balance routes
     Route::get('/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');

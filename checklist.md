@@ -1,8 +1,8 @@
 # Roadmap Implementation Checklist
 
-**Audit date:** 2026-09-10  
+**Audit date:** 2026-09-14
 **Source roadmap:** [`development-roadmap.md`](development-roadmap.md)  
-**Execution evidence:** [`docs/pocket/plans/2025-09-08-development-phasing/closeout.md`](docs/pocket/plans/2025-09-08-development-phasing/closeout.md)
+**Execution evidence:** [`docs/pocket/plans/2025-09-08-development-phasing/closeout.md`](docs/pocket/plans/2025-09-08-development-phasing/closeout.md), [`docs/pocket/plans/2026-09-10-operational-readiness/closeout.md`](docs/pocket/plans/2026-09-10-operational-readiness/closeout.md), [`docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md`](docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md)
 
 ## Status legend
 
@@ -13,15 +13,15 @@
 
 ## Overall status
 
-**Roadmap belum selesai seluruhnya.** Execution plan T1–T9 sudah ditutup dengan `REVIEW_PASS`, tetapi plan tersebut hanya mencakup sebagian dari roadmap bisnis Phase 0–4.
+**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`, tetapi beberapa capability bisnis dan kesiapan produksi masih menjadi pekerjaan lanjutan.
 
 | Roadmap phase | Status | Ringkasan |
 |---|---|---|
 | Phase 0 — Business Validation & Planning | `[~]` Partial | Dokumen planning ada, tetapi validasi bisnis, riset pengguna, BRD, dan partner database belum terbukti. |
-| Phase 1 — MVP Platform | `[~]` Partial | Core flow sudah berjalan; role management, promosi, scoring, kategori outlet, dan beberapa analytics belum lengkap. |
-| Phase 2 — Sales & Distribution Automation | `[~]` Partial | Payment, delivery, sales visit, dan WhatsApp order tersedia; invoice, reminder, sales target, live tracking, dan broadcast promosi belum ada. |
-| Phase 3 — Data Intelligence & AI | `[~]` Partial | Recommendation, forecast, segmentation, dan basic BI tersedia; geographic/supplier BI, stock planning, ML pipeline, dan measurement belum ada. |
-| Phase 4 — Ecosystem Expansion | `[~]` Partial | Marketplace dasar tersedia; pricing, financial services, distributor network, dan predictive supply chain belum tersedia. |
+| Phase 1 — MVP Platform | `[~]` Partial | Core flow berjalan; role management, promosi, scoring, kategori outlet, dan beberapa analytics belum lengkap. |
+| Phase 2 — Sales & Distribution Automation | `[~]` Partial | Invoice, reminder, payment, delivery, sales visit, dan WhatsApp order tersedia; sales target, live tracking, dan broadcast promosi belum ada. |
+| Phase 3 — Data Intelligence & AI | `[~]` Foundation selesai | Pipeline snapshot, territory/geographic BI, supplier BI, stock planning, measurement, admin UI/map, dan atomic publication sudah tersedia; ML/LLM serta action workflow belum ada. |
+| Phase 4 — Ecosystem Expansion | `[~]` Partial | Marketplace multi-supplier dasar tersedia; pricing, financial services, distributor network, dan automated replenishment belum tersedia. |
 
 ## Phase 0 — Business Validation & Planning
 
@@ -103,11 +103,11 @@
 
 ### Payment
 
-- `[ ]` Invoice tracking.
+- `[x]` Invoice tracking — invoice otomatis dari order confirmed, status pending/paid/overdue, dan riwayat berbasis role.
 - `[x]` Outstanding payment.
 - `[x]` Credit limit dan submission-time enforcement.
 - `[x]` Payment recording, partial payment, receipt, dan idempotency.
-- `[ ]` Payment reminder.
+- `[x]` Payment reminder — scheduler, state machine, retry/idempotency, dan metrik reminder.
 
 ### WhatsApp
 
@@ -123,33 +123,33 @@
 
 ### AI recommendation
 
-- `[x]` Product recommendation.
+- `[x]` Product recommendation, termasuk sparse-data fallback.
 - `[~]` Cross-selling heuristic tersedia; dedicated campaign/action workflow belum ada.
 - `[x]` Outlet behavior analysis berbasis order history.
 
 ### Forecasting
 
 - `[x]` Outlet order prediction.
-- `[~]` Product/demand forecast tersedia sebagai heuristic agregat; SKU-level stock planning belum ada.
-- `[ ]` Stock planning dan replenishment workflow.
+- `[x]` Product/demand forecast dan SKU-level stock planning berbasis deterministic bounded service.
+- `[x]` Reorder point, safety stock, dan replenishment recommendation tersedia; eksekusi purchase/replenishment otomatis belum ada.
 
 ### Outlet intelligence
 
 - `[x]` Outlet segmentation: high potential/growth/declining-style segments.
 - `[x]` Basic sales trend BI.
-- `[ ]` Geographic analysis.
-- `[~]` Product performance BI masih terbatas pada metrik dasar.
-- `[ ]` Supplier performance BI.
-- `[ ]` Measured recommendation acceptance rate.
-- `[ ]` Forecast accuracy validation >70%.
-- `[ ]` Python ML service, ML pipeline, dan LLM integration; implementasi saat ini adalah deterministic PHP heuristics.
+- `[x]` Geographic analysis melalui territory, outlet coverage, dan map data.
+- `[x]` Product performance BI melalui data intelligence snapshot.
+- `[x]` Supplier performance BI: fulfillment, lead time, coverage, dan revenue.
+- `[x]` Recommendation funnel/acceptance measurement infrastructure.
+- `[x]` Forecast accuracy measurement (WAPE/forecast actuals); target akurasi bisnis belum terbukti.
+- `[ ]` Python ML service dan LLM integration; implementasi saat ini tetap deterministic PHP heuristics.
 
 ## Phase 4 — Ecosystem Expansion
 
 ### Marketplace
 
 - `[~]` Multi-supplier marketplace/catalog dasar — `MarketplaceController.php`, `MarketplaceTest.php`, dan `MarketplaceCatalog.tsx`.
-- `[ ]` Multiple distributor model/workflow.
+- `[ ]` Multiple distributor model/workflow dan tenant isolation.
 - `[?]` Thousands of outlets belum terbukti sebagai network produksi.
 
 ### Dynamic pricing
@@ -166,9 +166,9 @@
 
 ### Predictive supply chain
 
-- `[~]` Demand forecasting dasar sudah ada.
-- `[ ]` Inventory optimization.
-- `[ ]` Automated replenishment.
+- `[x]` Demand forecasting dasar sudah ada.
+- `[~]` Inventory planning/optimization bounded tersedia melalui reorder point dan safety stock; optimasi lintas gudang/inventory aktual belum ada.
+- `[ ]` Automated replenishment execution ke supplier atau purchase order.
 
 ## Recommended technical architecture
 
@@ -185,7 +185,10 @@
 
 ## Prioritas lanjutan yang disarankan
 
-1. Lengkapi gap MVP: role management, outlet profile/history, category/scoring, promotions, dan product analytics.
-2. Lengkapi operational automation: invoice, reminder, sales target/dashboard, real-time delivery, dan WhatsApp broadcast.
-3. Buat execution plan terpisah untuk Phase 3/4: geographic/supplier BI, measurement/calibration, dynamic pricing, financial services, dan supply-chain automation.
-4. Validasi target bisnis dengan data produksi; jangan menandai target adoption hanya berdasarkan fixture seeder.
+1. **Production readiness & pilot adoption:** AWS/object storage, backup/restore, secrets, queue/scheduler worker, observability, security hardening, dan validasi KPI dari data produksi.
+2. **Field operations:** PWA/mobile sales-driver, offline order, GPS check-in, route optimization, foto/tanda tangan proof of delivery, live tracking, sales target, dan performance dashboard.
+3. **AI menjadi action workflow:** recommendation menjadi draft order/campaign, stock plan menjadi approval/replenishment action, serta A/B test dan monitoring revenue lift.
+4. **Commercial expansion:** promotion engine, dynamic pricing, external payment gateway, outlet credit scoring, working-capital partner, dan multi-distributor workflow.
+5. **Business validation:** riset pengguna, BRD, partner database, pilot distributor, serta verifikasi target 500/1.000 outlet dan digital-ordering adoption.
+
+> Status `[?]` tetap berarti implementasi teknis belum cukup untuk membuktikan outcome bisnis. Fixture atau test seeder tidak boleh dianggap sebagai adoption produksi.

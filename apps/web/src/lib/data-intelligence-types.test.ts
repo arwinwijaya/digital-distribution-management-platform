@@ -1,3 +1,5 @@
+import type { LatLngExpression } from 'leaflet';
+import type { MapContainerProps } from 'react-leaflet';
 import type {
   DataPipelineRun,
   DataSnapshot,
@@ -88,4 +90,7 @@ const wape: WapeMeasurement = {
   target_achieved: true,
 };
 
-void [run, snapshot, territory, point, supplier, stock, funnel, wape];
+const mapCenter: LatLngExpression = [-6.2, 106.8];
+const mapProps: Pick<MapContainerProps, 'center'> = { center: mapCenter };
+
+void [run, snapshot, territory, point, supplier, stock, funnel, wape, mapProps];

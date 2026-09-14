@@ -17,17 +17,8 @@ class MeasurementController extends Controller
 
     public function recommendations(Request $request): JsonResponse
     {
-        if (! $request->user()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthenticated.',
-            ], 401);
-        }
-        if (! $request->user()?->isAdmin()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized. Only admins can view recommendation measurement.',
-            ], 403);
+        if ($error = $this->ensureAdmin($request)) {
+            return $error;
         }
         $version = $this->version();
         $window = $this->window();
@@ -41,17 +32,8 @@ class MeasurementController extends Controller
 
     public function forecasts(Request $request): JsonResponse
     {
-        if (! $request->user()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthenticated.',
-            ], 401);
-        }
-        if (! $request->user()?->isAdmin()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized. Only admins can view forecast measurement.',
-            ], 403);
+        if ($error = $this->ensureAdmin($request)) {
+            return $error;
         }
         $version = $this->version();
         $window = $this->window();
@@ -66,17 +48,8 @@ class MeasurementController extends Controller
 
     public function storeEvent(Request $request): JsonResponse
     {
-        if (! $request->user()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthenticated.',
-            ], 401);
-        }
-        if (! $request->user()?->isAdmin()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized. Only admins can ingest measurement events.',
-            ], 403);
+        if ($error = $this->ensureAdmin($request)) {
+            return $error;
         }
 
         $payload = $request->validate([
@@ -160,5 +133,23 @@ class MeasurementController extends Controller
         $reader = app(\App\Services\ActiveDataSnapshotReader::class);
 
         return $reader->section('measurement');
+    }
+
+    private function ensureAdmin(Request $request): ?JsonResponse
+    {
+        if (! $request->user()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+        if (! $request->user()->isAdmin()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized. Only admins can access measurement.',
+            ], 403);
+        }
+
+        return null;
     }
 }

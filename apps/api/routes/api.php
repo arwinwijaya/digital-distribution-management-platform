@@ -15,6 +15,8 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\TerritoryController;
+use App\Http\Controllers\GeographicAnalyticsController;
 use App\Http\Controllers\InvoiceReminderController;
 use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
@@ -116,6 +118,13 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/status', [DataPipelineController::class, 'status']);
         Route::post('/manual-trigger', [DataPipelineController::class, 'manualTrigger']);
     });
+
+    // Geographic BI and territory management routes (admin-only)
+    Route::get('/admin/analytics/geographic', [GeographicAnalyticsController::class, 'index']);
+    Route::get('/admin/territories', [TerritoryController::class, 'index']);
+    Route::post('/admin/territories', [TerritoryController::class, 'store']);
+    Route::patch('/admin/territories/{territoryId}', [TerritoryController::class, 'update']);
+    Route::post('/admin/territories/{territoryId}/assign', [TerritoryController::class, 'assign']);
 
     // Credit limit and outstanding balance routes
     Route::get('/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');

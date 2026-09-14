@@ -254,4 +254,107 @@ class StockPlanningTest extends TestCase
         $this->assertFalse($stockB['has_warning'] ?? true, 'Zero demand must not trigger a warning.');
         $this->assertSame('ok', $stockB['status']);
     }
+
+    // ------------------------------------------------------------------ //
+    // Cycle 3 — invalid stock-planning input is safe                      //
+    // ------------------------------------------------------------------ //
+
+    public function test_invalid_stock_planning_input_is_safe(): void
+    {
+        // Arrange: freeze time for deterministic 30-day window
+        $frozenTime = Carbon::parse('2026-09-14 02:00:00', 'Asia/Jakarta');
+        Carbon::setTestNow($frozenTime);
+
+        // Arrange: supplier with valid lead_time for product A
+        $supplierValid = Supplier::factory()->active()->create([
+            'lead_time_days' => 5,
+        ]);
+
+        // Arrange: supplier with null lead_time for product B
+        $supplierNullLead = Supplier::factory()->active()->create([
+            'lead_time_days' => null,
+        ]);
+
+        // Arrange: supplier with negative lead_time for product C
+        $supplierNegativeLead = Supplier::factory()->active()->create([
+            'lead_time_days' => -3,
+        ]);
+
+        // Arrange: product A has negative stock (must be clamped to zero)
+        $productNegativeStock = Product::factory()->create([
+            'supplier_id' => $supplierValid->id,
+            'stock_quantity' => -5,
+            'is_active' => true,
+        ]);
+        $this->createOrderWithItem($productNegativeStock, 30, 'Delivered', '2026-09-05');
+
+        // Arrange: product B has null lead time
+        $productNullLead = Product::factory()->create([
+            'supplier_id' => $supplierNullLead->id,
+            'stock_quantity' => 2,
+            'is_active' => true,
+        ]);
+        $this->createOrderWithItem($productNullLead, 30, 'Delivered', '2026-09-06');
+
+        // Arrange: product C has negative lead time
+        $productNegLead = Product::factory()->create([
+            'supplier_id' => $supplierNegativeLead->id,
+            'stock_quantity' => 2,
+            'is_active' => true,
+        ]);
+        $this->createOrderWithItem($productNegLead, 30, 'Delivered', '2026-09-07');
+
+        // Act: publish stock snapshot via the real pipeline
+        $pipelineRun = $this->runPipeline();
+        $this->assertSame('completed', $pipelineRun->status);
+
+        Carbon::setTestNow();
+
+        // Act: admin requests stock planning
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/admin/analytics/stock-planning');
+
+        $response->assertOk()->assertJsonPath('status', 'success');
+
+        $items = $response->json('data.items');
+        $this->assertIsArray($items);
+
+        // Find payloads
+        $stockNegative = null;
+        $stockNullLead = null;
+        $stockNegLead = null;
+        foreach ($items as $item) {
+            if (($item['product_id'] ?? null) === $productNegativeStock->id) {
+                $stockNegative = $item;
+            }
+            if (($item['product_id'] ?? null) === $productNullLead->id) {
+                $stockNullLead = $item;
+            }
+            if (($item['product_id'] ?? null) === $productNegLead->id) {
+                $stockNegLead = $item;
+            }
+        }
+
+        // Assert: negative stock clamped to zero; formula uses 0 instead of -5
+        // demand = 30 / 30 = 1, lead_time_demand = 1 × 5 = 5, reorder = max(0, 5 - 0) = 5
+        $this->assertNotNull($stockNegative, 'Product with negative stock must appear in response.');
+        $this->assertSame(0, $stockNegative['available_stock'], 'Negative stock must be clamped to zero.');
+        $this->assertSame(5, $stockNegative['reorder_quantity'], 'Reorder must use clamped zero stock.');
+
+        // Assert: null lead time → insufficient-data with no false reorder
+        $this->assertNotNull($stockNullLead, 'Product with null lead time must appear in response.');
+        $this->assertSame('insufficient-data', $stockNullLead['status']);
+        $this->assertSame(0, $stockNullLead['reorder_quantity'], 'Invalid lead time must not produce a reorder quantity.');
+        $this->assertFalse($stockNullLead['has_warning'] ?? true, 'Invalid lead time must not trigger a warning.');
+        $this->assertNull($stockNullLead['lead_time_days']);
+        $this->assertNull($stockNullLead['lead_time_demand']);
+
+        // Assert: negative lead time → insufficient-data with no false reorder
+        $this->assertNotNull($stockNegLead, 'Product with negative lead time must appear in response.');
+        $this->assertSame('insufficient-data', $stockNegLead['status']);
+        $this->assertSame(0, $stockNegLead['reorder_quantity'], 'Negative lead time must not produce a reorder quantity.');
+        $this->assertFalse($stockNegLead['has_warning'] ?? true, 'Negative lead time must not trigger a warning.');
+        $this->assertNull($stockNegLead['lead_time_days']);
+        $this->assertNull($stockNegLead['lead_time_demand']);
+    }
 }

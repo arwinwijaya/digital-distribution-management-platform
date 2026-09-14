@@ -140,9 +140,11 @@ class SupplierPerformanceService
 
             $onTimeRatio = $validCount > 0 ? $onTimeCount / $validCount : null;
 
-            // Weighted score: only when all three ratios exist.
+            // Weighted score: only when all three ratios + at least one order line exist.
+            // Centralized no-observation guard: if any component lacks a denominator,
+            // the supplier would otherwise carry a fabricated perfect/zero score.
             $weightedScore = null;
-            if ($fulfillmentRatio !== null && $onTimeRatio !== null && $catalogRatio !== null) {
+            if (self::hasSufficientObservations($totalLines, $fulfillmentRatio, $onTimeRatio, $catalogRatio)) {
                 $weightedScore = $fulfillmentRatio * self::WEIGHT_FULFILLMENT
                     + $onTimeRatio * self::WEIGHT_ON_TIME
                     + $catalogRatio * self::WEIGHT_CATALOG;
@@ -227,6 +229,20 @@ class SupplierPerformanceService
         $deliveredAt = Carbon::parse($row->delivered_at);
         $dueDate = Carbon::parse($row->due_date)->endOfDay();
         return $deliveredAt->lte($dueDate);
+    }
+
+    /**
+     * Determine whether there are sufficient observations to compute a score.
+     * Suppliers with no order lines in the window but only catalog data cannot
+     * receive a meaningful weighted score — return false to mark insufficient.
+     */
+    private static function hasSufficientObservations(
+        int $totalLines,
+        ?float $fulfillmentRatio,
+        ?float $onTimeRatio,
+        ?float $catalogRatio,
+    ): bool {
+        return $totalLines > 0 && $fulfillmentRatio !== null && $onTimeRatio !== null && $catalogRatio !== null;
     }
 
     private function insufficientPayload(Supplier $supplier, array $overrides): array

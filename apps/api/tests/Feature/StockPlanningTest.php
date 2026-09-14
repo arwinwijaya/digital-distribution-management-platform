@@ -183,4 +183,75 @@ class StockPlanningTest extends TestCase
         $response->assertJsonPath('data.window.end', $window['end']);
         $response->assertJsonPath('data.window.timezone', $window['timezone']);
     }
+
+    // ------------------------------------------------------------------ //
+    // Cycle 2 — sufficient stock or zero demand produces no reorder       //
+    // ------------------------------------------------------------------ //
+
+    public function test_sufficient_stock_or_zero_demand_produces_no_reorder(): void
+    {
+        // Arrange: freeze time for deterministic 30-day window
+        $frozenTime = Carbon::parse('2026-09-14 02:00:00', 'Asia/Jakarta');
+        Carbon::setTestNow($frozenTime);
+
+        $supplier = Supplier::factory()->active()->create([
+            'lead_time_days' => 5,
+        ]);
+
+        // Arrange: product A has sufficient stock (stock_quantity = 1000)
+        $productA = Product::factory()->create([
+            'supplier_id' => $supplier->id,
+            'stock_quantity' => 1000,
+            'is_active' => true,
+        ]);
+        $this->createOrderWithItem($productA, 10, 'Delivered', '2026-09-05');
+
+        // Arrange: product B has zero demand (no order items)
+        $productB = Product::factory()->create([
+            'supplier_id' => $supplier->id,
+            'stock_quantity' => 5,
+            'is_active' => true,
+        ]);
+
+        // Act: publish stock snapshot via the real pipeline
+        $pipelineRun = $this->runPipeline();
+        $this->assertSame('completed', $pipelineRun->status);
+
+        Carbon::setTestNow();
+
+        // Act: admin requests stock planning
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/admin/analytics/stock-planning');
+
+        $response->assertOk()->assertJsonPath('status', 'success');
+
+        $items = $response->json('data.items');
+        $this->assertIsArray($items);
+
+        // Find payloads for products A and B
+        $stockA = null;
+        $stockB = null;
+        foreach ($items as $item) {
+            if (($item['product_id'] ?? null) === $productA->id) {
+                $stockA = $item;
+            }
+            if (($item['product_id'] ?? null) === $productB->id) {
+                $stockB = $item;
+            }
+        }
+
+        $this->assertNotNull($stockA, 'Product A (sufficient stock) must appear in response.');
+        $this->assertNotNull($stockB, 'Product B (zero demand) must appear in response.');
+
+        // Assert: product A has sufficient stock → no reorder
+        $this->assertSame(0, $stockA['reorder_quantity']);
+        $this->assertFalse($stockA['has_warning'] ?? true, 'Sufficient stock must not trigger a warning.');
+        $this->assertSame('ok', $stockA['status']);
+
+        // Assert: product B has zero demand → no reorder
+        $this->assertSame(0, $stockB['total_demand']);
+        $this->assertSame(0, $stockB['reorder_quantity']);
+        $this->assertFalse($stockB['has_warning'] ?? true, 'Zero demand must not trigger a warning.');
+        $this->assertSame('ok', $stockB['status']);
+    }
 }

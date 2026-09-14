@@ -17,6 +17,8 @@ class Kernel extends ConsoleKernel
             ->timezone('Asia/Jakarta')
             ->withoutOverlapping()
             ->description('Process idempotent WhatsApp invoice reminders');
+
+        $schedule->command('data:pipeline')->dailyAt('02:00')->timezone('Asia/Jakarta')->withoutOverlapping();
     }
 
     /**

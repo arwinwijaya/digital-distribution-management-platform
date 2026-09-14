@@ -70,6 +70,17 @@ class DataPipelineService
     }
 
     /**
+     * Check whether a pipeline run is currently active (running/processing/active).
+     *
+     * Used by both the Artisan command and HTTP trigger to prevent overlapping
+     * concurrent runs.
+     */
+    public function hasActiveRun(): bool
+    {
+        return DataPipelineRun::whereIn('status', ['running', 'processing', 'active'])->exists();
+    }
+
+    /**
      * Run the pipeline synchronously.
      *
      * Creates a `DataPipelineRun` row, executes all registered stages, and if
@@ -80,6 +91,10 @@ class DataPipelineService
      */
     public function run(?CarbonInterface $now = null): DataPipelineRun
     {
+        if ($this->hasActiveRun()) {
+            throw new \RuntimeException('A pipeline run is already active.');
+        }
+
         $window = $this->computeWindow($now);
 
         $run = DataPipelineRun::create([

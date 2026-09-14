@@ -4,6 +4,7 @@ use App\Http\Controllers\AIController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreditLimitController;
+use App\Http\Controllers\DataPipelineController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\FinanceRoleController;
 use App\Http\Controllers\FinanceMetricsController;
@@ -109,6 +110,12 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/finance/metrics', [FinanceMetricsController::class, 'index']);
     Route::get('/finance/reminders', [InvoiceReminderController::class, 'index']);
     Route::get('/reminders', [InvoiceReminderController::class, 'index']);
+
+    // Admin-only data pipeline status and manual trigger
+    Route::prefix('admin/pipeline')->group(function () {
+        Route::get('/status', [DataPipelineController::class, 'status']);
+        Route::post('/manual-trigger', [DataPipelineController::class, 'manualTrigger']);
+    });
 
     // Credit limit and outstanding balance routes
     Route::get('/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');

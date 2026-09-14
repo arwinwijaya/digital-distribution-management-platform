@@ -19,7 +19,15 @@ class Supplier extends Model
         'name',
         'subscription_status',
         'subscription_plan',
+        'lead_time_days',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'lead_time_days' => 'integer',
+        ];
+    }
 
     public function user(): BelongsTo
     {

@@ -29,6 +29,7 @@ class Outlet extends Model
         'latitude',
         'longitude',
         'user_id',
+        'territory_id',
         'is_active',
         'payment_term_days',
     ];
@@ -82,6 +83,11 @@ class Outlet extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function territory(): BelongsTo
+    {
+        return $this->belongsTo(Territory::class);
     }
 
     public function creditLimit(): HasOne

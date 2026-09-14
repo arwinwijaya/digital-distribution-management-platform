@@ -21,6 +21,7 @@ class Order extends Model
         'order_id',
         'outlet_id',
         'status',
+        'due_date',
         'total_amount',
         'paid_amount',
         'commission_percentage',
@@ -38,6 +39,7 @@ class Order extends Model
             'total_amount' => 'decimal:2',
             'paid_amount' => 'decimal:2',
             'commission_percentage' => 'decimal:2',
+            'due_date' => 'date',
         ];
     }
 

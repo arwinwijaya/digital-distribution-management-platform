@@ -17,6 +17,7 @@ use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\GeographicAnalyticsController;
+use App\Http\Controllers\StockPlanningController;
 use App\Http\Controllers\SupplierPerformanceController;
 use App\Http\Controllers\InvoiceReminderController;
 use App\Http\Controllers\WhatsAppController;
@@ -129,6 +130,9 @@ Route::middleware('auth:api')->group(function () {
 
     // Supplier performance BI (admin-only via controller boundary, reads active snapshot)
     Route::get('/admin/analytics/suppliers', [SupplierPerformanceController::class, 'index']);
+
+    // Stock planning BI (admin-only via controller boundary, reads active snapshot)
+    Route::get('/admin/analytics/stock-planning', [StockPlanningController::class, 'index']);
 
     // Credit limit and outstanding balance routes
     Route::get('/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');

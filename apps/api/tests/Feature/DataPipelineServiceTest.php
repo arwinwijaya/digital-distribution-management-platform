@@ -190,4 +190,138 @@ class DataPipelineServiceTest extends TestCase
             'status' => 'published',
         ]);
     }
+
+    // ------------------------------------------------------------------ //
+    // Cycle 3 — active snapshot reader returns only published data        //
+    // ------------------------------------------------------------------ //
+
+    public function test_active_snapshot_reader_returns_published_snapshot_version_and_hides_staging_or_failed_data(): void
+    {
+        // -- Arrange: one published active snapshot with all four sections --
+        $run = DataPipelineRun::create([
+            'run_uuid' => 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+            'status' => 'completed',
+            'pipeline_version' => 'v1',
+            'window_start' => '2026-08-15',
+            'window_end' => '2026-09-13',
+        ]);
+
+        $activeSnapshot = DataSnapshot::create([
+            'run_id' => $run->id,
+            'snapshot_uuid' => 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+            'version' => 7,
+            'status' => 'staged',
+            'is_active' => false,
+            'window_start' => '2026-08-15',
+            'window_end' => '2026-09-13',
+            'timezone' => 'Asia/Jakarta',
+        ]);
+
+        $sections = ['geographic', 'supplier', 'stock', 'measurement'];
+        foreach ($sections as $section) {
+            $definition = DataMetricDefinition::create([
+                'key' => 'reader_'.$section,
+                'name' => ucfirst($section).' Reader Metric',
+                'method_version' => 'v1',
+            ]);
+            DataSnapshotValue::create([
+                'snapshot_id' => $activeSnapshot->id,
+                'metric_definition_id' => $definition->id,
+                'section' => $section,
+                'dimension_key' => $section.':active',
+                'dimension' => ['marker' => 'active'],
+                'value' => ['payload' => ['marker' => 'active'], 'snapshot_version' => 7],
+            ]);
+        }
+        DB::table('data_snapshots')->where('id', $activeSnapshot->id)->update([
+            'status' => 'published',
+            'is_active' => true,
+            'published_at' => now(),
+        ]);
+
+        // -- Arrange: staged output for a newer run + failed output row --
+        $newerRun = DataPipelineRun::create([
+            'run_uuid' => '11111111-2222-4333-8444-555555555555',
+            'status' => 'completed',
+            'pipeline_version' => 'v1',
+            'window_start' => '2026-08-16',
+            'window_end' => '2026-09-13',
+        ]);
+        $stagedSnapshot = DataSnapshot::create([
+            'run_id' => $newerRun->id,
+            'snapshot_uuid' => '66666666-6666-4666-8666-666666666666',
+            'version' => 8,
+            'status' => 'staged',
+            'is_active' => false,
+            'window_start' => '2026-08-16',
+            'window_end' => '2026-09-13',
+        ]);
+        $stagedDefinition = DataMetricDefinition::create([
+            'key' => 'reader_staged',
+            'name' => 'Staged Metric',
+            'method_version' => 'v1',
+        ]);
+        DataSnapshotValue::create([
+            'snapshot_id' => $stagedSnapshot->id,
+            'metric_definition_id' => $stagedDefinition->id,
+            'section' => 'geographic',
+            'dimension_key' => 'geographic:staging',
+            'dimension' => ['marker' => 'staging'],
+            'value' => ['payload' => ['marker' => 'staging'], 'snapshot_version' => 8],
+        ]);
+
+        $failedRun = DataPipelineRun::create([
+            'run_uuid' => '99999999-9999-4999-8999-999999999999',
+            'status' => 'failed',
+            'pipeline_version' => 'v1',
+            'window_start' => '2026-08-16',
+            'window_end' => '2026-09-13',
+            'error_message' => 'stage [supplier] failed: boom',
+        ]);
+        $failedSnapshot = DataSnapshot::create([
+            'run_id' => $failedRun->id,
+            'snapshot_uuid' => '77777777-7777-4777-8777-777777777777',
+            'version' => 9,
+            'status' => 'failed',
+            'is_active' => false,
+            'window_start' => '2026-08-16',
+            'window_end' => '2026-09-13',
+        ]);
+        DataSnapshotValue::create([
+            'snapshot_id' => $failedSnapshot->id,
+            'metric_definition_id' => $stagedDefinition->id,
+            'section' => 'supplier',
+            'dimension_key' => 'supplier:failed',
+            'dimension' => ['marker' => 'failed'],
+            'value' => ['payload' => ['marker' => 'failed'], 'snapshot_version' => 9],
+        ]);
+
+        // -- Act: read through the public reader contract --
+        $reader = new \App\Services\ActiveDataSnapshotReader();
+        $snapshot = $reader->snapshot();
+        $version = $reader->version();
+        $window = $reader->window();
+
+        // -- Assert: active version + all four typed sections + window --
+        $this->assertSame($activeSnapshot->id, $snapshot->id);
+        $this->assertSame(7, $version);
+        $this->assertSame('2026-08-15', $window['start']);
+        $this->assertSame('2026-09-13', $window['end']);
+        $this->assertSame('Asia/Jakarta', $window['timezone']);
+
+        foreach ($sections as $section) {
+            $payload = $reader->section($section);
+            $this->assertNotEmpty($payload, "Section [$section] must be returned from the active snapshot.");
+            $encoded = json_encode($payload);
+            $this->assertStringContainsString('active', $encoded);
+            $this->assertStringNotContainsString('staging', $encoded);
+            $this->assertStringNotContainsString('failed', $encoded);
+        }
+
+        // Reader exposes no snapshot mutation operation.
+        $this->assertFalse(method_exists($reader, 'publish'));
+        $this->assertFalse(method_exists($reader, 'create'));
+        $this->assertFalse(method_exists($reader, 'update'));
+        $this->assertFalse(method_exists($reader, 'delete'));
+    }
 }

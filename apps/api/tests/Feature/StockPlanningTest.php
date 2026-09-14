@@ -357,4 +357,46 @@ class StockPlanningTest extends TestCase
         $this->assertNull($stockNegLead['lead_time_days']);
         $this->assertNull($stockNegLead['lead_time_demand']);
     }
+
+    // ------------------------------------------------------------------ //
+    // Cycle 4 — stock-planning endpoint is admin-only                     //
+    // ------------------------------------------------------------------ //
+
+    public function test_stock_planning_endpoint_is_admin_only(): void
+    {
+        // Arrange: create an outlet user for non-admin requests
+        $outletUser = User::factory()->outlet()->create([
+            'email' => 'stock-plan-outlet@ddp.test',
+            'password' => Hash::make('password123'),
+        ]);
+        $outletToken = $this->postJson('/api/auth/login', [
+            'email' => $outletUser->email,
+            'password' => 'password123',
+        ])->json('data.token');
+
+        // -- Unauthenticated → HTTP 401 --
+        $unauthResponse = $this->getJson('/api/admin/analytics/stock-planning');
+        $unauthResponse->assertUnauthorized();
+        // Must not expose any stock fields
+        $unauthBody = $unauthResponse->json();
+        $this->assertArrayNotHasKey('data', $unauthBody);
+        $this->assertArrayNotHasKey('items', $unauthBody);
+
+        // -- Outlet user (non-admin) → HTTP 403 with existing JSON auth contract --
+        $forbiddenResponse = $this->withHeaders(['Authorization' => "Bearer {$outletToken}"])
+            ->getJson('/api/admin/analytics/stock-planning');
+        $forbiddenResponse->assertForbidden();
+        $forbiddenBody = $forbiddenResponse->json();
+        $this->assertSame('error', $forbiddenBody['status'] ?? null);
+        $this->assertArrayHasKey('message', $forbiddenBody);
+        // Must not expose stock planning data
+        $this->assertArrayNotHasKey('data', $forbiddenBody);
+        $this->assertArrayNotHasKey('items', $forbiddenBody);
+
+        // -- Admin → HTTP 200 with stock-planning data --
+        $adminResponse = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/admin/analytics/stock-planning');
+        $adminResponse->assertOk()->assertJsonPath('status', 'success');
+        $this->assertArrayHasKey('items', $adminResponse->json('data', []));
+    }
 }

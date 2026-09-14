@@ -88,6 +88,77 @@ class DataIntelligenceSchemaTest extends TestCase
 
     public function test_snapshot_immutability_and_one_active_run_publication_uniqueness_are_database_enforced(): void
     {
-        $this->markTestSkipped('Implemented in the second RED cycle.');
+        $run = DataPipelineRun::create([
+            'run_uuid' => '11111111-1111-4111-8111-111111111111',
+            'status' => 'running',
+            'pipeline_version' => 'v1',
+            'window_start' => '2026-09-01',
+            'window_end' => '2026-09-14',
+        ]);
+        $snapshot = DataSnapshot::create([
+            'run_id' => $run->id,
+            'snapshot_uuid' => '22222222-2222-4222-8222-222222222222',
+            'version' => 1,
+            'status' => 'published',
+            'is_active' => true,
+            'window_start' => '2026-09-01',
+            'window_end' => '2026-09-14',
+        ]);
+
+        $updateSucceeded = false;
+        try {
+            DB::table('data_snapshots')->where('id', $snapshot->id)->update(['window_start' => '2026-09-02']);
+            $updateSucceeded = true;
+        } catch (\Throwable) {
+        }
+        $this->assertFalse($updateSucceeded, 'Published snapshot update must be rejected by the database.');
+        $this->assertSame('2026-09-01', $snapshot->fresh()->window_start->toDateString());
+
+        $deleteSucceeded = false;
+        try {
+            DB::table('data_snapshots')->where('id', $snapshot->id)->delete();
+            $deleteSucceeded = true;
+        } catch (\Throwable) {
+        }
+        $this->assertFalse($deleteSucceeded, 'Published snapshot deletion must be rejected by the database.');
+        $this->assertDatabaseHas('data_snapshots', ['id' => $snapshot->id]);
+
+        $duplicateRunSucceeded = false;
+        try {
+            DB::table('data_pipeline_runs')->insert([
+                'run_uuid' => '33333333-3333-4333-8333-333333333333',
+                'status' => 'running',
+                'pipeline_version' => 'v1',
+                'window_start' => '2026-09-01',
+                'window_end' => '2026-09-14',
+                'timezone' => 'Asia/Jakarta',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $duplicateRunSucceeded = true;
+        } catch (\Throwable) {
+        }
+        $this->assertFalse($duplicateRunSucceeded, 'Only one active pipeline run may exist.');
+
+        $duplicatePublicationSucceeded = false;
+        try {
+            DB::table('data_snapshots')->insert([
+                'run_id' => $run->id,
+                'snapshot_uuid' => '44444444-4444-4444-8444-444444444444',
+                'version' => 2,
+                'status' => 'published',
+                'is_active' => true,
+                'window_start' => '2026-09-01',
+                'window_end' => '2026-09-14',
+                'timezone' => 'Asia/Jakarta',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $duplicatePublicationSucceeded = true;
+        } catch (\Throwable) {
+        }
+        $this->assertFalse($duplicatePublicationSucceeded, 'Only one active publication may exist.');
+        $this->assertSame(1, DataPipelineRun::where('status', 'running')->count());
+        $this->assertSame(1, DataSnapshot::where('is_active', true)->count());
     }
 }

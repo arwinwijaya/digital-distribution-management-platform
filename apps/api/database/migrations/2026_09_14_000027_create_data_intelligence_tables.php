@@ -68,6 +68,7 @@ return new class extends Migration
         if (in_array($driver, ['sqlite', 'pgsql'], true)) {
             DB::statement("CREATE UNIQUE INDEX data_pipeline_runs_one_active_idx ON data_pipeline_runs ((1)) WHERE status IN ('running', 'processing', 'active')");
             DB::statement("CREATE UNIQUE INDEX data_snapshots_one_active_publication_idx ON data_snapshots ((1)) WHERE is_active = true");
+            DB::statement("CREATE UNIQUE INDEX data_snapshot_values_scalar_identity_unique ON data_snapshot_values (snapshot_id, section) WHERE dimension_key IS NULL");
         }
 
         $this->createImmutabilityGuards($driver);
@@ -81,6 +82,7 @@ return new class extends Migration
         if (in_array($driver, ['sqlite', 'pgsql'], true)) {
             DB::statement('DROP INDEX IF EXISTS data_pipeline_runs_one_active_idx');
             DB::statement('DROP INDEX IF EXISTS data_snapshots_one_active_publication_idx');
+            DB::statement('DROP INDEX IF EXISTS data_snapshot_values_scalar_identity_unique');
         }
 
         Schema::dropIfExists('data_snapshot_values');
@@ -116,6 +118,14 @@ return new class extends Migration
                 WHEN OLD.status = 'published'
                 BEGIN
                     SELECT RAISE(ABORT, 'published snapshots are immutable');
+                END
+            SQL);
+            DB::unprepared(<<<'SQL'
+                CREATE TRIGGER data_snapshot_values_published_immutable_insert
+                BEFORE INSERT ON data_snapshot_values
+                WHEN EXISTS (SELECT 1 FROM data_snapshots WHERE id = NEW.snapshot_id AND status = 'published')
+                BEGIN
+                    SELECT RAISE(ABORT, 'published snapshot values are immutable');
                 END
             SQL);
             DB::unprepared(<<<'SQL'
@@ -175,7 +185,20 @@ return new class extends Migration
                 BEFORE DELETE ON data_snapshots
                 FOR EACH ROW EXECUTE FUNCTION data_snapshots_published_immutable_delete_guard();
 
-                CREATE FUNCTION data_snapshot_values_published_immutable_guard() RETURNS trigger
+                CREATE FUNCTION data_snapshot_values_published_immutable_insert_guard() RETURNS trigger
+                LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM data_snapshots WHERE id = NEW.snapshot_id AND status = 'published') THEN
+                        RAISE EXCEPTION 'published snapshot values are immutable';
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$;
+                CREATE TRIGGER data_snapshot_values_published_immutable_insert
+                BEFORE INSERT ON data_snapshot_values
+                FOR EACH ROW EXECUTE FUNCTION data_snapshot_values_published_immutable_insert_guard();
+
+                CREATE FUNCTION data_snapshot_values_published_immutable_update_guard() RETURNS trigger
                 LANGUAGE plpgsql AS $$
                 BEGIN
                     IF EXISTS (SELECT 1 FROM data_snapshots WHERE id = OLD.snapshot_id AND status = 'published') THEN
@@ -186,10 +209,20 @@ return new class extends Migration
                 $$;
                 CREATE TRIGGER data_snapshot_values_published_immutable_update
                 BEFORE UPDATE ON data_snapshot_values
-                FOR EACH ROW EXECUTE FUNCTION data_snapshot_values_published_immutable_guard();
+                FOR EACH ROW EXECUTE FUNCTION data_snapshot_values_published_immutable_update_guard();
+
+                CREATE FUNCTION data_snapshot_values_published_immutable_delete_guard() RETURNS trigger
+                LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM data_snapshots WHERE id = OLD.snapshot_id AND status = 'published') THEN
+                        RAISE EXCEPTION 'published snapshot values are immutable';
+                    END IF;
+                    RETURN OLD;
+                END;
+                $$;
                 CREATE TRIGGER data_snapshot_values_published_immutable_delete
                 BEFORE DELETE ON data_snapshot_values
-                FOR EACH ROW EXECUTE FUNCTION data_snapshot_values_published_immutable_guard();
+                FOR EACH ROW EXECUTE FUNCTION data_snapshot_values_published_immutable_delete_guard();
             SQL);
         }
     }
@@ -199,13 +232,18 @@ return new class extends Migration
         if ($driver === 'sqlite') {
             DB::unprepared('DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_delete');
             DB::unprepared('DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_update');
+            DB::unprepared('DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_insert');
             DB::unprepared('DROP TRIGGER IF EXISTS data_snapshots_published_immutable_delete');
             DB::unprepared('DROP TRIGGER IF EXISTS data_snapshots_published_immutable_update');
         } elseif ($driver === 'pgsql') {
             DB::unprepared('DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_delete ON data_snapshot_values');
             DB::unprepared('DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_update ON data_snapshot_values');
+            DB::unprepared('DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_insert ON data_snapshot_values');
             DB::unprepared('DROP TRIGGER IF EXISTS data_snapshots_published_immutable_delete ON data_snapshots');
             DB::unprepared('DROP TRIGGER IF EXISTS data_snapshots_published_immutable_update ON data_snapshots');
+            DB::unprepared('DROP FUNCTION IF EXISTS data_snapshot_values_published_immutable_delete_guard()');
+            DB::unprepared('DROP FUNCTION IF EXISTS data_snapshot_values_published_immutable_update_guard()');
+            DB::unprepared('DROP FUNCTION IF EXISTS data_snapshot_values_published_immutable_insert_guard()');
             DB::unprepared('DROP FUNCTION IF EXISTS data_snapshot_values_published_immutable_guard()');
             DB::unprepared('DROP FUNCTION IF EXISTS data_snapshots_published_immutable_delete_guard()');
             DB::unprepared('DROP FUNCTION IF EXISTS data_snapshots_published_immutable_guard()');

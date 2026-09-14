@@ -98,4 +98,47 @@ class MeasurementTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    // -------------------------------------------------------------- //
+    // Cycle 2 — Empty history returns safe output                      //
+    // -------------------------------------------------------------- //
+
+    public function test_empty_history_returns_safe_output(): void
+    {
+        $frozenTime = Carbon::parse('2026-09-14 02:00:00', 'Asia/Jakarta');
+        Carbon::setTestNow($frozenTime);
+
+        [, , $headers] = $this->authenticatedUser();
+
+        // Act: recommendation endpoint with zero eligible history
+        $response = $this->withHeaders($headers)->getJson('/api/ai/recommendations');
+        $response->assertOk()->assertJsonPath('status', 'success');
+        $recData = $response->json('data');
+
+        $this->assertSame([], $recData['recommendations']);
+        $this->assertTrue($recData['fallback']);
+        $this->assertSame('insufficient', $recData['data_sufficiency']['level']);
+        $this->assertSame(0, $recData['data_sufficiency']['days_in_window']);
+        $this->assertSame(30, $recData['data_sufficiency']['window_days']);
+        $this->assertFalse($recData['data_sufficiency']['recent_average_fallback']);
+        $this->assertArrayNotHasKey('accuracy', $recData);
+        $this->assertArrayNotHasKey('confidence_score', $recData);
+        $this->assertFalse($recData['measurement']['measured']);
+
+        // Act: forecast endpoint with zero eligible history
+        $forecast = $this->withHeaders($headers)->getJson('/api/ai/forecast?period=daily&horizon=2');
+        $forecast->assertOk()->assertJsonPath('status', 'success');
+        $fcData = $forecast->json('data');
+
+        $this->assertSame([], $fcData['predictions']);
+        $this->assertTrue($fcData['fallback']);
+        $this->assertSame('insufficient', $fcData['data_sufficiency']['level']);
+        $this->assertSame(0, $fcData['data_sufficiency']['days_in_window']);
+        $this->assertFalse($fcData['data_sufficiency']['recent_average_fallback']);
+        $this->assertArrayNotHasKey('accuracy', $fcData);
+        $this->assertArrayNotHasKey('confidence_score', $fcData);
+        $this->assertFalse($fcData['measurement']['measured']);
+
+        Carbon::setTestNow();
+    }
 }

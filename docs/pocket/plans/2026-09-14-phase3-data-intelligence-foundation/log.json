@@ -1,0 +1,106 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation",
+    "plan_type": "phased",
+    "status": "DONE",
+    "date_started": "2026-09-14",
+    "date_completed": "2026-09-14",
+    "baseline_sha": "60acc6da6775bbf4a4c0d211adb51c7c563d109e",
+    "pipeline": 4,
+    "plan_file": "execution-plan/index.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/phase-1.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Define shared data-intelligence schema and API contracts",
+          "status": "DONE",
+          "file": "execution-plan/tasks/T1-define-shared-data-intelligence-schema-and-api-contracts.md",
+          "done_sha": "7fc177ba771ac5bdec013b94f843c69cf62a711d"
+        },
+        {
+          "id": "T2",
+          "name": "Implement staged pipeline and atomic immutable publication",
+          "status": "DONE",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T2-implement-staged-pipeline-and-atomic-immutable-publication.md",
+          "done_sha": "95af513e70483edf5a40b571e61c352ac9f1b0e1"
+        },
+        {
+          "id": "T3",
+          "name": "Add scheduler, admin trigger, status and overlap prevention",
+          "status": "DONE",
+          "depends": "T2",
+          "file": "execution-plan/tasks/T3-add-scheduler-admin-trigger-status-and-overlap-prevention.md",
+          "done_sha": "8d286724de54ccb868722120aa141e338330aa78"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "file": "execution-plan/phase-2.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T4",
+          "name": "Implement territory management and geographic BI",
+          "status": "DONE",
+          "depends": "T3",
+          "file": "execution-plan/tasks/T4-implement-territory-management-and-geographic-bi.md",
+          "done_sha": "ff3ec2be1c0aa0618abeedc4f363f883cf613db1"
+        },
+        {
+          "id": "T5",
+          "name": "Implement supplier performance BI with coverage",
+          "status": "DONE",
+          "depends": "T4",
+          "file": "execution-plan/tasks/T5-implement-supplier-performance-bi-with-coverage.md",
+          "done_sha": "8b4de946adabedae85d5b6290f36c3fd2cddf4d8"
+        },
+        {
+          "id": "T6",
+          "name": "Implement stock planning and replenishment",
+          "status": "DONE",
+          "depends": "T5",
+          "file": "execution-plan/tasks/T6-implement-stock-planning-and-replenishment.md",
+          "done_sha": "8a74047df313461568c57e2e2fd3aa1d6cc5566d"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "file": "execution-plan/phase-3.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T7",
+          "name": "Add sparse AI fallback and recommendation/forecast measurement",
+          "status": "DONE",
+          "depends": "T6",
+          "file": "execution-plan/tasks/T7-add-sparse-ai-fallback-and-recommendation-forecast-measurement.md",
+          "done_sha": "6f7cbcc43c9b8ea4ec16a35fc08ce5508b2752e1"
+        },
+        {
+          "id": "T8",
+          "name": "Build Next.js admin data-intelligence surfaces and Leaflet map",
+          "status": "DONE",
+          "depends": "T7",
+          "file": "execution-plan/tasks/T8-build-next-js-admin-data-intelligence-surfaces-and-leaflet-map.md",
+          "done_sha": "1a3e3e5d12ab1a0dab9176d2a8331186897ace33"
+        },
+        {
+          "id": "T9",
+          "name": "Verify pipeline publication is consumed atomically across BI units",
+          "status": "DONE",
+          "depends": "T7",
+          "file": "execution-plan/tasks/T9-verify-pipeline-publication-is-consumed-atomically-across-bi-units.md",
+          "done_sha": "4056ea22c571c60a3e781d2d0535b6a4a4008294"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "task_id": "T8",
+  "task_name": "Build Next.js admin data-intelligence surfaces and Leaflet map",
+  "cycle": 1,
+  "timestamp": "2026-09-14T12:50:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Admin page consumes shared typed API client and payload types; dashboard surface matches backend BI contracts.",
+      "GeoMap is client-only via 'use client' and dynamic import { ssr: false }; OSM attribution present with explicit non-zero container height.",
+      "Tables render independently of the map; error state retains table fallback.",
+      "Measurement events carry a stable UUID idempotency key across retries.",
+      "Sidebar adminOnly gate exposes the new route only to admin role."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Shared data-intelligence types and api client reused as admin surface seam.",
+      "Map lifecycle isolation and coordinate validation align with specification.",
+      "TypeScript and Jest gates clean."
+    ],
+    "issues": [
+      {"type":"test-config-scope","severity":"Minor","description":"Jest config excludes an uncommitted file type by direct name rather than path convention.","location":"apps/web/jest.config.js"},
+      {"type":"test-config-outside-packet","severity":"Minor","description":"Jest config change is outside packet file list but was required for test gating.","location":"apps/web/jest.config.js"}
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {"current_cycle":1,"max_cycles":2,"cycles_remaining":2},
+  "reviewed_sha": "1a3e3e5d12ab1a0dab9176d2a8331186897ace33"
+}

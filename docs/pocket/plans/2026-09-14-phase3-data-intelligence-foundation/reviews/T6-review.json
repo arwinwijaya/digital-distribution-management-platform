@@ -1,0 +1,37 @@
+{
+  "task_id": "T6",
+  "task_name": "Implement stock planning and replenishment",
+  "cycle": 1,
+  "timestamp": "2026-09-14T12:00:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Exact reorder formula max(0, average daily demand × lead_time_days − available stock) with fixture 60/30=2, 2×5=10, reorder 7 and warning.",
+      "30-day rolling demand includes only positive quantities from non-excluded orders within the window.",
+      "Negative stock clamped to zero; null/negative lead time produces insufficient-data with no false reorder.",
+      "Sufficient stock or zero demand returns explicit no-action with reorder 0.",
+      "Stock-planning section published via stage and read via ActiveDataSnapshotReader with snapshot_version/window metadata; no live recomputation.",
+      "Route is admin-only with existing 401/403 contract and no data leak."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Deterministic demand/formula isolation in service and authorization at controller boundary.",
+      "Consistent ActiveDataSnapshotReader usage with other BI controllers.",
+      "Exactly the four packet files touched; no product ordering behavior changed."
+    ],
+    "issues": [
+      {"type":"undocumented-rounding","severity":"Minor","description":"reorderQuantity applies ceil() rounding; spec states exact formula without rounding. Integer-safe and never produces false negatives.","location":"apps/api/app/Services/StockPlanningService.php"},
+      {"type":"scope","severity":"Minor","description":"produce() iterates all products without is_active filter; inactive products still receive planning payloads.","location":"apps/api/app/Services/StockPlanningService.php"}
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {"current_cycle":1,"max_cycles":2,"cycles_remaining":2},
+  "reviewed_sha": "8a74047df313461568c57e2e2fd3aa1d6cc5566d"
+}

@@ -18,10 +18,12 @@ This is a monorepo containing:
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS
-- **Backend**: Laravel 11 + PHP 8.2
+- **Frontend**: Next.js 14 + React 18 + TypeScript + Tailwind CSS + Zustand + Axios
+- **Backend**: Laravel 11 + PHP 8.2 + JWT (`tymon/jwt-auth`)
 - **Database**: PostgreSQL 16
 - **Cache**: Redis 7
+- **AI & Analytics**: Deterministic bounded services (forecast, recommendation, segmentation, data intelligence pipeline)
+- **Messaging**: WhatsApp Cloud API integration
 - **Containerization**: Docker + Docker Compose
 
 ## Prerequisites
@@ -158,17 +160,31 @@ GET /api/health
 
 ## Database Schema
 
-### Users Table
-- id (bigint, primary key)
-- name (string)
-- email (string, unique)
-- email_verified_at (timestamp, nullable)
-- password (string, hashed)
-- role (enum: admin, supplier, outlet, sales, driver)
-- phone (string, nullable)
-- is_active (boolean)
-- created_at (timestamp)
-- updated_at (timestamp)
+35 migrations supporting the full ecosystem:
+
+### Core Tables
+- **users** — role enum (admin, supplier, outlet, sales, driver), `finance_role` (nullable)
+- **outlets** — linked to user, territory, credit limit; `payment_term_days`, `canonical_phone`
+- **products** — linked to supplier; purchasable scope
+- **suppliers** — `lead_time_days`
+- **orders** → **order_items** → **order_status_history** — full audit trail, `commission_percentage` snapshot, `due_date`
+- **payments** — linked to order
+- **credit_limits** — per-outlet credit cap
+- **deliveries** → **delivery_status_histories** — state machine (assigned → in_progress → delivered/failed)
+- **sales_visits** — planning & history per sales user
+- **whatsapp_messages** — idempotency fields (`claimed_at`)
+
+### Invoice & Finance
+- **invoices** — auto-created from confirmed orders
+- **invoice_reminders** — jatuh tempo tracking
+- **role_assignment_audits** — audit trail for finance role changes
+
+### Data Intelligence
+- **territories** — geographic distribution zones
+- **data_pipeline_runs** → **data_snapshots** → **data_snapshot_values** — BI pipeline
+- **metric_definitions** — configurable metrics
+- **recommendation_events** — AI recommendation tracking
+- **forecast_actuals** — forecast accuracy measurement
 
 ## Testing
 
@@ -195,15 +211,25 @@ See `.github/workflows/ci.yml` for details.
 
 ## Development Phases
 
-- **Phase 0**: Foundation & Infrastructure (Current)
-- **Phase 1**: Outlet Onboarding & Product Discovery
-- **Phase 2**: Order Management & Transaction
-- **Phase 3**: Payment & Credit Management
-- **Phase 4**: Dashboard & Analytics
-- **Phase 5**: Sales Force & Delivery
-- **Phase 6**: WhatsApp Integration
-- **Phase 7**: AI & Intelligence
-- **Phase 8**: Polish & Scale
+- **Phase 0**: Foundation & Infrastructure ✅
+- **Phase 1**: Outlet Onboarding & Product Discovery ✅
+- **Phase 2**: Order Management & Transaction ✅
+- **Phase 3**: Data Intelligence & AI Foundation ✅ (T1–T9 executed)
+- **Phase 4**: Finance & Invoice Management ✅ (payment terms, invoice reminders, finance roles)
+- **Phase 5**: Territory & Geographic BI ✅ (territory management, geographic analytics, supplier performance, stock planning)
+
+### Key Features
+
+| Module | Description |
+|---|---|
+| **Multi-supplier Marketplace** | Suppliers list products, outlets browse & order across brands |
+| **Order Pipeline** | Full lifecycle: order → approve → deliver → pay, with status audit |
+| **Credit Limit System** | Per-outlet credit cap enforced at order creation |
+| **WhatsApp Integration** | Inbound ordering via chat, outbound notifications, catalog sharing |
+| **AI & Analytics** | Deterministic forecast, recommendation, segmentation (no LLM dependency) |
+| **Data Intelligence Pipeline** | Automated snapshot-based BI: geographic, supplier, stock, measurement |
+| **Invoice & Finance** | Invoice generation, reminders, finance role management |
+| **Territory Management** | Geographic zones, outlet assignment, coverage analytics |
 
 ## License
 

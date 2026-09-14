@@ -68,25 +68,33 @@ Pola arsitektur backend: **Controller (tipis) → Service (logika bisnis) → El
 ├── apps/
 │   ├── api/                  # Laravel 11 backend (118 file PHP)
 │   │   ├── app/
-│   │   │   ├── Http/Controllers/   # 12 controller (AI, Analytics, Auth, CreditLimit,
-│   │   │   │                       #   Delivery, Marketplace, Order, Outlet, Payment,
-│   │   │   │                       #   Product, Sales, WhatsApp)
+│   │   │   ├── Http/Controllers/   # 22 controller (AI, Analytics, Auth, CreditLimit,
+│   │   │   │                       #   DataPipeline, Delivery, FinanceMetrics, FinanceRole,
+│   │   │   │                       #   GeographicAnalytics, Invoice, InvoiceReminder,
+│   │   │   │                       #   Marketplace, Measurement, Order, Outlet, Payment,
+│   │   │   │                       #   Product, Sales, StockPlanning, SupplierPerformance,
+│   │   │   │                       #   Territory, WhatsApp)
 │   │   │   ├── Http/Requests/      # 8 FormRequest validasi
-│   │   │   ├── Http/Middleware/    # Authenticate, ValidateSignature (HMAC WA), dsb.
-│   │   │   ├── Models/             # 13 Eloquent model
-│   │   │   ├── Services/           # 16 service logika bisnis
+│   │   │   ├── Http/Middleware/    # Authenticate, ValidateSignature (HMAC WA), denyFinance, dsb.
+│   │   │   ├── Models/             # 22 Eloquent model
+│   │   │   ├── Services/           # 30 service logika bisnis
 │   │   │   ├── Contracts/          # Interface WhatsAppClient
 │   │   │   └── Support/            # ConcurrencyTestBarrier (khusus test)
 │   │   ├── config/                 # app, auth, database, jwt, orders, whatsapp
-│   │   ├── database/migrations/    # 22 migrasi
-│   │   ├── routes/api.php          # ±35 route
+│   │   ├── database/migrations/    # 35 migrasi
+│   │   ├── routes/api.php          # ±60 route
 │   │   └── tests/Feature/          # 13 test suite
-│   ├── web/                  # Next.js 14 frontend (18 file TSX)
+│   ├── web/                  # Next.js 14 frontend
 │   │   └── src/
-│   │       ├── app/                # 9 route halaman (lihat §11)
+│   │       ├── app/                # 13 route halaman (lihat §11)
 │   │       ├── components/         # Charts, LoginForm, MarketplaceCatalog,
-│   │       │                       #   OrderForm, OutletForm, ProductCatalog
-│   │       └── lib/api.ts          # API_URL, apiUrl(), authHeaders(), token storage
+│   │       │                       #   OrderForm, OutletForm, ProductCatalog,
+│   │       │                       #   AppShell, Sidebar, Topbar, ui/* (13 komponen)
+│   │       ├── components/data-intelligence/  # GeoMap, MeasurementCards,
+│   │       │                       #   StockPlanningTable, SupplierPerformanceTable,
+│   │       │                       #   TerritoryTable
+│   │       └── lib/                # api.ts, data-intelligence-api.ts,
+│   │                               #   data-intelligence-types.ts
 ├── packages/shared/          # Tipe TS bersama (User, Product, Order, ApiResponse, …)
 ├── docs/                     # Spesifikasi, execution plan T1–T9, load-test report
 └── docker-compose.yml
@@ -109,15 +117,15 @@ Pola arsitektur backend: **Controller (tipis) → Service (logika bisnis) → El
 
 ## 5. Backend — Laravel API
 
-### 5.1 Controller (12)
+### 5.1 Controller (22)
 
 | Controller | Method | Tanggung jawab |
 |---|---|---|
 | `AuthController` | `registerOutlet`, `login`, `me`, `logout`, `refresh` | Registrasi outlet (buat User+Outlet sekaligus), JWT login/me/logout/refresh |
-| `OutletController` | `store` | Registrasi outlet legacy (auth-only) |
+| `OutletController` | `store`, `showPaymentTerms`, `updatePaymentTerms` | Registrasi outlet, kelola payment terms per outlet |
 | `ProductController` | `index` | Katalog produk legacy (auth-only) |
 | `MarketplaceController` | `suppliers`, `products` | Listing supplier aktif + produk multi-supplier, paginasi + filter status |
-| `OrderController` | `store`, `index`, `show`, `approve` | Buat order (via `OrderCreationService`), list (admin), detail, approve |
+| `OrderController` | `store`, `index`, `show`, `approve`, `cancel` | Buat order (via `OrderCreationService`), list (admin), detail, approve, cancel |
 | `DeliveryController` | `index`, `store`, `show`, `updateStatus` | Assign delivery ke driver, lifecycle status auditabel |
 | `PaymentController` | `store`, `index` | Catat pembayaran (via `PaymentService`), riwayat |
 | `CreditLimitController` | `show`, `update` | Lihat/update limit kredit outlet (admin) |
@@ -125,8 +133,18 @@ Pola arsitektur backend: **Controller (tipis) → Service (logika bisnis) → El
 | `AnalyticsController` | `dashboard` | Metrik owner: outlet, order, sales, produk terlaris, dsb. |
 | `AIController` | `recommendations`, `forecast`, `segmentation` | Analitik deterministik & bounded (lihat §8.5) |
 | `WhatsAppController` | `webhook` (publik, verifikasi HMAC), `catalog`, `notify`, `retry` | Inbound order via WA, share katalog, notifikasi, retry |
+| `InvoiceController` | `index` | Riwayat invoice per outlet (admin melihat lintas outlet) |
+| `InvoiceReminderController` | `index` | Daftar invoice jatuh tempo (finReminder: `InvoiceReminderCandidateSelector`) |
+| `FinanceRoleController` | `assign`, `remove`, `access` | Admin assign/hapus role finance ke user, cek akses finance |
+| `FinanceMetricsController` | `index` | Agregasi metrik keuangan (total receivable, overdue, payment ratio, dll.) |
+| `DataPipelineController` | `status`, `manualTrigger` | Status pipeline data intelijen, trigger manual run |
+| `GeographicAnalyticsController` | `index` | Analitik geografis: outlet per wilayah, sales density, coverage heatmap |
+| `TerritoryController` | `index`, `store`, `update`, `assign` | CRUD wilayah distribusi, assign outlet ke territory |
+| `SupplierPerformanceController` | `index` | BI performa supplier: fulfillment rate, avg lead time, revenue |
+| `StockPlanningController` | `index` | BI perencanaan stok: reorder point, safety stock, demand forecast per produk |
+| `MeasurementController` | `storeEvent`, `recommendations`, `forecasts` | Ingestion event pengukuran, rekomendasi & forecast berbasis data intelijen |
 
-### 5.2 Service (16)
+### 5.2 Service (30)
 
 | Service | Fungsi |
 |---|---|
@@ -146,6 +164,21 @@ Pola arsitektur backend: **Controller (tipis) → Service (logika bisnis) → El
 | `WhatsAppPayloadParser` | Parsing payload webhook: ekstrak pesan, body, item terstruktur, resolusi produk |
 | `WhatsAppSenderResolver` | Resolusi nomor pengirim → outlet (dengan kanonikalisasi nomor) |
 | `ConcurrencyTestBarrier` | Barrier sinkronisasi **khusus test** (race suite); tidak aktif di produksi |
+| `InvoiceService` | Pencatatan & penarikan invoice dari order + payment; status tracking |
+| `InvoiceBackfillService` | Backfill invoice historis dari order/payment yang sudah ada |
+| `InvoiceMetricsService` | Agregasi metrik keuangan: total receivable, overdue, rasio pembayaran |
+| `InvoiceReminderService` | Orkestrasi pengingat invoice jatuh tempo |
+| `InvoiceReminderCandidateSelector` | Seleksi kandidat invoice yang perlu diingatkan |
+| `InvoiceReminderClaimService` | Klaim/ambil invoice reminder oleh sales |
+| `InvoiceReminderStateService` | Manajemen status state machine invoice reminder |
+| `FinanceAuthorizationService` | Cek otorisasi role finance: user dengan role finance hanya lihat data keuangan |
+| `FinanceRoleService` | Assign/hapus role finance ke user + audit trail |
+| `DataPipelineService` | Orkestrasi pipeline data intelijen: snapshot, metrics, rekomendasi |
+| `ActiveDataSnapshotReader` | Membaca snapshot data intelijen terbaru yang sudah dipublikasikan |
+| `MeasurementService` | Pencatatan event pengukuran + analitik |
+| `GeographicAnalyticsService` | Agregasi data geografis: outlet density, coverage, sales per wilayah |
+| `StockPlanningService` | Perhitungan reorder point, safety stock, demand forecast per SKU |
+| `SupplierPerformanceService` | Agregasi metrik performa supplier: fulfillment rate, lead time, revenue |
 
 ### 5.3 Validasi request (FormRequest)
 
@@ -164,22 +197,34 @@ User (role: admin|supplier|outlet|sales|driver)
  │        │       ├─1:N OrderStatusHistory (audit)
  │        │       ├─1:N Payment
  │        │       ├─1:1 Delivery ──1:N DeliveryStatusHistory (audit)
+ │        │       ├─1:N Invoice ──1:N InvoiceReminder
  │        │       └─1:N WhatsAppMessage
- │        └─1:N WhatsAppMessage
+ │        ├─1:N WhatsAppMessage
+ │        └─N:1 Territory
  ├─1:1 Supplier ──1:N Product
  ├─1:N SalesVisit (sales_user_id) ──N:1 Outlet
  ├─1:N Delivery sebagai driver (driver_id) / pembuat (assigned_by_id)
+ ├─1:N RoleAssignmentAudit (finance role changes)
  └─JWT auth (getJWTIdentifier / getJWTCustomClaims)
+
+Data Intelligence:
+DataPipelineRun ──1:1 DataSnapshot ──1:N DataSnapshotValue
+DataMetricDefinition ──1:N DataSnapshotValue
+RecommendationEvent ──N:1 User
 ```
 
 Catatan per model:
 
-- **User** — `role` enum 5 nilai; helper `isAdmin/isOutlet/isSupplier/isSales/isDriver`; `password` hidden; cast `is_active` boolean.
-- **Outlet** — mutator normalisasi nomor telepon (`canonicalizePhone`, migrasi `000015`); relasi `user`, `creditLimit`.
+- **User** — `role` enum 5 nilai; helper `isAdmin/isOutlet/isSupplier/isSales/isDriver`; `password` hidden; cast `is_active` boolean. Kolom `finance_role` (nullable) menandakan role keuangan tambahan.
+- **Outlet** — mutator normalisasi nomor telepon (`canonicalizePhone`, migrasi `000015`); relasi `user`, `creditLimit`, `territory`. Kolom `payment_term_days` untuk payment terms per outlet.
 - **Product** — `supplier()`; scope `purchasable` (hanya produk aktif/available dari supplier aktif — produk tanpa supplier tetap bisa dipesan); scope `search`.
-- **Order** — `outlet`, `items`, `statusHistory` (terurut), `payments`, `delivery`; `generateUniqueOrderId()`; `recordStatus()` untuk audit. Status: `new → confirmed → processing → delivered → paid`, plus `cancelled`. Field `commission_percentage` di-snapshot per order (aturan bisnis §8).
+- **Order** — `outlet`, `items`, `statusHistory` (terurut), `payments`, `delivery`, `invoice`; `generateUniqueOrderId()`; `recordStatus()` untuk audit. Status: `new → confirmed → processing → delivered → paid`, plus `cancelled`. Field `commission_percentage` di-snapshot per order. Kolom `due_date` untuk jatuh tempo.
 - **Delivery** — konstanta `ASSIGNED / IN_PROGRESS / DELIVERED / FAILED`; `canTransition()` + `transitionTo()` menegakkan state machine dan menulis `DeliveryStatusHistory` beserta aktor.
-- **Payment / CreditLimit / SalesVisit / Supplier / OrderItem / histori / WhatsAppMessage** — relasi standar `belongsTo/hasMany/hasOne` seperti diagram di atas; `WhatsAppMessage` memakai tabel `whatsapp_messages` dengan field idempotensi (`claimed_at`, kunci idempotensi notifikasi).
+- **Invoice** — dibuat otomatis dari order yang dikonfirmasi; relasi `order`, `outlet`, `reminders`. Status: `pending`, `paid`, `overdue`.
+- **InvoiceReminder** — jatuh tempo invoice; `InvoiceReminderCandidateSelector` → `InvoiceReminderClaimService` → `InvoiceReminderStateService` (state machine).
+- **Territory** — `name`, `code`; relasi `hasMany` ke Outlet. Untuk manajemen wilayah distribusi.
+- **DataPipelineRun / DataSnapshot / DataSnapshotValue / DataMetricDefinition** — pipeline data intelijen: run → snapshot → values per metrik. `RecommendationEvent` mencatat event rekomendasi AI per user.
+- **Payment / CreditLimit / SalesVisit / Supplier / OrderItem / histori / WhatsAppMessage / RoleAssignmentAudit** — relasi standar `belongsTo/hasMany/hasOne` seperti diagram di atas; `WhatsAppMessage` memakai tabel `whatsapp_messages` dengan field idempotensi (`claimed_at`, kunci idempotensi notifikasi). `RoleAssignmentAudit` mencatat perubahan role finance.
 
 ---
 
@@ -220,6 +265,18 @@ Base URL: `http://localhost:8000/api`. Kecuali yang ditandai publik, semua butuh
 | `POST /whatsapp/messages/{messageId}/retry` | `WhatsAppController@retry` | Retry pesan gagal (lease-based) |
 | `GET /credit-limit`, `GET /admin/outlets/{outletId}/credit-limit` | `CreditLimitController@show` | Ringkasan limit & outstanding |
 | `PUT|POST /admin/outlets/{outletId}/credit-limit` | `CreditLimitController@update` | Admin set limit |
+| `GET /admin/outlets/{outletId}/payment-terms`, `PUT|POST /admin/outlets/{outletId}/payment-terms` | `OutletController` | Kelola payment terms per outlet (admin only) |
+| `PUT /orders/{id}/cancel` | `OrderController@cancel` | Batalkan order (otorisasi per peran) |
+| `GET /invoices`, `GET /finance/metrics` | `InvoiceController`, `FinanceMetricsController` | Invoice history + finance metrics (role-scoped) |
+| `GET /finance/reminders`, `GET /reminders` | `InvoiceReminderController` | Daftar pengingat invoice jatuh tempo |
+| `GET /finance/access` | `FinanceRoleController@access` | Cek akses finance untuk role saat ini |
+| `POST /admin/users/{userId}/finance-role`, `DELETE /admin/users/{userId}/finance-role` | `FinanceRoleController` | Assign/hapus role finance (admin only, diaudit) |
+| `GET /admin/pipeline/status`, `POST /admin/pipeline/manual-trigger` | `DataPipelineController` | Status & trigger manual pipeline data intelijen |
+| `GET /admin/analytics/geographic` | `GeographicAnalyticsController` | Analitik geografis: outlet per wilayah, heatmap |
+| `GET /admin/territories`, `POST /admin/territories`, `PATCH /admin/territories/{id}`, `POST /admin/territories/{id}/assign` | `TerritoryController` | CRUD territory & assign outlet ke territory |
+| `GET /admin/analytics/suppliers` | `SupplierPerformanceController` | BI performa supplier (fulfillment, lead time, revenue) |
+| `GET /admin/analytics/stock-planning` | `StockPlanningController` | BI perencanaan stok (reorder point, safety stock, forecast) |
+| `POST /admin/measurement/events`, `GET /admin/analytics/measurement/*` | `MeasurementController` | Ingestion event + analitik pengukuran |
 
 Contoh respons login dan bentuk error mengikuti tipe di `packages/shared` (`LoginResponse`, `AuthError`, `ApiResponse<T>`, `PaginatedResponse<T>`).
 
@@ -273,7 +330,7 @@ Konfigurasi (`apps/api/config/whatsapp.php`, env `WHATSAPP_*`): `ENABLED`, `WEBH
 
 ## 11. Frontend — Next.js Web
 
-App Router, 9 halaman + 6 modul lib/komponen:
+App Router, 13 halaman + komponen UI shared + komponen data-intelligence:
 
 | Route | File | Fungsi & endpoint yang dipakai |
 |---|---|---|
@@ -285,11 +342,19 @@ App Router, 9 halaman + 6 modul lib/komponen:
 | `/marketplace` | `app/marketplace/page.tsx` | Katalog multi-supplier (`MarketplaceCatalog`) → `/marketplace/*` |
 | `/outlets` | `app/outlets/page.tsx` | Registrasi/kelola outlet (`OutletForm`) → `/outlets`, `/auth/register` |
 | `/payments` | `app/payments/page.tsx` | Pembayaran & riwayat → `/payments`, `/credit-limit` |
+| `/invoices` | `app/invoices/page.tsx` | Invoice & tagihan → `/invoices`, `/reminders` |
 | `/delivery` | `app/delivery/page.tsx` | Assign & tracking delivery → `/deliveries` |
 | `/sales` | `app/sales/page.tsx` | Perencanaan & histori kunjungan → `/sales/visits` |
 | `/analytics` | `app/analytics/page.tsx` | Rekomendasi, forecast, segmentasi AI → `/ai/*` |
+| `/data-intelligence` | `app/data-intelligence/page.tsx` | Data Intelligence admin (peta, territory, supplier, stok) → `/admin/analytics/*` |
 
-`src/lib/api.ts`: `API_URL` (dari `NEXT_PUBLIC_API_URL`), `apiUrl(path)`, `authHeaders(token)`, token JWT di `localStorage` (`ddp_token` via `getStoredToken/storeToken`). `LoginForm` mendukung `expectedRole` (mis. halaman outlet meminta login sebagai outlet bila belum ada token). Testing: `order-flow.test.js` (E2E: seed admin+produk → order → approve).
+**Layout & navigasi:** `app/layout.tsx` → `AppShell` → `Sidebar` (navigasi per peran: admin, finance, outlet — ada flag `finance` & `adminOnly`). Role diambil dari `GET /auth/me` + sinkron via custom event `auth-change`.
+
+**Komponen UI shared** (`components/ui/`, 13 modul): `Button`, `Card`, `StatCard`, `Table`, `Modal`, `Input`, `Select`, `Textarea`, `Badge`, `StatusBadge`, `EmptyState`, `Skeleton`, `PageHeader`.
+
+**Komponen Data Intelligence** (`components/data-intelligence/`): `GeoMap` (peta OpenStreetMap via Leaflet), `TerritoryTable`, `SupplierPerformanceTable`, `StockPlanningTable`, `MeasurementCards` — dengan `lib/data-intelligence-api.ts` + `lib/data-intelligence-types.ts` sebagai kontrak tipe frontend-BE.
+
+**Lib:** `src/lib/api.ts`: `API_URL`, `apiUrl(path)`, `authHeaders(token)`, token JWT di `localStorage` (`ddp_token`). `LoginForm` mendukung `expectedRole`. Testing: `order-flow.test.js` (E2E) + `data-intelligence-types.test.js` (tipe).
 
 ---
 
@@ -311,25 +376,31 @@ App Router, 9 halaman + 6 modul lib/komponen:
 
 ## 14. Database & Migrasi
 
-22 migrasi (`apps/api/database/migrations/`), urutan bermakna:
+35 migrasi (`apps/api/database/migrations/`), urutan bermakna:
 
 1. `2024_01_01` users (role: admin, supplier, outlet, sales, driver)
-2. `2024_01_02` outlets (+ `000015` canonical phone)
+2. `2024_01_02` outlets (+ `000015` canonical phone, `000019` payment_term_days, `000025` territory_id)
 3. `2024_01_03` products (+ `000005` supplier FK)
-4. `2024_01_04*` orders, order_items, order_status_history (+ `000003` commission snapshot, `000006` paid_amount)
-5. `000004` suppliers; `000007` payments (+ `000010` index analitik); `000008` credit_limits
+4. `2024_01_04*` orders, order_items, order_status_history (+ `000003` commission snapshot, `000006` paid_amount, `000029` due_date)
+5. `000004` suppliers (+ `000026` lead_time_days); `000007` payments (+ `000010` index analitik); `000008` credit_limits
 6. `000009` indeks query analitik; `000011` sales_visits (+ `CalendarService`)
 7. `000012` deliveries + `000013` delivery_status_histories
 8. `000014` whatsapp_messages (+ `000016` idempotensi notifikasi, `000017` claimed_at)
 9. `000018` indeks query marketplace
+10. `000020` invoices + `000021` invoice_reminders (+ `000023` send_lease)
+11. `000022` role_assignment_audits + `000023` finance_role ke users
+12. `000024` territories + `000027` data_intelligence tables (pipeline_runs, snapshots, metric_definitions)
+13. `000028` recommendation_events + `000029` forecast_actuals
 
-Fakta penting: skema mendukung **multi-supplier marketplace** (produk ↔ supplier), **audit ganda** (order + delivery), dan **idempotensi pesan WA** di level DB.
+Fakta penting: skema mendukung **multi-supplier marketplace** (produk ↔ supplier), **audit ganda** (order + delivery), **idempotensi pesan WA** di level DB, **invoice & finance role**, **manajemen territory**, dan **pipeline data intelijen** (snapshot-based BI).
 
 ---
 
 ## 15. Testing & CI/CD
 
-Suite backend (`apps/api/tests/Feature/`, 13 file): `AuthTest`, `OutletTest`, `ProductTest`, `MarketplaceTest`, `OrderTest`, `PaymentTest`, `DeliveryTest` (termasuk race konkuren multi-server), `SalesTest`, `AITest`, `AnalyticsTest`, `WhatsAppTest`, `WhatsAppPostgresConcurrencyTest`, `Phase1IntegrationTest` (+ `LoadTest` performa). Frontend: `apps/web/order-flow.test.js` (E2E order flow).
+Suite backend (`apps/api/tests/Feature/`, 13 file): `AuthTest`, `OutletTest`, `ProductTest`, `MarketplaceTest`, `OrderTest`, `PaymentTest`, `DeliveryTest` (termasuk race konkuren multi-server), `SalesTest`, `AITest`, `AnalyticsTest`, `WhatsAppTest`, `WhatsAppPostgresConcurrencyTest`, `Phase1IntegrationTest` (+ `LoadTest` performa).
+
+Frontend: `apps/web/jest.config.js` (config Jest dengan Babel — `@babel/core`, `@babel/preset-env`, `@babel/preset-react`, `@babel/preset-typescript`); `order-flow.test.js` (E2E order flow); `data-intelligence-types.test.js` (validasi tipe data-intelligence).
 
 CI (`.github/workflows/ci.yml`, trigger `push` ke `main/develop` + PR ke `main`): job `api-tests` (PHP 8.2 + Postgres 16 + Redis 7 service → `composer install` → migrate → `php artisan test`), job web (Node 20 → Jest), job Docker build. Dokumen `docs/performance/T9-load-test.md` mencatat SLO: **p95 & maks < 2 dtk pada 100 request konkuren** dengan fixture 500 outlet (`ScaleFixtureSeeder`).
 

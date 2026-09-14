@@ -95,13 +95,18 @@ Berikut perjalanan satu pesanan dari awal sampai lunas:
 
 ### 4.1 Pemilik / Admin
 
-**Halaman yang dipakai:** Dashboard, Admin Orders, Outlets, Payments, Analytics.
+**Halaman yang dipakai:** Dashboard, Admin Orders, Outlets, Payments, Invoices, Analytics, Data Intelligence.
 
 1. **Pantau bisnis** di *Dashboard*: total outlet terdaftar, outlet aktif, order hari ini, omzet bulanan, produk terlaris, performa area.
 2. **Setujui pesanan** di *Admin Orders*: periksa pesanan baru → klik setujui. Pesanan yang disetujui otomatis bisa diteruskan ke pengiriman dan memicu notifikasi WhatsApp ke warung.
 3. **Kelola outlet** di *Outlets*: daftar, data pemilik, alamat, kategori, riwayat belanja tiap warung.
 4. **Atur limit kredit** tiap outlet di *Payments*: tentukan plafon (mis. Rp 5 juta). Sistem menolak order baru yang melebihi sisa plafon.
-5. **Lihat analitik** di *Analytics*: rekomendasi produk, prediksi order per outlet, dan pengelompokan outlet (bernilai tinggi / potensi menengah / rendah) untuk strategi penjualan.
+5. **Atur payment terms** per outlet: tentukan jatuh tempo pembayaran (mis. NET-30).
+6. **Pantau invoice** di *Invoices*: daftar tagihan, status (pending/paid/overdue), pengingat jatuh tempo.
+7. **Lihat analitik** di *Analytics*: rekomendasi produk, prediksi order per outlet, dan pengelompokan outlet (bernilai tinggi / potensi menengah / rendah) untuk strategi penjualan.
+8. **Buka Data Intelligence** (`/data-intelligence`, khusus admin): peta sebaran outlet, kelola territory/wilayah distribusi, pantau performa supplier (fulfillment rate, lead time), rencanakan stok (reorder point, safety stock), dan ukur akurasi forecast.
+9. **Pantau pipeline data** di Data Intelligence: status otomatisasi snapshot data, trigger manual bila perlu.
+10. **Kelola role finance**: assign/hapus akses keuangan ke user tertentu — akses tercatat (audit trail).
 
 ### 4.2 Supplier / Brand
 

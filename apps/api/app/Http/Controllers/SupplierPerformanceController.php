@@ -12,6 +12,11 @@ class SupplierPerformanceController extends Controller
     {
     }
 
+    /**
+     * Admin-only consumer boundary.
+     * Authorization lives exclusively at this HTTP layer; the service formula
+     * stays deterministic and unaware of roles.
+     */
     public function index(Request $request): JsonResponse
     {
         if (!$request->user()->isAdmin()) {

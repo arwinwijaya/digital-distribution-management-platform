@@ -127,7 +127,7 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('/admin/territories/{territoryId}', [TerritoryController::class, 'update']);
     Route::post('/admin/territories/{territoryId}/assign', [TerritoryController::class, 'assign']);
 
-    // Supplier performance BI (admin-only, reads active snapshot)
+    // Supplier performance BI (admin-only via controller boundary, reads active snapshot)
     Route::get('/admin/analytics/suppliers', [SupplierPerformanceController::class, 'index']);
 
     // Credit limit and outstanding balance routes

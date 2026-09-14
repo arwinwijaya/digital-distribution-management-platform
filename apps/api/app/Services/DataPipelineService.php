@@ -223,26 +223,12 @@ class DataPipelineService
 
             // Persist each registered section with its typed payload plus snapshot
             // version/window metadata, as required by the reader contract.
+            // Refactor: written while green — empty sections record one
+            // placeholder row carrying version/window so the reader can expose
+            // explicit window metadata even for empty snapshots.
             foreach ($stageOutputs as $section => $payloadMap) {
                 if (! is_array($payloadMap) || $payloadMap === []) {
-                    $this->ensureMetricDefinition($section);
-                    // Empty sections still record a placeholder row carrying
-                    // version/window so the reader can expose explicit window
-                    // metadata even for empty snapshots. Use dimension_key NULL
-                    // sentinel counted as one scalar row; second empty section
-                    // would collide, so only one placeholder per section.
-                    DataSnapshotValue::create([
-                        'snapshot_id' => $snapshot->id,
-                        'metric_definition_id' => $this->ensureMetricDefinition($section)->id,
-                        'section' => $section,
-                        'dimension_key' => null,
-                        'dimension' => null,
-                        'value' => [
-                            'payload' => [],
-                            'snapshot_version' => $snapshot->version,
-                            'window' => $window,
-                        ],
-                    ]);
+                    $this->storeEmptySectionPlaceholder($snapshot, $window, $section);
                     continue;
                 }
 
@@ -299,5 +285,21 @@ class DataPipelineService
                 'is_active' => true,
             ]
         );
+    }
+
+    private function storeEmptySectionPlaceholder(DataSnapshot $snapshot, array $window, string $section): void
+    {
+        DataSnapshotValue::create([
+            'snapshot_id' => $snapshot->id,
+            'metric_definition_id' => $this->ensureMetricDefinition($section)->id,
+            'section' => $section,
+            'dimension_key' => null,
+            'dimension' => null,
+            'value' => [
+                'payload' => [],
+                'snapshot_version' => $snapshot->version,
+                'window' => $window,
+            ],
+        ]);
     }
 }

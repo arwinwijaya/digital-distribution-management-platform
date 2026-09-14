@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 
-type NavItem = { href: string; label: string; icon: string; finance?: boolean };
+type NavItem = { href: string; label: string; icon: string; finance?: boolean; adminOnly?: boolean };
 type SidebarAuth = { role: string | null; authResolved: boolean };
 type AuthChangeDetail = { token?: string | null; role?: string | null };
 
@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/delivery',      label: 'Pengiriman',    icon: '🚚' },
   { href: '/sales',         label: 'Sales',         icon: '📋' },
   { href: '/analytics',     label: 'Analitik',      icon: '📈' },
+  { href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️', adminOnly: true },
   { href: '/admin/orders',  label: 'Admin',         icon: '⚙️' },
 ];
 
@@ -100,7 +101,13 @@ function useSidebarAuth(): SidebarAuth {
 }
 
 function SidebarNavigation({ pathname, role, authResolved, onClose }: { pathname: string; role: string | null; authResolved: boolean; onClose?: () => void }) {
-  const visibleItems = !authResolved ? [] : role === 'finance' ? NAV_ITEMS.filter((item) => item.finance) : NAV_ITEMS;
+  const visibleItems = !authResolved
+    ? []
+    : role === 'finance'
+      ? NAV_ITEMS.filter((item) => item.finance)
+      : role === 'admin'
+        ? NAV_ITEMS
+        : NAV_ITEMS.filter((item) => !item.adminOnly);
   return <nav className="flex-1 overflow-y-auto slim-scroll px-3 py-4 space-y-1">
     {visibleItems.map(({ href, label, icon }) => {
       const isActive = pathname === href || pathname.startsWith(href + '/');

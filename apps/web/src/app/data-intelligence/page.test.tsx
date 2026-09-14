@@ -10,7 +10,7 @@ const mockGetStoredToken = jest.fn(() => 'test-token');
 jest.mock('@/lib/api', () => ({
   apiUrl: (p: string) => `http://localhost:8000/api${p}`,
   authHeaders: (token: string) => ({ Authorization: `Bearer ${token}` }),
-  getStoredToken: (...args: unknown[]) => mockGetStoredToken(...args),
+  getStoredToken: (...args: unknown[]) => (mockGetStoredToken as (...a: unknown[]) => string | null)(...args),
 }));
 
 const geographicResponse = {
@@ -212,5 +212,36 @@ describe('admin page consumes shared API contract', () => {
     expect(screen.getAllByText(/Wilayah/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Supplier/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Stok/i).length).toBeGreaterThan(0);
+  });
+
+  it('frontend funnel event carries a UUID and replay-safe request', async () => {
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    const sentBodies: Array<{ event_uuid: string; event_type: string; outlet_id?: number | null; product_id?: number | null }> = [];
+    fetchMock.mockImplementation(async (_url: unknown, options?: { body?: string }) => {
+      const body = options?.body ? JSON.parse(options.body) : {};
+      sentBodies.push(body);
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({ status: 'success', data: { event_uuid: body.event_uuid } }),
+      } as Response;
+    });
+
+    const { buildFunnelEventPayload, sendFunnelEvent } = await import('@/lib/data-intelligence-api');
+
+    const stableKey = buildFunnelEventPayload('clicked', { outlet_id: 1, product_id: 2 }).event_uuid;
+    expect(stableKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+
+    const first = await sendFunnelEvent('clicked', { outlet_id: 1, product_id: 2 }, stableKey);
+    expect(first.event_uuid).toBe(stableKey);
+    expect(first.event_type).toBe('clicked');
+
+    // Retry with the same idempotency key must not generate a new key.
+    const retry = await sendFunnelEvent('clicked', { outlet_id: 1, product_id: 2 }, stableKey);
+    expect(retry.event_uuid).toBe(stableKey);
+    expect(sentBodies).toHaveLength(2);
+    expect(sentBodies[0].event_uuid).toBe(stableKey);
+    expect(sentBodies[1].event_uuid).toBe(stableKey);
+    expect(sentBodies[0].event_type).toBe('clicked');
   });
 });

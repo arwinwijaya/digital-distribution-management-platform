@@ -18,6 +18,8 @@ class ForecastService
 
     public const MAX_HISTORY_BUCKETS = 366;
 
+    public const WINDOW_DAYS = 30;
+
     private const EXCLUDED_ORDER_STATUSES = ['Cancelled', 'Canceled', 'Rejected', 'Invalid'];
 
     /**
@@ -40,6 +42,8 @@ class ForecastService
         $points = $this->groupPoints($dailyRows, $period);
         $dataPoints = count($points);
         $sufficient = $dataPoints >= self::MIN_DATA_POINTS;
+        $daysInWindow = $this->daysInWindow($outletId, $points);
+        $limitedData = $dataPoints > 0 && $daysInWindow < self::WINDOW_DAYS;
         $base = [
             'period' => $period,
             'horizon' => $horizon,
@@ -48,10 +52,19 @@ class ForecastService
             'data_sufficiency' => [
                 'sufficient' => $sufficient,
                 'level' => $dataPoints === 0 ? 'insufficient' : ($sufficient ? 'adequate' : 'limited'),
+                'window_days' => self::WINDOW_DAYS,
+                'days_in_window' => $daysInWindow,
+                'recent_average_fallback' => $limitedData,
+                'sparse' => $limitedData,
                 'minimum_required' => self::MIN_DATA_POINTS,
-                'note' => 'Non-probabilistic heuristic based on historical period count; this is not a calibrated forecast probability.',
+                'note' => $dataPoints === 0
+                    ? 'No eligible order history; empty output with insufficient-data metadata.'
+                    : ($limitedData
+                        ? 'Recent-average heuristic fallback over fewer than 30 days; limited-data, low-confidence forecast quality, not a calibrated probability.'
+                        : 'Non-probabilistic heuristic based on historical period count; this is not a calibrated forecast probability.'),
             ],
             'fallback' => ! $sufficient,
+            'low_confidence' => $limitedData,
             'method' => 'historical_mean_v1',
             'method_version' => '1.0.0',
             'measurement' => [
@@ -84,6 +97,30 @@ class ForecastService
         $base['predictions'] = $predictions;
 
         return $base;
+    }
+
+    /**
+     * Count distinct qualifying daily buckets within the trailing 30-day window.
+     *
+     * For daily periods this is the number of daily rows inside the window;
+     * for weekly/monthly groupings we still count qualifying daily observations
+     * so the sparse contract remains comparable across periods.
+     *
+     * @param array<int, array{period: string, order_count: int, sales_total: string}> $points
+     */
+    private function daysInWindow(?int $outletId, array $points): int
+    {
+        $windowStart = now()->copy()->startOfDay()->subDays(self::WINDOW_DAYS - 1);
+        $observed = 0;
+
+        foreach ($points as $point) {
+            if ($point['period'] < $windowStart->toDateString()) {
+                continue;
+            }
+            $observed++;
+        }
+
+        return $observed;
     }
 
     /** @return array<int, array{period: string, order_count: int, sales_total: string}> */

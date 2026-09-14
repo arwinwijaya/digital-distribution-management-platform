@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Transparent, bounded product recommendations based on an outlet's completed
@@ -15,6 +17,8 @@ class RecommendationService
     public const DEFAULT_LIMIT = 10;
 
     public const MIN_DATA_POINTS = 3;
+
+    public const WINDOW_DAYS = 30;
 
     private const EXCLUDED_ORDER_STATUSES = ['Cancelled', 'Canceled', 'Rejected', 'Invalid'];
 
@@ -56,14 +60,28 @@ class RecommendationService
         }
         $dataPoints = (int) $dataPointsQuery->whereHas('items', fn ($items) => $items->where('quantity', '>', 0))->count();
 
+        $daysInWindow = $this->daysInWindow($outletId);
+        $hasObservations = $daysInWindow > 0;
+        $limitedData = $hasObservations && $daysInWindow < self::WINDOW_DAYS;
+
         return [
             'recommendations' => $this->format($rows, $outletId),
             'limit' => $limit,
             'data_points' => $dataPoints,
             'data_sufficiency' => [
                 'level' => $dataPoints === 0 ? 'insufficient' : ($dataPoints >= self::MIN_DATA_POINTS ? 'adequate' : 'limited'),
+                // 30-day sparse-data contract: expose the rolling window and whether the
+                // recent-average fallback is in effect. All 30+ days would be adequate.
+                'window_days' => self::WINDOW_DAYS,
+                'days_in_window' => $daysInWindow,
+                'recent_average_fallback' => $limitedData,
+                'sparse' => $limitedData,
                 'minimum_recommended' => self::MIN_DATA_POINTS,
-                'note' => 'Non-probabilistic heuristic based on completed order count; ranking quality is not a probability.',
+                'note' => $dataPoints === 0
+                    ? 'No eligible order history; empty output with insufficient-data metadata.'
+                    : ($limitedData
+                        ? 'Recent-average heuristic fallback over fewer than 30 days; limited-data, low-confidence ranking quality, not a probability.'
+                        : 'Non-probabilistic heuristic based on completed order count; ranking quality is not a probability.'),
             ],
             'fallback' => $rows->isEmpty(),
             'method' => 'purchase_frequency_v1',
@@ -74,7 +92,24 @@ class RecommendationService
                 'accuracy_target' => null,
                 'note' => 'Production acceptance and ranking accuracy require measured usage data.',
             ],
+            'low_confidence' => $limitedData,
         ];
+    }
+
+    /**
+     * Count distinct qualifying order days within the rolling 30-day window.
+     */
+    private function daysInWindow(?int $outletId): int
+    {
+        $windowStart = now()->copy()->subDays(self::WINDOW_DAYS - 1);
+
+        return (int) Order::query()
+            ->whereNotIn('status', self::EXCLUDED_ORDER_STATUSES)
+            ->when($outletId !== null, fn ($query) => $query->where('outlet_id', $outletId))
+            ->whereHas('items', fn ($items) => $items->where('quantity', '>', 0))
+            ->where('created_at', '>=', $windowStart)
+            ->selectRaw('COUNT(DISTINCT DATE(created_at))')
+            ->value(DB::raw('COUNT(DISTINCT DATE(created_at))'));
     }
 
     private function format(Collection $rows, ?int $outletId): array

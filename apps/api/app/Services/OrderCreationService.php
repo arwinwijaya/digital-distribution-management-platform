@@ -42,6 +42,12 @@ class OrderCreationService
                     ConcurrencyTestBarrier::await('order');
                     $existingOrder = Order::where('idempotency_key', $requestIdentity)->first();
                     if ($existingOrder) {
+                        // Same key with a different canonical payload is a 422
+                        // conflict. Legacy orders predate the stored fingerprint
+                        // (NULL), so they fall back to comparing the payload
+                        // against the persisted items instead of reusing blindly.
+                        $this->assertSamePayload($existingOrder, $validated['items']);
+
                         return ['order' => $existingOrder, 'created' => false];
                     }
 
@@ -59,6 +65,8 @@ class OrderCreationService
                 // another request won the race. Fetch it after rollback.
                 $existingOrder = Order::where('idempotency_key', $requestIdentity)->first();
                 if ($existingOrder) {
+                    $this->assertSamePayload($existingOrder, $validated['items']);
+
                     return ['order' => $existingOrder, 'created' => false];
                 }
 
@@ -71,6 +79,76 @@ class OrderCreationService
         }
 
         throw new \LogicException('Unable to create order.');
+    }
+
+    /**
+     * Throw 422 when the replayed payload differs from what the order was
+     * created with. NULL-fingerprint legacy rows compare against the
+     * persisted line items; rows with a stored fingerprint compare hashes.
+     *
+     * @param  array<int, array{product_id: int, quantity: int}>  $requestedItems
+     */
+    private function assertSamePayload(Order $existingOrder, array $requestedItems): void
+    {
+        $fingerprint = self::payloadFingerprint($requestedItems);
+
+        if ($existingOrder->idempotency_payload_hash !== null) {
+            // Timing-safe compare keeps fingerprint probing constant-time.
+            if (! hash_equals($existingOrder->idempotency_payload_hash, $fingerprint)) {
+                throw ValidationException::withMessages([
+                    'idempotency_key' => 'This order request identity was already used with a different payload.',
+                ]);
+            }
+
+            return;
+        }
+
+        // Legacy orders have no stored fingerprint: compare the replayed
+        // canonical payload against the original persisted items.
+        $existingOrder->loadMissing('items');
+        $original = $existingOrder->items
+            ->map(fn ($item) => [
+                'product_id' => (int) $item->product_id,
+                'quantity' => (int) $item->quantity,
+            ])
+            ->sortBy('product_id')
+            ->values()
+            ->all();
+        $replayed = collect($requestedItems)
+            ->map(fn ($item) => [
+                'product_id' => (int) ($item['product_id'] ?? 0),
+                'quantity' => (int) ($item['quantity'] ?? 0),
+            ])
+            ->sortBy('product_id')
+            ->values()
+            ->all();
+
+        if ($original !== $replayed) {
+            throw ValidationException::withMessages([
+                'idempotency_key' => 'This order request identity was already used with a different payload.',
+            ]);
+        }
+    }
+
+    /**
+     * Canonical SHA-256 fingerprint of the ordered line items. Quantity-only
+     * or item-set differences change the fingerprint; key order and duplicate
+     * request envelopes do not.
+     *
+     * @param  array<int, array{product_id: int, quantity: int}>  $requestedItems
+     */
+    public static function payloadFingerprint(array $requestedItems): string
+    {
+        $canonical = collect($requestedItems)
+            ->map(fn ($item) => [
+                'product_id' => (int) ($item['product_id'] ?? 0),
+                'quantity' => (int) ($item['quantity'] ?? 0),
+            ])
+            ->sortBy('product_id')
+            ->values()
+            ->all();
+
+        return hash('sha256', json_encode($canonical, JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -160,6 +238,7 @@ class OrderCreationService
             'total_amount' => $totalAmount,
             'commission_percentage' => config('orders.commission_percentage', 2.00),
             'idempotency_key' => $requestIdentity,
+            'idempotency_payload_hash' => self::payloadFingerprint($items),
         ]);
 
         foreach ($items as $item) {

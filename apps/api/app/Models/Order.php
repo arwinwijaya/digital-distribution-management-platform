@@ -26,6 +26,7 @@ class Order extends Model
         'paid_amount',
         'commission_percentage',
         'idempotency_key',
+        'idempotency_payload_hash',
     ];
 
     /**

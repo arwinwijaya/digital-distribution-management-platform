@@ -25,6 +25,11 @@ class PrePilotCompatibilityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config([
+            'app.key' => 'base64:'.base64_encode(str_repeat('a', 32)),
+            'jwt.secret' => base64_encode(hash('sha256', 'pre-pilot-compat-jwt', true)),
+            'jwt.ttl' => 999999,
+        ]);
         $this->outletUser = User::factory()->outlet()->create([
             'email' => 'pre-pilot-outlet@ddp.test',
             'password' => Hash::make('password123'),

@@ -39,3 +39,4 @@ docker-compose.override.yml
 .cache/
 /graphify-out/cache
 /.pi/tasks
+/apps/api/storage/framework/sessions

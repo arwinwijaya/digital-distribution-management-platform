@@ -34,7 +34,7 @@ Role source: `apps/api/app/Models/User.php`, `apps/api/app/Services/FinanceAutho
 
 - `POST /api/orders`: outlet-only. `201` on creation, `200` on idempotent replay. Response data contains `id`, server `order_id`, `outlet_id`, `status`, `total_amount`, `paid_amount`, `outstanding_balance`, `commission_percentage`, item rows, and timestamps.
 - `GET /api/orders/{id}` and admin aliases return the same order fields plus `status_history`; an invoice is included when loaded. `GET /api/orders` returns `data` plus bounded `meta.limit`/`meta.has_more` for admin listing.
-- `PUT /api/orders/{id}/approve`: admin-only; success returns `status: success` and the confirmed order/invoice. Invalid state is `422`; non-admin is `403`.
+- `PUT /api/orders/{id}/approve`: admin-only; first approval of a `New` order transitions to `Confirmed`, creates one invoice, and returns `200`. Re-approval of an already-`Confirmed` order reuses the existing invoice and returns `200` (no duplicate status-history row). An invalid state other than `Confirmed` returns `422`; non-admin is `403`.
 - `GET /api/invoices`: admin, finance, and outlet access with outlet scoping where applicable. `data` is paginated and `meta` contains `page`, `limit`, `total`, `has_more`.
 - `PUT /api/orders/{id}/cancel`: successful cancellation returns formatted invoice; payment-row or incompatible invoice/order state returns `409`.
 
@@ -124,6 +124,7 @@ cd apps/api && DB_CONNECTION=pgsql php artisan test --filter='WhatsAppPostgresCo
 ## 7. Explicit gaps and assumptions
 
 - **Gap — full route-role matrix:** route declarations and selected controllers/tests were inspected, but every non-core controller response was not exhaustively normalized here. Use the matrix row command and the focused test file as the regression boundary rather than inferring undocumented behavior.
+- **Gap — OrderTest re-approval expectation:** `OrderTest::test_cannot_approve_already_confirmed_order` asserts `422` on re-approval, but the current `OrderController::approveInTransaction` returns `200` with invoice reuse. `InvoiceTest::test_approval_retry_reuses_invoice` and `InvoiceTest::test_concurrent_approvals_create_one_invoice` both verify `[200, 200]` and one invoice. The implementation behavior (200) is the compatibility baseline; the stale `OrderTest` assertion is a test-to-implementation mismatch.
 - **Gap — PostgreSQL runtime evidence:** the repository includes PostgreSQL concurrency tests, but their result depends on external database credentials/configuration. SQLite race tests explicitly do not prove PostgreSQL row-lock behavior.
 - **Gap — web test coverage:** the package declares Jest and TypeScript checks, but this baseline does not claim all pages have dedicated tests. `data-intelligence` has visible component/page tests; the command is a verification gate, not a recorded result.
 - **Assumption — configuration parity:** test and deployment environments must preserve the existing `auth:api`, database, order, and WhatsApp configuration keys. No new defaults are introduced by T1.

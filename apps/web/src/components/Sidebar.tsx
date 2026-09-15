@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/sales',         label: 'Sales',         icon: '📋' },
   { href: '/analytics',     label: 'Analitik',      icon: '📈' },
   { href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️', adminOnly: true },
+  { href: '/operations',        label: 'Operasi',       icon: '🔧', adminOnly: true },
   { href: '/admin/orders',  label: 'Admin',         icon: '⚙️' },
 ];
 

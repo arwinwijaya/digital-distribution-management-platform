@@ -183,12 +183,33 @@
 - `[ ]` Python ML service, ML pipeline, dan LLM integration.
 - `[~]` Analytics platform masih berupa in-application Laravel aggregates, bukan platform analytics terpisah.
 
-## Prioritas lanjutan yang disarankan
+## Remaining Roadmap — Fase Implementasi Berikutnya
 
-1. **Production readiness & pilot adoption:** AWS/object storage, backup/restore, secrets, queue/scheduler worker, observability, security hardening, dan validasi KPI dari data produksi.
-2. **Field operations:** PWA/mobile sales-driver, offline order, GPS check-in, route optimization, foto/tanda tangan proof of delivery, live tracking, sales target, dan performance dashboard.
-3. **AI menjadi action workflow:** recommendation menjadi draft order/campaign, stock plan menjadi approval/replenishment action, serta A/B test dan monitoring revenue lift.
-4. **Commercial expansion:** promotion engine, dynamic pricing, external payment gateway, outlet credit scoring, working-capital partner, dan multi-distributor workflow.
-5. **Business validation:** riset pengguna, BRD, partner database, pilot distributor, serta verifikasi target 500/1.000 outlet dan digital-ordering adoption.
+### Phase 6 — Business Validation & Production Pilot
+
+- **Scope:** supplier/process mapping, user research, BRD, partner database, AWS, object storage, backup/restore, secrets, dan observability.
+- **Exit criteria:** partner pilot aktif, production runbook tersedia, dan KPI baseline terukur.
+
+### Phase 7 — MVP Completion & Core Operations
+
+- **Scope:** role management, Platform Owner, outlet profile/category/scoring/history, price/promotion management, sales order collection, sales dashboard/target, dan WhatsApp promotion broadcast.
+- **Exit criteria:** admin dapat mengelola role, outlet, harga, promosi, dan target sales dengan authorization serta audit yang sesuai.
+
+### Phase 8 — Mobile Field Operations
+
+- **Scope:** PWA/mobile sales-driver, offline order, GPS check-in, driver roster, route optimization, live tracking, serta proof of delivery foto/tanda tangan.
+- **Exit criteria:** sales dan driver dapat menjalankan workflow lapangan yang dapat diaudit, termasuk saat koneksi tidak stabil.
+
+### Phase 9 — AI Action & Supply Chain
+
+- **Scope:** Python ML service/pipeline, guarded LLM integration, recommendation menjadi draft order/campaign, approval stock plan, automated replenishment, forecast calibration, A/B test, dan revenue-lift monitoring.
+- **Exit criteria:** rekomendasi dan replenishment memiliki approval, idempotency, audit trail, dan dampak bisnis yang terukur.
+
+### Phase 10 — Commercial Ecosystem & Financial Services
+
+- **Scope:** multi-distributor dan tenant isolation, promotion recommendation, pricing optimization, demand-based pricing, external payment, credit scoring, dan working-capital partnership.
+- **Exit criteria:** isolasi data/authorization, pricing guardrail, reconciliation pembayaran, audit, dan kontrol risiko tersedia.
+
+**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 9 dapat dimulai setelah data pilot stabil; Phase 10 membutuhkan security, legal, dan operational readiness yang disetujui.
 
 > Status `[?]` tetap berarti implementasi teknis belum cukup untuk membuktikan outcome bisnis. Fixture atau test seeder tidak boleh dianggap sebagai adoption produksi.

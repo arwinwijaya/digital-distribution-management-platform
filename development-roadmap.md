@@ -364,40 +364,82 @@ Capability:
 
 ------------------------------------------------------------------------
 
-# Remaining Roadmap — Prioritas Setelah Foundation
+# Remaining Roadmap — Fase Implementasi Berikutnya
 
-## 1. Production Readiness & Pilot Adoption
+## Phase 6 — Business Validation & Production Pilot
 
-- Deploy AWS dan object storage.
-- Tambahkan backup/restore, secrets management, queue/scheduler worker, observability, dan security hardening.
-- Jalankan pilot dengan distributor dan outlet nyata.
-- Ukur active outlet, digital-ordering adoption, processing time, payment collection, forecast accuracy, dan recommendation acceptance.
+**Tujuan:** memastikan produk, proses bisnis, dan lingkungan production tervalidasi sebelum scale-up.
 
-## 2. Field Operations
+**Scope:**
 
-- PWA/mobile app untuk sales dan driver.
-- Offline order, GPS check-in, route optimization, live tracking, dan proof of delivery foto/tanda tangan.
-- Sales target, achievement, dan performance dashboard.
+- Supplier relationship process mapping.
+- Outlet ordering behavior research.
+- Interview owner, supplier, sales, outlet, dan delivery team.
+- Business Requirement Document (BRD).
+- Initial partner database.
+- AWS deployment, object storage, backup/restore, secrets management, dan production observability.
+
+**Exit criteria:** satu partner pilot aktif, proses bisnis terdokumentasi, production runbook tersedia, serta KPI baseline (active outlet, digital ordering, processing time, dan payment collection) terukur.
+
+## Phase 7 — MVP Completion & Core Operations
+
+**Tujuan:** menutup gap MVP yang menghambat administrasi, outlet lifecycle, dan operasi order.
+
+**Scope:**
+
+- Role management API/UI dan Platform Owner.
+- Outlet profile list/update, category, scoring, dan purchase-history UI/API.
+- Product price management dan promotion management.
+- Sales-specific order collection.
+- Sales performance dashboard, sales quota, period, dan achievement.
 - WhatsApp promotion broadcast.
 
-## 3. AI Action Workflow
+**Exit criteria:** admin dapat mengelola role, outlet, harga, promosi, dan target sales; seluruh perubahan memiliki authorization dan audit yang sesuai.
 
-- Ubah recommendation menjadi draft order/campaign.
-- Ubah stock plan menjadi approval dan replenishment action.
-- Tambahkan A/B test, monitoring revenue lift, serta kalibrasi forecast.
+## Phase 8 — Mobile Field Operations
 
-## 4. Commercial Ecosystem
+**Tujuan:** mendukung sales dan driver di lapangan dengan workflow mobile yang dapat diandalkan.
 
-- Promotion engine dan dynamic pricing.
-- External payment gateway.
-- Outlet credit scoring dan working-capital partnership.
-- Multi-distributor workflow dengan tenant isolation.
+**Scope:**
+
+- PWA/mobile sales application dengan offline order.
+- GPS check-in/check-out dan visit telemetry.
+- Driver roster CRUD.
+- Route optimization dan live delivery tracking.
+- Proof of delivery foto dan tanda tangan.
+
+**Exit criteria:** sales dapat mengunjungi outlet dan mengumpulkan order tanpa koneksi stabil; driver menyelesaikan rute dengan status dan proof of delivery yang dapat diaudit.
+
+## Phase 9 — AI Action & Supply Chain
+
+**Tujuan:** mengubah insight menjadi tindakan operasional yang terukur.
+
+**Scope:**
+
+- Python ML service dan ML pipeline.
+- LLM integration hanya untuk use case yang memiliki guardrail dan fallback.
+- Promotion/recommendation engine yang menghasilkan draft campaign atau draft order.
+- Approval workflow untuk recommendation dan stock plan.
 - Automated replenishment ke supplier atau purchase order.
+- Forecast calibration, A/B test, recommendation acceptance, dan revenue-lift monitoring.
 
-## 5. Business Validation
+**Exit criteria:** rekomendasi dapat diterima/ditolak dan dilacak dampaknya; replenishment memiliki approval, idempotency, dan audit trail; akurasi forecast diukur dari data produksi.
 
-- Lengkapi user research, BRD, partner database, dan proses operasional tervalidasi.
-- Validasi target 500/1.000 outlet menggunakan data produksi, bukan fixture atau test seeder.
+## Phase 10 — Commercial Ecosystem & Financial Services
+
+**Tujuan:** memperluas platform dari distributor tunggal menjadi ecosystem yang aman dan dapat dimonetisasi.
+
+**Scope:**
+
+- Multi-distributor workflow dan tenant isolation.
+- Promotion recommendation engine, pricing optimization, dan demand-based pricing.
+- External digital payment integration.
+- Outlet credit scoring.
+- Working-capital partnership integration.
+
+**Exit criteria:** setiap distributor terisolasi secara data dan authorization; pricing memiliki guardrail; integrasi pembayaran/financing memiliki reconciliation, audit, dan kontrol risiko.
+
+**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 9 dapat dimulai setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
 
 ------------------------------------------------------------------------
 

@@ -149,6 +149,18 @@ return new class extends Migration
 
         if ($driver === 'pgsql') {
             DB::unprepared(<<<'SQL'
+                DROP TRIGGER IF EXISTS data_snapshots_published_immutable_update ON data_snapshots;
+                DROP TRIGGER IF EXISTS data_snapshots_published_immutable_delete ON data_snapshots;
+                DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_insert ON data_snapshot_values;
+                DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_update ON data_snapshot_values;
+                DROP TRIGGER IF EXISTS data_snapshot_values_published_immutable_delete ON data_snapshot_values;
+                DROP FUNCTION IF EXISTS data_snapshots_published_immutable_guard();
+                DROP FUNCTION IF EXISTS data_snapshots_published_immutable_delete_guard();
+                DROP FUNCTION IF EXISTS data_snapshot_values_published_immutable_insert_guard();
+                DROP FUNCTION IF EXISTS data_snapshot_values_published_immutable_update_guard();
+                DROP FUNCTION IF EXISTS data_snapshot_values_published_immutable_delete_guard();
+            SQL);
+            DB::unprepared(<<<'SQL'
                 CREATE FUNCTION data_snapshots_published_immutable_guard() RETURNS trigger
                 LANGUAGE plpgsql AS $$
                 BEGIN

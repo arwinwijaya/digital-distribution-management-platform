@@ -2,15 +2,15 @@
   "task_id": "T4",
   "task_name": "Expose readiness and operational issue diagnostics",
   "cycle": 1,
-  "timestamp": "2026-09-15T05:30:00Z",
+  "timestamp": "2026-09-15T08:30:00Z",
   "reviewer_mode": "read-only",
   "reviewer_config": "batch-parallel",
   "stage_1": {
     "status": "PASS",
     "issues": [],
     "concerns_addressed": [
-      "Confirmed OperationalDiagnosticsTest covers admin-only access, disabled/kill-switch 503 gating, readiness schema, issue list/detail filters, severity mapping, and redaction without source mutation.",
-      "Confirmed router places admin operations diagnostics inside auth:api and applies feature gate via PrePilotGate middleware."
+      "OperationalDiagnosticsTest covers admin-only access, disabled/kill-switch 503 gating, readiness schema, issue list/detail filters, severity mapping, and redaction without source mutation.",
+      "Routes are inside auth:api and apply the PrePilotGate middleware alias for disabled gating."
     ]
   },
   "stage_2": {
@@ -19,15 +19,10 @@
       "Diagnostics remain read-only and redaction-safe across readiness and issue surfaces.",
       "Issue request validation enforces bounded filters and correlation_id constraint.",
       "Feature gate and kill switch behavior are both covered by tests.",
-      "Kernel alias addition is minimal and used by new routes."
+      "Kernel alias addition is minimal and routes wire is scoped to admin operations.",
+      "PrePilotControls setUp makes tests independent of ambient JWT env."
     ],
-    "issues": [
-      {
-        "severity": "Minor",
-        "description": "Packet-defined commit file list did not include the new PrePilotGate middleware or the stale OperationalReadinessFixtures config setup cleanup, so scope expanded beyond the packet add set, though the expansion is additive/safe.",
-        "location": "apps/api/app/Http/Middleware/PrePilotGate.php, apps/api/tests/Support/OperationalReadinessFixtures.php"
-      }
-    ],
+    "issues": [],
     "assessment": "Approved"
   },
   "overall": "REVIEW_PASS",
@@ -37,5 +32,5 @@
     "max_cycles": 2,
     "cycles_remaining": 2
   },
-  "reviewed_sha": "a775bdd75b6f0eec74a05cae6d5931ab018233d9"
+  "reviewed_sha": "1d94bbbe9868fea102283af67ebcd8a66fe99561"
 }

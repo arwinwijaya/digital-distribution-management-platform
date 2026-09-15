@@ -13,6 +13,17 @@ class PrePilotControlsTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config([
+            'app.key' => 'base64:'.base64_encode(str_repeat('a', 32)),
+            'jwt.secret' => base64_encode(hash('sha256', 'test-jwt-secret-for-ops', true)),
+            'jwt.ttl' => 999999,
+        ]);
+    }
+
     public function test_correlation_returns_same_valid_id_and_preserves_body(): void
     {
         $response = $this->getJson('/api/health', ['X-Correlation-ID' => 'order-flow.123:abc_XYZ-9']);

@@ -22,6 +22,7 @@ use App\Http\Controllers\StockPlanningController;
 use App\Http\Controllers\SupplierPerformanceController;
 use App\Http\Controllers\InvoiceReminderController;
 use App\Http\Controllers\WhatsAppController;
+use App\Http\Controllers\OperationalReadinessController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -139,6 +140,13 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/admin/measurement/events', [MeasurementController::class, 'storeEvent']);
     Route::get('/admin/analytics/measurement/recommendations', [MeasurementController::class, 'recommendations']);
     Route::get('/admin/analytics/measurement/forecasts', [MeasurementController::class, 'forecasts']);
+
+    // Pre-pilot operational diagnostics (admin-only, gated)
+    Route::prefix('admin/operations')->middleware('pre_pilot')->group(function () {
+        Route::get('/readiness', [OperationalReadinessController::class, 'readiness']);
+        Route::get('/issues', [OperationalReadinessController::class, 'issues']);
+        Route::get('/issues/{id}', [OperationalReadinessController::class, 'issueDetail']);
+    });
 
     // Credit limit and outstanding balance routes
     Route::get('/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');

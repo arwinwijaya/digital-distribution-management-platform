@@ -4,9 +4,19 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
-import { Button, Card, EmptyState, Input, PageHeader, StatusBadge, Table } from '@/components/ui';
+import { useDummyStore } from '@/dummy/store';
+import { createDummyVisit } from '@/dummy/mutations';
 
-type Visit = { id: number; target: string | null; visit_date: string; status: string; notes: string | null };
+export type Visit = { id: number; target: string | null; visit_date: string; status: string; notes: string | null };
+
+export async function scheduleVisit(token: string, payload: { target: string; visit_date: string }): Promise<Visit> {
+  if (useDummyStore.getState().isDummy) return createDummyVisit(payload);
+  const response = await fetch(apiUrl('/sales/visits'), { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payload) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message || 'Kunjungan tidak dapat dijadwalkan.');
+  return (body.data ?? body) as Visit;
+}
+import { Button, Card, EmptyState, Input, PageHeader, StatusBadge, Table } from '@/components/ui';
 
 const SALES_NAV = [
   { href: '/sales/orders', label: 'Buat pesanan', description: 'Buat pesanan untuk outlet di wilayah Anda.' },
@@ -48,20 +58,15 @@ export default function SalesPage() {
     if (!token) return;
     setError('');
     setMessage('');
-    const response = await fetch(apiUrl('/sales/visits'), {
-      method: 'POST',
-      headers: authHeaders(token),
-      body: JSON.stringify({ target, visit_date: visitDate }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(body.message || 'Kunjungan tidak dapat dijadwalkan.');
-      return;
+    try {
+      await scheduleVisit(token, { target, visit_date: visitDate });
+      setMessage('Kunjungan berhasil dijadwalkan.');
+      setTarget('');
+      setVisitDate('');
+      await load(token);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Kunjungan tidak dapat dijadwalkan.');
     }
-    setMessage('Kunjungan berhasil dijadwalkan.');
-    setTarget('');
-    setVisitDate('');
-    await load(token);
   };
 
   if (!token)

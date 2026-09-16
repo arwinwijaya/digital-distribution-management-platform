@@ -1,4 +1,6 @@
 import { apiUrl, authHeaders } from '@/lib/api';
+import { useDummyStore } from '@/dummy/store';
+import { createDummyOrder } from '@/dummy/mutations';
 
 export interface SalesOutlet {
   id: number;
@@ -76,6 +78,9 @@ export async function createSalesOrder(
   token: string,
   payload: { outlet_id: number; items: OrderItemInput[] },
 ): Promise<CreatedSalesOrder> {
+  if (useDummyStore.getState().isDummy) {
+    return createDummyOrder(payload) as unknown as CreatedSalesOrder;
+  }
   const response = await fetch(apiUrl('/sales/orders'), {
     method: 'POST',
     headers: authHeaders(token),

@@ -1,4 +1,6 @@
 import { apiUrl, authHeaders } from '@/lib/api';
+import { useDummyStore } from '@/dummy/store';
+import { assignDummyUserRole } from '@/dummy/mutations';
 
 export interface AdminUser {
   id: number;
@@ -39,6 +41,9 @@ export async function fetchAdminUsers(token: string, params: UsersListParams = {
 }
 
 export async function assignUserRole(token: string, userId: number, role: string): Promise<AdminUser> {
+  if (useDummyStore.getState().isDummy) {
+    return assignDummyUserRole(userId, role) as unknown as AdminUser;
+  }
   const response = await fetch(apiUrl(`/admin/users/${userId}/role`), {
     method: 'PATCH',
     headers: authHeaders(token),

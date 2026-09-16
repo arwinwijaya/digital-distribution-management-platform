@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { useDummyStore } from '@/dummy/store';
+import { createDummyPayment } from '@/dummy/mutations';
 import { Button, Card, EmptyState, Input, PageHeader, StatCard, Table } from '@/components/ui';
 
 type Payment = { id: number; order_id: number; amount: string; payment_method: string; receipt_reference: string | null; created_at: string };
@@ -151,6 +153,18 @@ function createPaymentIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export type PaymentReceipt = { receipt_reference: string | null };
+
+export async function recordPayment(token: string, payload: { order_id: number; amount: number; payment_method: string; idempotency_key: string }): Promise<PaymentReceipt> {
+  if (useDummyStore.getState().isDummy) {
+    return createDummyPayment(payload);
+  }
+  const response = await fetch(apiUrl('/payments'), { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payload) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message || 'Pembayaran tidak dapat dicatat.');
+  return { receipt_reference: body.data?.receipt_reference ?? null };
+}
+
 export default function PaymentsPage() {
   const data = usePaymentData();
   const session = usePaymentSession(data.load, data.setError);
@@ -170,14 +184,9 @@ export default function PaymentsPage() {
         pendingPaymentKey.current = { signature, key: createPaymentIdempotencyKey() };
       }
       const idempotencyKey = pendingPaymentKey.current.key;
-      const response = await fetch(apiUrl('/payments'), { method: 'POST', headers: authHeaders(session.token), body: JSON.stringify({ order_id: Number(orderId), amount: Number(amount), payment_method: 'cash', idempotency_key: idempotencyKey }) });
-      const body = await response.json();
-      if (!response.ok) {
-        data.setError(body.message || 'Pembayaran tidak dapat dicatat.');
-        return;
-      }
+      const receipt = await recordPayment(session.token, { order_id: Number(orderId), amount: Number(amount), payment_method: 'cash', idempotency_key: idempotencyKey });
       pendingPaymentKey.current = null;
-      setMessage(`Pembayaran berhasil dicatat. Referensi: ${body.data.receipt_reference || 'tersedia'}.`);
+      setMessage(`Pembayaran berhasil dicatat. Referensi: ${receipt.receipt_reference || 'tersedia'}.`);
       setOrderId('');
       setAmount('');
       await data.load(session.token, session.role ?? 'finance', data.paymentMeta.page);

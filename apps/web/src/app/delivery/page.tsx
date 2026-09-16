@@ -8,11 +8,29 @@ import { Button, Card, EmptyState, Input, PageHeader, StatusBadge } from '@/comp
 type Delivery = { id: number; order_id: number; driver_id: number; status: string; delivered_at: string | null; recipient_name: string | null };
 type Proof = { recipient: string; url: string };
 
+import { useDummyStore } from '@/dummy/store';
+import { updateDummyDelivery } from '@/dummy/mutations';
+
+export type DeliveryStatusInput = { status: string; recipient_name?: string; proof_of_delivery_url?: string };
+
+export async function updateDeliveryStatus(token: string, deliveryId: number, payload: DeliveryStatusInput) {
+  if (useDummyStore.getState().isDummy) {
+    return updateDummyDelivery(deliveryId, payload.status, {
+      recipient_name: payload.recipient_name,
+      proof_of_delivery_url: payload.proof_of_delivery_url,
+    });
+  }
+  const response = await fetch(apiUrl(`/deliveries/${deliveryId}/status`), { method: 'PATCH', headers: authHeaders(token), body: JSON.stringify(payload) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message || 'Status pengiriman gagal diperbarui.');
+  return body.data as Delivery;
+}
+
 export default function DeliveryPage() {
   const [token, setToken] = useState<string | null>(null); const [deliveries, setDeliveries] = useState<Delivery[]>([]); const [error, setError] = useState(''); const [loading, setLoading] = useState(false); const [proof, setProof] = useState<Record<number, Proof>>({}); const [completing, setCompleting] = useState<number | null>(null);
   const load = async (nextToken: string) => { setLoading(true); try { const response = await fetch(apiUrl('/deliveries'), { headers: authHeaders(nextToken) }); const body = await response.json(); if (!response.ok) throw new Error(body.message || 'Pengiriman tidak dapat dimuat.'); setDeliveries(body.data); setError(''); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Pengiriman tidak dapat dimuat.'); } finally { setLoading(false); } };
   useEffect(() => { const stored = getStoredToken(); setToken(stored); if (stored) load(stored); }, []);
-  const updateStatus = async (delivery: Delivery, status: string) => { if (!token) return; const details = proof[delivery.id]; if (status === 'delivered' && (!details?.recipient.trim() || !details.url.trim())) { setError('Nama penerima dan URL bukti wajib diisi.'); return; } setCompleting(delivery.id); try { const payload = status === 'delivered' ? { status, recipient_name: details.recipient.trim(), proof_of_delivery_url: details.url.trim() } : { status }; const response = await fetch(apiUrl(`/deliveries/${delivery.id}/status`), { method: 'PATCH', headers: authHeaders(token), body: JSON.stringify(payload) }); const body = await response.json(); if (!response.ok) { setError(body.message || 'Status pengiriman gagal diperbarui.'); return; } setError(''); await load(token); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Status pengiriman gagal diperbarui.'); } finally { setCompleting(null); } };
+  const updateStatus = async (delivery: Delivery, status: string) => { if (!token) return; const details = proof[delivery.id]; if (status === 'delivered' && (!details?.recipient.trim() || !details.url.trim())) { setError('Nama penerima dan URL bukti wajib diisi.'); return; } setCompleting(delivery.id); try { const payload = status === 'delivered' ? { status, recipient_name: details.recipient.trim(), proof_of_delivery_url: details.url.trim() } : { status }; await updateDeliveryStatus(token, delivery.id, payload); setError(''); await load(token); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Status pengiriman gagal diperbarui.'); } finally { setCompleting(null); } };
   if (!token) return <div className="mx-auto max-w-6xl"><PageHeader title="Pengiriman" description="Kelola tugas dan bukti pengiriman." /><LoginForm expectedRole="driver" onLogin={(nextToken) => { setToken(nextToken); load(nextToken); }} /></div>;
   return <div className="mx-auto max-w-6xl"><PageHeader title="Pengiriman" description="Perbarui status pengiriman dan catat bukti serah terima." />{error && <p className="mb-5 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}{loading ? <p className="text-sm text-gray-500">Memuat pengiriman...</p> : <Card>{deliveries.length === 0 ? <EmptyState icon={<span>🚚</span>} title="Tidak ada tugas pengiriman" description="Tugas yang ditugaskan kepada Anda akan tampil di sini." /> : <div className="divide-y divide-gray-100">{deliveries.map((delivery) => { const details = proof[delivery.id] || { recipient: '', url: '' }; return <div key={delivery.id} className="p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold text-gray-900">Pesanan #{delivery.order_id}</p><p className="mt-1 text-xs text-gray-500">Driver #{delivery.driver_id}</p></div><div className="flex items-center gap-3"><StatusBadge status={delivery.status} />{delivery.status === 'assigned' && <Button size="sm" onClick={() => updateStatus(delivery, 'in_progress')}>Mulai antar</Button>}</div></div>{delivery.status === 'in_progress' && <div className="mt-4 grid gap-3 rounded-lg bg-gray-50 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"><Input label="Nama penerima" value={details.recipient} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, recipient: event.target.value } })} placeholder="Nama penerima" /><Input label="URL bukti pengiriman" type="url" value={details.url} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, url: event.target.value } })} placeholder="https://..." /><Button disabled={completing === delivery.id} onClick={() => updateStatus(delivery, 'delivered')}>{completing === delivery.id ? 'Menyimpan...' : 'Tandai terkirim'}</Button></div>}</div>; })}</div>}</Card>}</div>;
 }

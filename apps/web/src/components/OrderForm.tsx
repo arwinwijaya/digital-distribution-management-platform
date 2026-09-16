@@ -2,10 +2,26 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl, authHeaders } from '@/lib/api';
+import { useDummyStore } from '@/dummy/store';
+import { createDummyOutletOrder } from '@/dummy/mutations';
 import { Button, Card, EmptyState, Input, StatusBadge } from '@/components/ui';
 
 export interface Product { id: number; name: string; price: string; stock_quantity: number; is_active: boolean; }
 export interface Order { id: number; order_id: string; status: string; total_amount: string; items: Array<{ product_name: string; quantity: number; subtotal: string }>; status_history?: Array<{ status: string; notes?: string; created_at: string }>; }
+
+export async function submitOutletOrder(token: string, items: Array<{ product_id: number; quantity: number }>, idempotencyKey: string): Promise<Order> {
+  if (useDummyStore.getState().isDummy) {
+    return createDummyOutletOrder(items) as unknown as Order;
+  }
+  const response = await fetch(apiUrl('/orders'), {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify({ items, idempotency_key: idempotencyKey }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Pesanan tidak dapat dibuat.');
+  return data.data as Order;
+}
 
 export default function OrderForm({ token }: { token: string }) {
   const [products, setProducts] = useState<Product[]>([]); const [cart, setCart] = useState<Record<number, number>>({});
@@ -25,9 +41,8 @@ export default function OrderForm({ token }: { token: string }) {
       const signature = JSON.stringify(items);
       if (!idempotencyAttempt.current || idempotencyAttempt.current.signature !== signature) { const key = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`; idempotencyAttempt.current = { signature, key }; }
       const idempotencyKey = idempotencyAttempt.current.key;
-      const response = await fetch(apiUrl('/orders'), { method: 'POST', headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ items, idempotency_key: idempotencyKey }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.message || 'Pesanan tidak dapat dibuat.');
-      setOrder(data.data); setTrackingId(String(data.data.id)); setCart({}); idempotencyAttempt.current = null;
+      const data = await submitOutletOrder(token, items, idempotencyKey);
+      setOrder(data); setTrackingId(String(data.id)); setCart({}); idempotencyAttempt.current = null;
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Pesanan tidak dapat dibuat.'); } finally { setSubmitting(false); }
   }
 

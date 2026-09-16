@@ -1,4 +1,6 @@
 import { apiUrl, authHeaders } from '@/lib/api';
+import { useDummyStore } from '@/dummy/store';
+import { updateDummyOutlet } from '@/dummy/mutations';
 
 export interface AdminOutlet {
   id: number;
@@ -77,6 +79,9 @@ export async function fetchAdminOutlets(token: string, filters: OutletFilters = 
 }
 
 export async function updateOutlet(token: string, outletId: number, payload: Partial<AdminOutlet> & { name?: string; category?: string; address?: string; city?: string; district?: string; is_active?: boolean }): Promise<AdminOutlet> {
+  if (useDummyStore.getState().isDummy) {
+    return updateDummyOutlet(outletId, payload) as unknown as AdminOutlet;
+  }
   const response = await fetch(apiUrl(`/admin/outlets/${outletId}`), {
     method: 'PATCH',
     headers: authHeaders(token),

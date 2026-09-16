@@ -1,4 +1,6 @@
 import { apiUrl, authHeaders } from '@/lib/api';
+import { useDummyStore } from '@/dummy/store';
+import { updateDummyProductPrice } from '@/dummy/mutations';
 
 export interface AdminProduct {
   id: number;
@@ -46,6 +48,9 @@ export async function fetchProducts(token: string, search?: string): Promise<Adm
 }
 
 export async function updateProductPrice(token: string, productId: number, price: number): Promise<AdminProduct> {
+  if (useDummyStore.getState().isDummy) {
+    return updateDummyProductPrice(productId, price) as unknown as AdminProduct;
+  }
   const response = await fetch(apiUrl(`/admin/products/${productId}`), {
     method: 'PATCH',
     headers: authHeaders(token),

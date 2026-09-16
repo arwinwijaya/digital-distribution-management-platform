@@ -48,11 +48,11 @@ Note: No other app file is modified by this phase. Spec does NOT prescribe a bad
 ### Task 1: Cross-unit Dummy Mode integration verification [depends: Phase A T6 + T7 and Phase B B-T1..B-T4]
 
 ## OBJECTIVE
-Prove the three success signals end-to-end (GWT level) by toggling real components, loading every guarded helper against the real Zustand store, and asserting zero network + no empty-state text + ephemeral mutations — all without reaching the backend. Also verify funnel tracking is faked (Story 2-F / Story 3-E) and finance dashboard is populated (Story 2-E).
+Prove the three story acceptance criteria end-to-end (GWT level) by toggling real components, loading every guarded helper against the real Zustand store, and asserting zero network + no empty-state text + ephemeral mutations — all without reaching the backend. Also verify funnel tracking is faked (Story 2-F / Story 3-E) and finance dashboard is populated (Story 2-E).
 
 Files:
 - Create: `apps/web/__tests__/dummy-mode.e2e.test.tsx`
-- Modify (only if needed): `apps/web/src/components/Topbar.tsx` — badge label fix
+- Modify (only if needed): `apps/web/src/components/Topbar.tsx` — accessible label fix
 
 Steps:
 1. Write failing test for: analytics populated + geo points + order→payment→invoice side-effects
@@ -81,7 +81,7 @@ Steps:
    - do NOT mock: Topbar, loaders, api modules, guards, store, factory
 
    Expected RED:
-   - Any success signal unmet (e.g. `map_points` 0, analytics empty, missing side-effects) → assertion fails
+   - Any success signal unmet (e.g. `map_points` empty, analytics empty, missing side-effects) → assertion fails
 
 2. Run test — verify FAIL:
    `cd apps/web && npx jest __tests__/dummy-mode.e2e.test.tsx --runInBand`
@@ -107,11 +107,11 @@ Steps:
    - calling `loadAnalytics(token)` after the remount returns non-empty recommendations (verifying data renders, not just the flag)
    - after toggle OFF, `dummyEntities === null` and the subsequent loader re-fetch DOES call global fetch (real data return — spec: toggle OFF auto re-fetches without navigation, entities never persisted)
    Given store ON with jest.fn() global fetch, When ALL guarded reads are issued in a single cross-unit sweep:
-   `loadAnalytics`, `loadDashboard('admin')`, `loadDashboard('finance')`, `fetchGeographicData`, `fetchSupplierPerformanceData`, `fetchStockPlanningData`, `fetchRecommendationMeasurementData`, `fetchForecastMeasurementData`,
+   `loadAnalytics`, `loadDashboard(t, 'admin')`, `loadDashboard(t, 'finance')`, `fetchGeographicData`, `fetchSupplierPerformanceData`, `fetchStockPlanningData`, `fetchRecommendationMeasurementData`, `fetchForecastMeasurementData`,
    `fetchReadiness`, `fetchIssues`, `fetchIssueDetail`,
    `fetchAdminOutlets`, `fetchAdminUsers`, `fetchProducts`, `fetchPromotions`, `fetchAdminSalesPerformance`,
    `fetchSalesOutlets`, `fetchCatalogProducts`, `fetchMyPerformance`,
-   plus page loaders: `loadInvoices`, `loadDeliveries`, `loadPaymentsList`, `loadOperations`, `loadSalesList`, `loadProductCatalog`, `loadMarketplaceCatalog`, `loadOrderFormProducts`,
+   plus page loaders: `loadInvoices`, `loadDeliveries`, `loadPaymentsList`, `loadOperations`, `loadSalesList`, `loadProductCatalog`, `loadMarketplaceCatalog`, `loadOrderFormProducts`, `trackOrder`, `fetchOutletOrders(t, 1)`, `fetchOutletSummary(t, 1)`, `fetchPriceHistory(t, 1)`,
    Then:
    - global fetch call count is exactly 0 (cross-unit zero-network invariant covering every guarded call-site in Phases A+B)
 
@@ -123,7 +123,7 @@ Steps:
    - do NOT mock: Topbar, loaders, helpers, store
 
    Expected RED:
-   - Refresh loses the flag (reads `ddp_role` but not `isDummy`), or mutations survive describe OU OFF
+   - Refresh loses the flag (reads `ddp_role` but not `isDummy`), or mutations survive toggle OFF
 
 6. Run test — verify FAIL / then fix the described gap (scoped like step 3) / verify PASS.
 
@@ -166,7 +166,7 @@ docs/pocket/spec/2026-02-14-dummy-mode-jabodetabek/dummy-mode.md — Acceptance 
 Preflight: goal-level UI entry point is `Topbar.tsx` (per spec); Phase B `B-T3` owns `loadAnalytics`; Phase A `T1` owns the fixed `DUMMY_SEED` (determinism); Phase A `T2` owns persist-`isDummy`-only. Jest reads `apps/web/jest.config.js`.
 
 ## WHY THIS APPROACH
-Justification: System C-2 cross-unit integration (real Topbar + real loaders/store/helpers) is the only level where the three success signals compose — unit tests on helpers pass while end-to-end toggles stay broken. The "fix scope bounded to one label" constraint prevents this verifier from turning into a second Phase B; deeper failures escalate as NEEDS_CONTEXT so the full suite confirms unit-test quality.
+Justification: System C-2 cross-unit integration (real Topbar + real loaders/store/helpers) is the only level where the three story acceptance criteria compose — unit tests on helpers pass while end-to-end toggles stay broken. The "fix scope bounded to one label" constraint prevents this verifier from turning into a second Phase B; deeper failures escalate as NEEDS_CONTEXT so the full suite confirms unit-test quality.
 Complexity: standard
 
 ## SANDWICH CONTEXT
@@ -180,7 +180,7 @@ Architecture rule: Keep helpers/pages read-only in this phase. Escalate with NEE
 [RESTATE: Do NOT edit helpers/pages here — if the test fails because a helper is wrong, flag NEEDS_CONTEXT naming the helper + spec line instead of patching Phase B inline]
 
 ## DELIVERABLE
-Given store toggled ON via the real Topbar switch, When analytics + GeoMap + order submit + funnel loaders run, Then ALL three success signals pass AND global fetch count is 0
+Given store toggled ON via the real Topbar switch, When analytics + GeoMap + order submit + funnel loaders run, Then ALL three story acceptance criteria pass AND global fetch count is 0
 Given store ON with a mutation, When refresh simulated then toggle OFF, Then flag restored AND dummyEntities deep-equals the first ON entities (not just non-null) after remount, with analytics populated AND entities null after OFF AND subsequent loader real-fetches
 Given all guarded reads (analytics + DI reads + ops + admin/sales + all page loaders ≈ 27 call-sites), When inspected, Then global fetch call count is 0 (cross-unit zero-network invariant)
 Given fixed today (pinned via generator registration), When ON → OFF → ON toggled, Then second ON produces deep-equal entities to first ON AND dummy-001 is Toko Bogor Indah (determinism)
@@ -192,7 +192,7 @@ Format: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 ## QUALITY BAR
 Must-have:
   - Goal-level entry point: real `Topbar` rendering + switch click
-  - Three success signals verified against real loaders/modules (not stubs)
+  - Three story acceptance criteria verified against real loaders/modules (not stubs)
   - Zero-network asserted with a `jest.fn()` global fetch at the cross-unit level
   - Ephemerality proven by the toggle cycle (no `dummy-` records survive)
   - Refresh persistence proven by remount reading `localStorage['dummy:isDummy']` AND producing deep-equal entities (not just non-null)
@@ -209,14 +209,14 @@ Must-not-have:
 
 Open question risks:
   - Topbar badge text is NOT spec-prescribed (spec only positions the toggle "antara Online & Keluar") — so the "only if needed" branch rarely fires; if the affordance exists, make no Topbar edit at all
-  - Dummy operations issue detail remains non-navigable by design (do NOT test navigating to it as part of success signals; leave it as a D/CARVE-OUT validated at the B-T1 unit level)
+  - Dummy operations issue detail remains non-navigable by design (do NOT test navigating to it as part of story acceptance criteria; leave it as a D/CARVE-OUT validated at the B-T1 unit level)
 
 Rollback note:
   - Delete `apps/web/__tests__/dummy-mode.e2e.test.tsx`; revert the optional Topbar line. Phase A/B behavior is unaffected.
 
 ## STOP CONDITIONS
 Done when: DELIVERABLE scenarios pass, full suite green, commit created
-Uncertain when: the success signals compose differently than phrased because a loader name differs (adapt the loader target, note it in the test header comment, and proceed)
+Uncertain when: the story acceptance criteria compose differently than phrased because a loader name differs (adapt the loader target, note it in the test header comment, and proceed)
 Escalate when: a failure points to a Phase A/B helper bug that would require editing `apps/web/src/dummy/*` or `apps/web/src/lib/*` or `apps/web/src/app/*/*` beyond the allowed one-line Topbar label fix — return NEEDS_CONTEXT with helper path + spec line + observed vs expected
 
 ---
@@ -225,4 +225,4 @@ Escalate when: a failure points to a Phase A/B helper bug that would require edi
 
 | Task | Name | Depends | Complexity | Key Verification |
 |------|------|---------|------------|-----------------|
-| T1 | Cross-unit integration verifier | Phase A T6+T7, Phase B B-T1..B-T4 | standard | 3 success signals + funnel + finance dashboard, zero network, ephemerality, refresh persistence, determinism |
+| T1 | Cross-unit integration verifier | Phase A T6+T7, Phase B B-T1..B-T4 | standard | 3 story acceptance criteria + funnel + finance dashboard, zero network, ephemerality, refresh persistence, determinism |

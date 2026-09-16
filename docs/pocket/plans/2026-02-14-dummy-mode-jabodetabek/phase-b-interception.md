@@ -75,7 +75,7 @@ Story 3 — Fake writes
   Modify: apps/web/src/lib/data-intelligence-api.ts         (sendFunnelEvent POST — owned by B-T4)
 ```
 
-Note: `(created by: B-T<N>)` annotations mark files that do not exist until B-T<N> runs. `apps/web/src/app/sales/orders/api.ts` is touched by two tasks — B-T2 owns the READ guard (`fetchSalesOutlets`, `fetchCatalogProducts`) and B-T4 owns the WRITE guard (`createSalesOrder`); they must commit in that order to avoid conflicts.
+Note: `(created by: B-T<N>)` annotations mark files that do not exist until B-T<N> runs. Six files are shared between the READ-guard tasks and B-T4, so B-T4 must land AFTER the read-guards commit (serialize the write-guard task per file, or run B-T4 only after B-T1/B-T2/B-T3 have merged their file's read guard): (1) `apps/web/src/app/sales/orders/api.ts` (B-T2 reads `fetchSalesOutlets`, `fetchCatalogProducts` + B-T4 write `createSalesOrder`); (2) `apps/web/src/lib/data-intelligence-api.ts` (B-T1 reads + B-T4 write `sendFunnelEvent`); (3) `apps/web/src/app/admin/products/api.ts` (B-T2 reads + B-T4 write `updateProductPrice`); (4) `apps/web/src/app/admin/promotions/api.ts` (B-T2 reads + B-T4 writes `createPromotion`/`updatePromotion`/`deletePromotion`/`broadcastPromotion`); (5) `apps/web/src/app/admin/users/api.ts` (B-T2 reads + B-T4 write `assignUserRole`); (6) `apps/web/src/app/admin/outlets/api.ts` (B-T2 reads + B-T4 write `updateOutlet`); plus B-T3 pages with inline writes (`payments/page.tsx` POST, `sales/page.tsx` POST visits, `OrderForm.tsx` POST :28, `invoices/page.tsx` POST if any).
 
 ---
 

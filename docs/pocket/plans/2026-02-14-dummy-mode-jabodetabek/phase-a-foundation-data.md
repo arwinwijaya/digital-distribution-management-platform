@@ -51,9 +51,13 @@ Story 2 — Read paths (foundation data only; wiring lands in Phase B)
   Create: apps/web/src/dummy/factory.ts                  (created by: T5)
   Create: apps/web/src/dummy/factory-transactions.ts     (created by: T6)
   Create: apps/web/src/dummy/aggregates.ts               (created by: T6)
+  Create: apps/web/src/dummy/install.ts                  (created by: T6)
+  Modify: apps/web/src/dummy/index.ts                    (created by: T1; composition export added by: T6)
+  Modify: apps/web/src/app/layout.tsx                    (installDummy() call by: T6)
   Test:   apps/web/src/dummy/factory.test.ts             (created by: T5)
   Test:   apps/web/src/dummy/factory-transactions.test.ts (created by: T6)
   Test:   apps/web/src/dummy/aggregates.test.ts          (created by: T6)
+  Test:   apps/web/src/dummy/install.test.ts             (created by: T6)
 
 Story 3 — Guards plumbing (helpers only; call-site guards land in Phase B)
   Create: apps/web/src/dummy/guards.ts                   (created by: T7)
@@ -191,10 +195,10 @@ Create the Zustand singleton `useDummyStore` holding `isDummy`, `dummyEntities` 
 
 DETERMINISM SEAM (LOCKED — do not redesign):
 - The store's `toggle()` takes NO args and calls the injected generator with NO args: `generate()`.
-- The ONLY seam by which `today` reaches the factory is `setDummyGenerator(fn)`. Tests that need a fixed date MUST register `setDummyGenerator((today?) => buildFullDummy(fixedDate))` BEFORE toggling — i.e. the generator closure pins the date, not a toggle argument.
+- The ONLY seam by which `today` reaches the factory is `setDummyGenerator(fn)`. Tests that need a fixed date before they toggle MUST wire the composition helper from T6: `import { buildFullDummy } from '@/dummy'` and register `setDummyGenerator((today?) => buildFullDummy(today ?? new Date('2026-02-14')))` BEFORE toggling — i.e. the generator closure pins the date, not a toggle argument.
 - Never call `toggle(date)`. `generate()` inside the store must not call `new Date()` itself; the date flows only from the registered generator closure.
 
-Generator contract (fixed here so T5/T6 can implement against it): `type DummyGenerator = (today?: Date) => DummyEntities` — `today` is injectable so tests and Phase C can pin a fixed date via the `setDummyGenerator` closure without touching `Date.now()` inside the factories.
+Generator contract (fixed here so T5/T6 can implement against it): `type DummyGenerator = (today?: Date) => DummyEntities` — `today` is injectable so tests and Phase C can pin a fixed date via the `setDummyGenerator` closure without touching `Date.now()` inside the factories. The canonical implementation `buildFullDummy(today?)` is delivered by T6 as `apps/web/src/dummy/index.ts` composing `buildMasterData` + `buildTransactions` + `buildAggregates`.
 
 Files:
 - Create: `apps/web/src/dummy/store.ts`
@@ -237,7 +241,7 @@ Steps:
    Expected failure: `Cannot find module '@/dummy/store'`
 
 3. Implement minimal code to satisfy the test:
-   File: `apps/web/src/dummy/store.ts` — `create<DummyState>()(...)`, manual localStorage sync (isDummy only; entities in-memory), `toggle()` (false→true runs `generate()` once with no args — date flows only from the registered generator closure; true→false clears entities), `setRole(role)`, `resetEntities()`, `reset()` for tests. Export `useDummyStore`, `selectIsDummy`, `setDummyGenerator(fn)`, and the `DummyGenerator` type.
+   File: `apps/web/src/dummy/store.ts` — `create<DummyState>()(...)`, manual localStorage sync (isDummy only; entities in-memory), `toggle()` (false→true runs `generate()` once with no args — the production wiring that registers the default generator MUST be an exported `installDummy(store)` or `registerDummyGenerator(factoryFn)` called once in `apps/web/src/app/layout.tsx` (keeping `store.ts` free of the factory import), not hidden inside `store.ts`; T6 delivers that helper), `setRole(role)`, `resetEntities()`, `reset()` for tests. Export `useDummyStore`, `selectIsDummy`, `setDummyGenerator(fn)`, and the `DummyGenerator` type.
 
 4. Run test — verify PASS:
    `cd apps/web && npx jest src/dummy/store.test.ts --runInBand`
@@ -248,7 +252,7 @@ Steps:
    Level: integration (store init reads localStorage and calls the injected generator)
 
    Test intent:
-   Given `localStorage['dummy:isDummy'] === '1'` was set by a previous session, localStorage cleared of entities, and a fresh store module instance (simulated refresh) with a stub generator pinned to a fixed date via `setDummyGenerator(() => stubEntities)`
+   Given `localStorage['dummy:isDummy'] === '1'` was set by a previous session, localStorage cleared of entities, and a fresh store module instance (simulated refresh) with a stub generator registered via `setDummyGenerator(() => stubEntities)` (T6's real `buildFullDummy(today)` form is `setDummyGenerator((today?) => buildFullDummy(today ?? fixedDate))` — same closure shape, stub used here to keep T2 independent)
    When the store initializes (`useDummyStore.getState()` is read)
    Then:
    - `isDummy === true` (restored from localStorage)
@@ -280,8 +284,8 @@ Steps:
    Level: integration (asserts call counts across two toggle cycles via the store singleton)
 
    Test intent:
-   Given the store went ON (generator registered with a stub pinned to date T1), then OFF,
-   When the generator is re-registered with a stub pinned to a later date T2 via `setDummyGenerator(() => stubT2)` and `toggle()` turns ON again
+   Given the store went ON (registered `setDummyGenerator(() => stubT1)` where stubT1 is pinned to date T1), then OFF,
+   When the generator is re-registered via `setDummyGenerator(() => stubT2)` (pinned to a later date T2, same shape as `setDummyGenerator((today?) => buildFullDummy(today ?? fixedT2))` in T6/Phase C) and `toggle()` turns ON again
    Then:
    - the T2 stub has been called exactly once since registration AND total generations across both cycles equal two
    - `dummyEntities` reflects the second (T2) generation, not a cached T1 value
@@ -329,7 +333,7 @@ Architecture rule: No new dependencies; persist ONLY the flag; never call the ba
 Given store OFF with stub generate, When toggle() ON, Then isDummy true AND localStorage flag set AND entities generated exactly once
 Given store ON, When toggle() OFF, Then isDummy false AND flag cleared AND entities null AND no entities key in localStorage
 Given a persisted flag from a previous session, When the store initializes, Then isDummy true AND entities repopulated (not null) AND deterministic for the same injected today
-Given store ON (generator pinned to T1), When toggle OFF then ON after re-registering `setDummyGenerator` with fixed T2, Then two total generations AND entities reflect T2 (fresh rolling window — no cached reuse)
+   Given store ON (registered `setDummyGenerator(() => buildFullDummy(fixedT1))`), When toggle OFF then ON after re-registering `setDummyGenerator(() => buildFullDummy(fixedT2))`, Then two total generations AND entities reflect T2 (fresh rolling window — no cached reuse)
 
 All tests PASS. Commit exists with message matching `feat(dummy): add Zustand dummy store with persisted toggle`.
 
@@ -634,7 +638,7 @@ Escalate when: task touches files outside listed scope
 ### Task 5: DummyFactory — master data (territories/outlets/products/suppliers) [depends: T1] [parallel: T2]
 
 ## OBJECTIVE
-Build the deterministic master-data factory: 5 JABODETABEK territories (from T1 seed), ~48 outlets (~9–10 per territory with names/addresses/coords inside territory bbox), ~30 products (SKU, name, category, price), ~8 suppliers. Pure functions taking `(rng, window)`; no store import.
+Build the deterministic master-data factory: 5 JABODETABEK territories (from T1 seed), ~48 outlets (~9–10 per territory with names/addresses/coords inside territory bbox), ~30 products (SKU, name, category, price), ~8 suppliers. Pure functions taking `(rng, window)`; no store import. This task produces the leaf module; T6's `buildFullDummy(today?)` (in `apps/web/src/dummy/index.ts`) will compose it, so keep the types file-agnostic.
 
 Files:
 - Create: `apps/web/src/dummy/factory.ts`
@@ -738,16 +742,57 @@ Escalate when: task imports outside `apps/web/src/dummy/*` or touches out-of-sco
 ### Task 6: DummyFactory — transactions + analytics/DI/AI aggregates [depends: T5]
 
 ## OBJECTIVE
-Build deterministic transactions (~900 orders across the 60-day window with items, 1:1 payment/invoice/delivery) plus ready-shaped aggregates: analytics (`AIData`: recommendations non-empty, 4-period forecast, segmentation), data-intelligence (`GeographicData` with 40–60 map_points, `SupplierPerformanceData`, `StockPlanningData`, measurement funnel/rates + forecast measurement), dashboard shapes (admin `DashboardData` + `FinanceMetrics`), and operations (`ReadinessData`, issues list). Pure functions over T5 master data; shapes typed to the EXISTING TS interfaces.
+Build deterministic transactions (~900 orders across the 60-day window with items, 1:1 payment/invoice/delivery) plus ready-shaped aggregates: analytics (`AIData`: recommendations non-empty, 4-period forecast, segmentation), data-intelligence (`GeographicData` with 40–60 map_points, `SupplierPerformanceData`, `StockPlanningData`, measurement funnel/rates + forecast measurement), dashboard shapes (admin `DashboardData` + `FinanceMetrics`), and operations (`ReadinessData`, issues list). Pure functions over T5 master data; shapes typed to the EXISTING TS interfaces. Final composition: `buildFullDummy(today?) => DummyEntities` exported from `apps/web/src/dummy/index.ts` (extending T1's barrel) — this is the canonical `DummyGenerator` the store and Phase C call via `setDummyGenerator((today?) => buildFullDummy(fixedDate))`. Plus register the production default generator once at app entry: `installDummy()` in `apps/web/src/app/layout.tsx` so toggle works in production without tests.
 
 Files:
 - Create: `apps/web/src/dummy/factory-transactions.ts`
 - Create: `apps/web/src/dummy/aggregates.ts`
+- Create: `apps/web/src/dummy/install.ts` (export `installDummy()` which calls `setDummyGenerator((today?) => buildFullDummy(today))` — so layout.tsx never touches the factory directly)
+- Modify: `apps/web/src/dummy/index.ts` (add `buildFullDummy` composition export — T1 created the barrel; T6 owns the composition)
+- Modify: `apps/web/src/app/layout.tsx` (call `installDummy()` once at app bootstrap)
+- Test: `apps/web/src/dummy/index.test.ts` (unit: composition returns non-empty DummyEntities)
 - Test: `apps/web/src/dummy/factory-transactions.test.ts`
 - Test: `apps/web/src/dummy/aggregates.test.ts`
+- Test: `apps/web/src/dummy/install.test.ts` (integration: installDummy registers buildFullDummy on the real store singleton)
 
 Steps:
-1. Write failing test for: transaction volumes + relational integrity + 60-day window
+1. Write failing test for: `buildFullDummy(today?)` composes master+transactions+aggregates into DummyEntities
+   Test file: `apps/web/src/dummy/index.test.ts`
+   Level: unit
+
+   Test intent:
+   Given fixed today (2026-02-14)
+   When `buildFullDummy(new Date('2026-02-14'))` is called
+   Then:
+   - returns an object with keys `outlets`, `products`, `suppliers`, `territories` (non-empty arrays), `orders` (800..1000), `payments`, `invoices`, `deliveries` (1:1 with orders), `analytics` (recommendations non-empty), `geographic` (map_points 40..60)
+   - calling twice with the same date yields deep-equal results (deterministic)
+
+   Exercise through: `buildFullDummy` from `apps/web/src/dummy/index.ts`
+   Test doubles: none (pure function, real T1/T5/T6)
+   Expected RED: `index.ts` does not export `buildFullDummy` → import error
+
+2. Run test — verify FAIL:
+   `cd apps/web && npx jest src/dummy/index.test.ts --runInBand`
+   Expected failure: `buildFullDummy is not a function` or missing
+
+3. Implement — update `apps/web/src/dummy/index.ts`:
+   ```ts
+   export function buildFullDummy(today?: Date): DummyEntities {
+     const d = today ?? new Date();
+     const window = dummyWindow(d);
+     const rng = createRng(DUMMY_SEED);
+     const master = buildMasterData(rng, window);
+     const tx = buildTransactions(master, window);
+     const agg = buildAggregates(master, tx);
+     return { ...master, ...tx, ...agg };
+   }
+   ```
+   Export `DummyEntities` type (union of T5 `MasterData` + T6 `Transactions` + T6 `Aggregates`).
+
+4. Run test — verify PASS:
+   `cd apps/web && npx jest src/dummy/index.test.ts --runInBand`
+
+5. Write failing test for: transaction volumes + relational integrity + 60-day window
    Test file: `apps/web/src/dummy/factory-transactions.test.ts`
    Level: unit
 
@@ -770,17 +815,17 @@ Steps:
    Expected RED:
    - file does not exist → import error
 
-2. Run test — verify FAIL:
+6. Run test — verify FAIL:
    `cd apps/web && npx jest src/dummy/factory-transactions.test.ts --runInBand`
    Expected failure: `Cannot find module '@/dummy/factory-transactions'`
 
-3. Implement minimal code to satisfy the test (same file; trend-shaped daily volumes ~15/day with weekday/weekend modulation, NOT uniform noise — charts must show meaningful patterns).
+7. Implement minimal code to satisfy the test (same file; trend-shaped daily volumes ~15/day with weekday/weekend modulation, NOT uniform noise — charts must show meaningful patterns).
 
-4. Run test — verify PASS:
+8. Run test — verify PASS:
    `cd apps/web && npx jest src/dummy/factory-transactions.test.ts --runInBand`
    Expected: PASS
 
-5. Write failing test for: aggregates populated + never-empty + typed to existing interfaces
+9. Write failing test for: aggregates populated + never-empty + typed to existing interfaces
    Test file: `apps/web/src/dummy/aggregates.test.ts`
    Level: unit
 
@@ -806,21 +851,38 @@ Steps:
    Expected RED:
    - file does not exist → import error; OR aggregates empty (e.g. `recommendations: []`) → length assertions fail
 
-6. Run test — verify FAIL:
+10. Run test — verify FAIL:
    `cd apps/web && npx jest src/dummy/aggregates.test.ts --runInBand`
    Expected failure: `Cannot find module '@/dummy/aggregates'` (or empty-array assertions)
 
-7. Implement minimal code to satisfy the test: derive aggregates FROM the transactions (counts, sums, per-territory grouping, per-supplier fulfillment ratios, funnel derived from order states, forecast = last-4-weeks extrapolation with `method: 'dummy-heuristic'`, stock = demand vs lead-time math). Import existing types from `@/lib/data-intelligence-api`, `@/lib/operations-types`, and the page-local types where canonical (copy the minimal shape locally ONLY if the page type is not exported — prefer importing).
+11. Implement minimal code to satisfy the test: derive aggregates FROM the transactions (counts, sums, per-territory grouping, per-supplier fulfillment ratios, funnel derived from order states, forecast = last-4-weeks extrapolation with `method: 'dummy-heuristic'`, stock = demand vs lead-time math). Import existing types from `@/lib/data-intelligence-api`, `@/lib/operations-types`, and the page-local types where canonical (copy the minimal shape locally ONLY if the page type is not exported — prefer importing).
 
-8. Run tests — verify PASS:
+12. Run tests — verify PASS:
    `cd apps/web && npx jest src/dummy/factory-transactions.test.ts src/dummy/aggregates.test.ts --runInBand && npx tsc --noEmit`
    Expected: PASS + clean typecheck
 
-9. Refactor while green (bounded) + re-run (must stay PASS).
+13. Write failing test for: `installDummy()` registers the canonical generator on the store
+   Test file: `apps/web/src/dummy/install.test.ts`
+   Level: integration (touches the real Zustand singleton via `setDummyGenerator`)
 
-10. Commit (single commit for the task; aggregates + transactions ship together):
-   `git add apps/web/src/dummy/factory-transactions.ts apps/web/src/dummy/aggregates.ts apps/web/src/dummy/factory-transactions.test.ts apps/web/src/dummy/aggregates.test.ts`
-   `git commit -m "feat(dummy): add transactional factory and analytics/DI aggregates"`
+   Test intent:
+   Given a fresh store singleton and `installDummy` NOT yet called
+   When `installDummy()` runs, then `useDummyStore.getState().toggle()` is called
+   Then:
+   - entities become non-null with outlets/products/orders/map_points populated (real `buildFullDummy`, no stub)
+   - calling `toggle()` OFF → ON again reproduces the same data (generator registered once, deterministic)
+
+   Test doubles: none (real buildFullDummy + real store; fixed via `new Date()` is acceptable since this only asserts non-empty + determinism, not exact dates)
+   Expected RED: no generator registered → `toggle()` throws or entities stay empty
+
+14. Run test — verify FAIL, then implement `install.ts` + `layout.tsx` bootstrap, then verify PASS:
+   `cd apps/web && npx jest src/dummy/install.test.ts --runInBand`
+
+15. Refactor while green (bounded) + re-run (must stay PASS).
+
+16. Commit (single commit for the task; aggregates + transactions + wiring ship together):
+   `git add apps/web/src/dummy/factory-transactions.ts apps/web/src/dummy/aggregates.ts apps/web/src/dummy/install.ts apps/web/src/dummy/index.ts apps/web/src/app/layout.tsx apps/web/src/dummy/factory-transactions.test.ts apps/web/src/dummy/aggregates.test.ts apps/web/src/dummy/index.test.ts apps/web/src/dummy/install.test.ts`
+   `git commit -m "feat(dummy): add transactional factory, aggregates, and install wiring"`
 
 ## REFERENCES LOADED
 docs/pocket/spec/2026-02-14-dummy-mode-jabodetabek/dummy-mode.md — Story 2 R3/R4/R5 (analytics non-empty + 4-period forecast; geographic 40–60 + suppliers + stock + measurement; BOTH dashboard shapes incl. FinanceMetrics keys); Story 2 geo bbox; Story 3 R3 (order → payment/invoice/delivery side-effects — the 1:1 linkage built here is what T11 mutates).
@@ -835,16 +897,18 @@ Complexity: deep
 You are implementing transactions + aggregates for Dummy Mode JABODETABEK.
 Spec: docs/pocket/spec/2026-02-14-dummy-mode-jabodetabek/dummy-mode.md
 Design decision: Option A — Zustand singleton store + per-API-function guard
-Files in scope: `apps/web/src/dummy/factory-transactions.ts`, `apps/web/src/dummy/aggregates.ts`, `apps/web/src/dummy/factory-transactions.test.ts`, `apps/web/src/dummy/aggregates.test.ts` — no other files
+Files in scope: `apps/web/src/dummy/factory-transactions.ts`, `apps/web/src/dummy/aggregates.ts`, `apps/web/src/dummy/install.ts`, `apps/web/src/dummy/index.ts`, `apps/web/src/app/layout.tsx`, `apps/web/src/dummy/factory-transactions.test.ts`, `apps/web/src/dummy/aggregates.test.ts`, `apps/web/src/dummy/index.test.ts`, `apps/web/src/dummy/install.test.ts` — no other files
 Available after: T5 (master data); T1 utils
-Architecture rule: Pure functions only (no store/fetch/Date.now inside — inject today). Types imported from existing interfaces; `tsc --noEmit` must pass.
+Architecture rule: Pure functions only for factory-transactions/aggregates (no store/fetch/Date.now inside — inject today). The only store touch is `install.ts` (registers the canonical generator via `setDummyGenerator`); `layout.tsx` calls `installDummy()` once. Types imported from existing interfaces; `tsc --noEmit` must pass.
 [RESTATE: Aggregates must be DERIVED from the transactions — never hardcoded numbers; analytics generators must NEVER return empty arrays]
 
 ## DELIVERABLE
 Given master + fixed today, When buildTransactions runs, Then 800..1000 orders across the full 60-day window AND every order → existing outlet + products AND exactly one payment/invoice/delivery each AND deep-equal across runs
 Given master + transactions, When buildAggregates runs, Then analytics recommendations non-empty AND forecast 4 periods AND segmentation non-empty AND map_points 40..60 in bbox AND table 5 rows AND suppliers/stock/measurement present AND BOTH dashboard shapes (incl. all FinanceMetrics keys) AND operations present AND tsc clean
+Given fixed today, When `buildFullDummy(new Date('2026-02-14'))` is called, Then DummyEntities object with non-empty outlets/products/suppliers + 800..1000 orders + 40..60 map_points AND deterministic across calls (this is the composition exported from T1's barrel by T6)
+Given app bootstrap, When `installDummy()` is called once, Then the store's generator is the real `buildFullDummy` AND toggling ON yields populated entities (production wiring — no stub)
 
-All tests PASS. Commit exists with message matching `feat(dummy): add transactional factory and analytics/DI aggregates`.
+All tests PASS. Commit exists with message matching `feat(dummy): add transactional factory, aggregates, and install wiring`.
 
 Format: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 
@@ -854,6 +918,8 @@ Must-have:
   - Trend-shaped volumes (weekday/weekend modulation), not uniform noise
   - No empty analytics arrays by construction
   - `tsc --noEmit` clean (shape-drift guard in lieu of Zod)
+  - `buildFullDummy` composition works with no args (defaults to `new Date()`) and is the sole entry point the store/Phase C wires via `setDummyGenerator`
+  - `installDummy()` registered once at app bootstrap (layout.tsx) so production toggle works without a test stub
   - Tests written BEFORE implementation (TDD — not after)
   - Commit message follows conventional commits format
 

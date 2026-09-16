@@ -219,6 +219,8 @@ class OrderController extends Controller
             'total_amount' => $order->total_amount,
             'paid_amount' => $order->paid_amount,
             'outstanding_balance' => number_format(max(0, ((float) $order->total_amount) - ((float) $order->paid_amount)), 2, '.', ''),
+            'promotion_id' => $order->promotion_id,
+            'discount_amount' => $order->discount_amount,
             'commission_percentage' => $order->commission_percentage,
             'items' => $order->items->map(function ($item) {
                 return [

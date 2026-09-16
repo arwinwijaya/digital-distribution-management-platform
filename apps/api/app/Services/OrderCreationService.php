@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\Outlet;
 use App\Models\Product;
+use App\Models\Promotion;
 use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class OrderCreationService
      * order created by the winner instead of an unhandled database exception.
      * Product locks and all order writes remain inside one transaction.
      *
-     * @param  array{items: array<int, array{product_id: int, quantity: int}>}  $validated
+     * @param  array{items: array<int, array{product_id: int, quantity: int}>, promotion_id?: int}  $validated
      * @return array{order: Order, created: bool}
      */
     public function create(array $validated, Outlet $outlet, string $requestIdentity): array
@@ -54,9 +55,29 @@ class OrderCreationService
                     // Product rows are locked and validated without mutation first, so
                     // a rejected credit check cannot consume stock or persist an order.
                     [$items, $totalAmount] = $this->prepareProducts($validated['items']);
-                    $this->creditLimitService->assertCanPlace($lockedOutlet, $this->moneyToCents($totalAmount));
+
+                    // Phase 7 T5: promo applied at creation only. Resolves promotion_id
+                    // from the request, validates min_order + active window, and
+                    // stores promotion_id/discount_amount snapshot on the order.
+                    // Credit check consumes the post-discount total.
+                    $promotionId = isset($validated['promotion_id']) ? (int) $validated['promotion_id'] : null;
+                    $discountAmount = 0.0;
+                    if ($promotionId !== null) {
+                        $promotion = Promotion::lockForUpdate()->find($promotionId);
+                        if ($promotion === null) {
+                            throw ValidationException::withMessages([
+                                'promotion_id' => 'The selected promotion does not exist.',
+                            ]);
+                        }
+                        $this->assertPromotionApplicable($promotion, $totalAmount, $items);
+                        $discountAmount = app(PromotionService::class)
+                            ->calculateDiscount($promotion, $totalAmount);
+                    }
+                    $payableTotal = max(0.0, $totalAmount - $discountAmount);
+
+                    $this->creditLimitService->assertCanPlace($lockedOutlet, $this->moneyToCents($payableTotal));
                     $this->reservePreparedProducts($items);
-                    $order = $this->persistOrder($lockedOutlet, $requestIdentity, $totalAmount, $items);
+                    $order = $this->persistOrder($lockedOutlet, $requestIdentity, $payableTotal, $items, $promotionId, $discountAmount);
 
                     return ['order' => $order, 'created' => true];
                 });
@@ -221,6 +242,45 @@ class OrderCreationService
     }
 
     /**
+     * Phase 7 T5: a promo may only be applied at creation when it is active,
+     * today falls inside its inclusive date range, and the pre-discount
+     * subtotal meets min_order. The promo's product_id (when set) must also
+     * be present in the order.
+     *
+     * @param  array<int, array<string, int|float>>  $items
+     */
+    private function assertPromotionApplicable(Promotion $promotion, float $subtotal, array $items): void
+    {
+        if (! $promotion->is_active) {
+            throw ValidationException::withMessages([
+                'promotion_id' => 'The selected promotion is not active.',
+            ]);
+        }
+
+        $today = now()->startOfDay();
+        if ($today->lt($promotion->start_date) || $today->gt($promotion->end_date)) {
+            throw ValidationException::withMessages([
+                'promotion_id' => 'The selected promotion is not valid today.',
+            ]);
+        }
+
+        if ((float) $promotion->min_order > 0 && $subtotal < (float) $promotion->min_order) {
+            throw ValidationException::withMessages([
+                'promotion_id' => 'Order does not meet the promotion minimum order amount.',
+            ]);
+        }
+
+        if ($promotion->product_id !== null) {
+            $orderedProductIds = collect($items)->pluck('product_id')->map(fn ($id) => (int) $id);
+            if (! $orderedProductIds->contains((int) $promotion->product_id)) {
+                throw ValidationException::withMessages([
+                    'promotion_id' => 'The selected promotion does not apply to any ordered product.',
+                ]);
+            }
+        }
+    }
+
+    /**
      * Persist the order, line items, and initial history atomically.
      *
      * @param  array<int, array<string, int|float>>  $items
@@ -230,6 +290,8 @@ class OrderCreationService
         string $requestIdentity,
         float $totalAmount,
         array $items,
+        ?int $promotionId = null,
+        float $discountAmount = 0.0,
     ): Order {
         $order = Order::create([
             'order_id' => Order::generateUniqueOrderId(),
@@ -239,6 +301,8 @@ class OrderCreationService
             'commission_percentage' => config('orders.commission_percentage', 2.00),
             'idempotency_key' => $requestIdentity,
             'idempotency_payload_hash' => self::payloadFingerprint($items),
+            'promotion_id' => $promotionId,
+            'discount_amount' => $discountAmount,
         ]);
 
         foreach ($items as $item) {

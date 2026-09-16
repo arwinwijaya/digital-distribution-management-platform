@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { GeographicMapPoint } from '@/lib/data-intelligence-api';
@@ -21,6 +22,12 @@ export function isValidPoint(point: GeographicMapPoint): boolean {
 }
 
 export default function GeoMap({ points }: Props) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const validPoints = points.filter(isValidPoint);
 
   if (points.length === 0 || validPoints.length === 0) {
@@ -32,6 +39,16 @@ export default function GeoMap({ points }: Props) {
       >
         Tidak ada titik peta.
       </div>
+    );
+  }
+
+  if (!mounted) {
+    return (
+      <div
+        data-testid="geo-map-loading"
+        className="h-[420px] w-full rounded-lg border border-gray-200 bg-gray-50"
+        style={{ height: 420 }}
+      />
     );
   }
 

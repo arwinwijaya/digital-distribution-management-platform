@@ -10,6 +10,17 @@ class WhatsAppMessage extends Model
 {
     use HasFactory;
 
+    /**
+     * Outbound promo blast created by F6 promotion broadcast.
+     */
+    public const MESSAGE_TYPE_PROMO_BROADCAST = 'promo_broadcast';
+
+    public const MESSAGE_TYPE_ORDER_CONFIRMATION = 'order_confirmation';
+
+    public const MESSAGE_TYPE_CATALOG = 'catalog';
+
+    public const MESSAGE_TYPE_TEXT = 'text';
+
     protected $table = 'whatsapp_messages';
 
     protected $fillable = [
@@ -35,5 +46,15 @@ class WhatsAppMessage extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Scope to the outbound promotion broadcast rows. F6 marks its messages
+     * with message_type='promo_broadcast'; message_type is a VARCHAR column
+     * (see migration 2026_09_16_000006) so no schema change is required.
+     */
+    public function scopePromoBroadcast(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('message_type', self::MESSAGE_TYPE_PROMO_BROADCAST);
     }
 }

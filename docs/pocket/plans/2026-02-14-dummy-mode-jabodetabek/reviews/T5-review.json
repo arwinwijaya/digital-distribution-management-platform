@@ -1,0 +1,59 @@
+{
+  "task_id": "T5",
+  "task_name": "DummyFactory — master data (territories/outlets/products/suppliers)",
+  "cycle": 1,
+  "timestamp": "2026-09-16T11:59:40Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "TDD ordering (QUALITY BAR 'Tests written BEFORE implementation') is not verifiable from git: this SHA range contains a single commit (2924552) holding both factory.ts and factory.test.ts. The test file header documents 'RED cycle 2' and its expected failure mode (Cannot find module '@/dummy/factory'); no contradicting evidence found — recorded as unverifiable observation rather than a defect.",
+      "OBJECTIVE mentions 'names/addresses/coords inside territory bbox' but DELIVERABLE only requires bbox containment + city + dummy-001. No address/district field on DummyOutlet — not a DELIVERABLE gap; Phase B dummy guards map to existing AdminOutlet which has optional address. If downstream pages render address, T6 composition can synthesize it; no Stage 1 failure.",
+      "Spec compliance — all DELIVERABLE scenarios verified against actual code (not implementer report): outlet count 44..52 (code yields 45..50 via 1 canonical + bogor 8..9 + 4×9..10; test asserts 44..52), every outlet inside JABODETABEK aggregate bbox via sampleCoords(bbox.min + rng*range) with city=territory.name, product count 28..32 with globally-unique SKUs (first 10 from T1 PRODUCT_SKUS + SKU-2001… synthetic), supplier count 7..9 (see Minor note on 9→8 truncation), deep-equal determinism across two seeded runs, and dummy-001 canonical 'Toko Bogor Indah' pinned to bogor territory.",
+      "Purity / scope verified: factory.ts imports only from ./rng, ./dates, ./seed (type + value); zero store/fetch/network/Date.now() imports. buildMasterData(rng, window) is pure — 'void window' keeps signature compatible with T6 buildFullDummy without touching Date.now(); window is documented as intentionally unused for master data.",
+      "No extra work: PRODUCT_BASE_NAMES/VARIANTS/CATEGORIES are local synthesis helpers required to reach 28..32 unique products — not scope creep. No backend, docker, or new dependency touched. files_changed is exactly the two in-scope files."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Clean pure-function decomposition: sampleCoords → toOutletId → buildOutlets (with pushOutlet/takeName closures) → buildProducts → buildSuppliers → buildMasterData composition. Each unit has a single responsibility and is straightforward to test in isolation.",
+      "Determinism is correctly preserved: every random choice flows through the injected SeededRng; no hidden global state, no Date.now(), no store read. Determinism test (two fresh RNGs from DUMMY_SEED) passes and would catch any future impurity.",
+      "Territory fidelity: canonical dummy-001 is forced first (counter=1, bogor territory) before the per-territory loop, and bogor's loop takes one fewer extra so the global total stays 45..50. Bogor-missing guard throws RangeError rather than silently producing wrong data.",
+      "Coord correctness: sampleCoords samples uniformly inside the territory bbox and rounds to 6 decimals; aggregate bbox is a superset so every outlet satisfies the spec's JABODETABEK bbox assertion (-6.9..-5.9, 105.9..107.3).",
+      "SKU uniqueness by construction: first 10 SKUs come from T1 PRODUCT_SKUS, remainder are synthetic SKU-2001… with no overlap; price is quantized to 500-step via Math.round(int/500)*500.",
+      "Type hygiene: DummyOutlet/DummyProduct/DummySupplier/DummyTerritory/MasterData are exported for T6 composition; DummyTerritory is a clean alias of T1 Territory; territories are shallow-copied ([...JABODETABEK_TERRITORIES]) so callers cannot mutate the seed constants.",
+      "Both in-scope files match the packet exactly; no out-of-scope files touched. Commit message follows conventional commits: 'feat(dummy): add deterministic master-data factory (outlets, products, suppliers)'.",
+      "All 6 tests pass and map 1:1 to the DELIVERABLE (counts, bbox+city, unique SKUs, supplier range, cross-run determinism, canonical dummy-001). No test mocks the factory/rng/seed.",
+      "No refactor threshold breached: factory.ts is 206 lines (<300), every exported/internal function is ≤ ~45 lines of logic (inner closures counted with their parent — well under the ~50-line heuristic), and no identical logic is repeated 3+ times."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Supplier range is declared rng.int(7, 9) but SUPPLIER_NAMES (from T1 seed) has only 8 entries, so .shuffle(...).slice(0, count) silently truncates a drawn 9 to 8 — the effective range is 7..8, never 9. Tests still pass (seed draws 8, and 7..9 assertion is satisfied by 8), but 1/3 of RNG draws will not produce the upper-bound value the code appears to promise. Tighten by either capping the draw to rng.int(7, Math.min(9, SUPPLIER_NAMES.length)) or expanding SUPPLIER_NAMES, and document the cap.",
+        "location": "apps/web/src/dummy/factory.ts:181-184"
+      },
+      {
+        "severity": "Minor",
+        "description": "DummyOutlet carries id/name/territoryId/city/lat/lon but no address/district. AdminOutlet (apps/web/src/app/admin/outlets/api.ts:13) has optional address/city/district. Downstream pages that render address will show blank for dummy outlets. Not a DELIVERABLE miss (DELIVERABLE does not assert address), but T6's relational composition should consider synthesizing a deterministic address (e.g. 'Jl. ' + rng.pick(streetNames) + ' No. ' + rng.int(1,200)) so dummy outlet detail pages are not visibly incomplete. Low priority — address is optional in the real type.",
+        "location": "apps/web/src/dummy/factory.ts:20-27"
+      },
+      {
+        "severity": "Minor",
+        "description": "buildOutlets declares takeName and pushOutlet as closures that close over usedNames/counter/outlets. This is idiomatic but means the function cannot be unit-tested in isolation without running the whole outlet build. Not a defect — the existing integration-level tests cover it — but if T6 needs per-territory outlet assertions, consider extracting takeName as a pure helper outside the closure.",
+        "location": "apps/web/src/dummy/factory.ts:117-139"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "29245524f613289e30d013462a3b109127081b3d"
+}

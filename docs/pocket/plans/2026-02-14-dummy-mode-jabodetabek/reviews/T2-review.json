@@ -1,0 +1,63 @@
+{
+  "task_id": "T2",
+  "task_name": "Zustand dummy store (isDummy, entities, role, toggle, localStorage persist)",
+  "cycle": 1,
+  "timestamp": "2026-09-16T11:46:19Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "TDD ordering (QUALITY BAR 'tests written BEFORE implementation') is not verifiable from git: this SHA range contains a single commit holding both store.ts and store.test.ts. The test file documents explicit RED cycles 1-3 and their expected failure modes; no contradicting evidence found, so recorded as unverifiable observation rather than a defect.",
+      "Determinism seam verify: toggle() is arity-0 and calls the generator with zero arguments (store.ts:75-83); the cycle-1b test asserts generateMock.mock.calls[0] has length 0 and that a passed Date is ignored (store.test.ts:66-72). No toggle(date) path exists anywhere.",
+      "Init/refresh path verify (Story 1 B): isDummy initializes from localStorage at module creation (store.ts:69) and setDummyGenerator repopulates entities when isDummy is true and entities are still null (store.ts:58-63); cycle-2 test isolates modules, pre-seeds the flag, and asserts non-null + deep-equal entities (store.test.ts:86-116).",
+      "Ephemeral-entity rule verify (Story 3 R4): entities are only ever held in Zustand state; persistFlag writes/removes only DUMMY_FLAG_KEY, and toggle OFF sets dummyEntities to null (store.ts:41-46, 76-79). Test asserts absence of three plausible entities keys (store.test.ts:57-59, 73-75).",
+      "Generator-injection slot verify: store.ts imports only 'zustand' — no factory, no apiUrl/fetch, no eager generation at import; T5/T6 plug in via setDummyGenerator without touching store internals."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Both files match the declared scope exactly (apps/web/src/dummy/store.ts, apps/web/src/dummy/store.test.ts); zero out-of-scope files touched (Topbar/Sidebar/LoginForm untouched).",
+      "All four DELIVERABLE scenarios are implemented and covered by 4 passing tests: toggle ON generates exactly once + persists flag; OFF clears flag + entities; persisted-flag refresh repopulates; re-toggle ON regenerates a fresh window (2 total generations, T2 data wins).",
+      "QUALITY BAR must-haves all satisfied: flag-only persist, refresh repopulation, locked generator contract (today?): DummyEntities with no-arg invocation, injection slot, before/afterEach hygiene (localStorage.clear + reset + re-registration + jest.restoreAllMocks), conventional commit message feat(dummy): add Zustand dummy store with persisted toggle.",
+      "QUALITY BAR must-not-haves all absent: no backend calls, no entity/mutation persistence, no Topbar/Sidebar/LoginForm changes.",
+      "SSR-safe: readPersistedFlag/persistFlag guard against a missing localStorage (store.ts:35-46), so importing the module in a Node/server context cannot throw.",
+      "Cycle-3 test is genuinely discriminating: it asserts the cycle-2 repopulate guard does NOT fire while isDummy is false (store.test.ts:139), which would otherwise mask a cached/stale generation.",
+      "No refactor threshold breached: store.ts 94 lines, store.test.ts 145 lines (both <300); every function is well under 50 lines; no identical logic repeated 3+ times.",
+      "Test doubles match the packet: stub generator via setDummyGenerator, real Zustand singleton, real jsdom localStorage; the store itself is never mocked."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "DummyEntities is declared as `Record<string, unknown>` (a maximally loose placeholder). Downstream Phase B/C guards reading dummyEntities.outlets etc. will receive `unknown` and need casts; worth tightening to the real relational shape once T6's factory lands. Not blocking: T2's packet does not fix the graph shape, and the generator contract remains assignable.",
+        "location": "apps/web/src/dummy/store.ts:15"
+      },
+      {
+        "severity": "Minor",
+        "description": "localStorage.clear() is invoked twice in beforeEach with reset() in between. reset() already clears the flag and state, so the second clear is redundant; the duplicated call slightly obscures the test setup intent.",
+        "location": "apps/web/src/dummy/store.test.ts:26-28"
+      },
+      {
+        "severity": "Minor",
+        "description": "The 'entities never persisted' assertion enumerates three hardcoded key guesses (dummy:entities, dummy:dummyEntities, dummy_entities). Asserting the total localStorage key count (or scanning all stored values for the stub payload) would be a stricter, rename-proof check that no entity data ever serializes.",
+        "location": "apps/web/src/dummy/store.test.ts:57-59"
+      },
+      {
+        "severity": "Minor",
+        "description": "reset() restores isDummy/dummyEntities/role and clears the persisted flag but does not clear the module-level dummyGenerator slot, so a previously registered generator survives a reset. Harmless today because beforeEach always re-registers, but it is a latent cross-test leakage point if a future test omits re-registration.",
+        "location": "apps/web/src/dummy/store.ts:81-84"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "2796b2418211ba8978d196de6e35b8028346af34"
+}

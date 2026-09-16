@@ -1,0 +1,58 @@
+{
+  "task_id": "T7",
+  "task_name": "Read-guard helper + commit-guard helper",
+  "cycle": 1,
+  "timestamp": "2026-09-16T12:08:42Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "TDD ordering (QUALITY BAR 'Tests written BEFORE implementation') is not verifiable from git history: this SHA range contains a single commit (3ead2cb) holding both guards.ts and guards.test.ts. The test file header documents 'Cycle 1/2/3' structure and expected RED states (e.g., 'does not exist → import error'). No contradicting evidence found — recorded as unverifiable observation rather than a defect, consistent with T5 treatment.",
+      "Spec reference to 'commitIfDummy(moment, data, setter)' (spec L266) is implemented as 'commitIfCurrent(getIsDummy, expectedFlag, setter, data)' — the task explicitly locked this 4-arg contract in the OBJECTIVE and Pocket Packet. The spec's implementation note uses 'e.g.' prefix (suggestion, not locked). No misunderstanding.",
+      "useDummyRefresh fires on both OFF→ON and OFF→OFF flips (the locked test asserts exactly 2 calls for OFF→ON→OFF). The spec's primary use case is OFF auto re-fetch (Story 1 D), but symmetric subscription is correct per the locked contract and does not cause harm — Phase B guards short-circuit dummy reads on ON. No spec gap.",
+      "All 4 DELIVERABLE scenarios verified against actual code (not implementer report): withDummyRead returns dummy when ON (guards.ts:19), calls realFetch when OFF (guards.ts:20), commitIfCurrent returns false and skips setter on flip (guards.ts:29-30), returns true and calls setter when unchanged (guards.ts:30-31). useDummyRefresh integration test covers the subscription path via real store toggle (guards.test.ts:88-97).",
+      "Commit message verified: 'feat(dummy): add read-guard and commit-guard helpers' matches conventional commits format.",
+      "Files in scope verified: exactly guards.ts and guards.test.ts in the diff. No out-of-scope files modified."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Minimal, focused implementation: guards.ts is 51 lines with three clean exports. Each function does exactly one thing — no over-engineering, no abstraction leakage.",
+      "Contract is lock-step with the Pocket Packet: withDummyRead is a pure ternary (if ON return dummy, else realFetch()), commitIfCurrent is a 4-arg flag comparator returning boolean, useDummyRefresh is a thin Zustand selector + useEffect + ref pattern. All signatures match the locked contract exactly.",
+      "Test coverage is comprehensive for a lightweight task: 5 tests across 3 cycles covering both ON/OFF paths for withDummyRead, both commit/pass-through paths for commitIfCurrent, and the store subscription integration for useDummyRefresh. All tests use real helpers (no mocking of SUT).",
+      "The useDummyRefresh hook correctly uses useRef to guard against spurious fires: the initial mount does not fire (ref === isDummy), and React StrictMode double-mount is safe (documented in JSDoc). The effect dependency array [isDummy, onChange] ensures it only reacts to actual store flips.",
+      "No AbortController code anywhere in guards.ts — only mentioned in a JSDoc comment documenting the design rationale. This satisfies the 'CRITICAL' constraint from the Pocket Packet's SANDWICH CONTEXT.",
+      "The test file follows established test hygiene: beforeEach resets store state and localStorage, afterEach restores mocks. Store singleton state is properly isolated between tests.",
+      "import { useDummyStore, selectIsDummy } from '@/dummy/store' correctly uses the Zustand selector pattern (selectIsDummy) already established by T2, maintaining architectural consistency."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "useDummyRefresh's useEffect dependency array includes the onChange callback. If Phase B callers pass inline arrow functions (e.g., useDummyRefresh(() => token && load(...))), the effect will re-run on every parent re-render. The ref guard prevents spurious onChange invocations, so there is no correctness bug, but React's exhaustive-deps lint rule will fire and unnecessary effect re-runs add minor overhead. Consider documenting that callers should memoize the callback via useCallback.",
+        "location": "apps/web/src/dummy/guards.ts:50"
+      },
+      {
+        "severity": "Minor",
+        "description": "Redundant double localStorage.clear() in beforeEach — lines 12 and 14 both call localStorage.clear(), with useDummyStore.getState().reset() at line 13. The reset() method clears localStorage internally (via persistFlag(false)), so the second clear is functionally redundant. Harmless but slightly noisy.",
+        "location": "apps/web/src/dummy/guards.test.ts:12-14"
+      },
+      {
+        "severity": "Minor",
+        "description": "The useDummyRefresh integration test (cycle 3) fires two store toggles and asserts exactly 2 onChange calls. It does not explicitly verify that an unrelated re-render (e.g., a parent state change) does not produce a spurious call. The useRef guard makes this safe in practice, but the test's stated intent from the task file was 'and no more without a flip' — adding a no-flip re-render assertion would close the coverage gap.",
+        "location": "apps/web/src/dummy/guards.test.ts:82-98"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "3ead2cb259c9b6b429d69ad036d43e6cdf7e7824"
+}

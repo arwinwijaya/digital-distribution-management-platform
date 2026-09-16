@@ -52,6 +52,10 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Prepare Laravel directories
+        working-directory: apps/api
+        run: mkdir -p bootstrap/cache storage/framework/{sessions,views,cache} storage/logs
+
       - name: Install Dependencies
         working-directory: apps/api
         run: composer install --no-progress --prefer-dist

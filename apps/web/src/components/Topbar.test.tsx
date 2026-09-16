@@ -9,7 +9,7 @@
  */
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { useDummyStore, setDummyGenerator, DUMMY_FLAG_KEY } from '@/dummy/store';
 import Topbar from '@/components/Topbar';
 
@@ -101,5 +101,67 @@ describe('Cycle 2 — Logout clears ddp_role and resets dummy OFF', () => {
     // Assert: store OFF + flag cleared
     expect(useDummyStore.getState().isDummy).toBe(false);
     expect(localStorage.getItem(DUMMY_FLAG_KEY)).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Cycle 3 — Topbar reacts to auth changes WITHOUT remounting          */
+/* (regression: an in-page login left the buttons hidden until F5)     */
+/* ------------------------------------------------------------------ */
+describe('Cycle 3 — Topbar reacts to auth changes without remount', () => {
+  it('reveals Mode Dummy + Keluar after an in-page login event', () => {
+    // Arrange: rendered while logged out — this is the SAME element tree
+    // that AppShell keeps mounted across client-side navigation.
+    render(<Topbar />);
+    expect(screen.queryByRole('switch', { name: /dummy/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /keluar/i })).not.toBeInTheDocument();
+
+    // Act: mirror LoginForm.submit() — token first, then the event.
+    localStorage.setItem('ddp_token', 'test-token-123');
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('ddp-auth-change', { detail: { token: 'test-token-123', role: 'admin' } }),
+      );
+    });
+
+    // Assert: both buttons appear without a remount
+    expect(screen.getByRole('switch', { name: /dummy/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /keluar/i })).toBeInTheDocument();
+  });
+
+  it('reveals the buttons on a cross-tab storage event for ddp_token', () => {
+    // Arrange: rendered while logged out
+    render(<Topbar />);
+    expect(screen.queryByRole('button', { name: /keluar/i })).not.toBeInTheDocument();
+
+    // Act: another tab wrote the token, then the browser delivered the event.
+    // localStorage must be written FIRST — the handler re-reads getStoredToken().
+    localStorage.setItem('ddp_token', 'test-token-123');
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: 'ddp_token', newValue: 'test-token-123' }),
+      );
+    });
+
+    // Assert
+    expect(screen.getByRole('switch', { name: /dummy/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /keluar/i })).toBeInTheDocument();
+  });
+
+  it('ignores storage events for unrelated keys', () => {
+    // Arrange: rendered while logged out
+    render(<Topbar />);
+
+    // Act: a token exists, but the event is for a different key
+    localStorage.setItem('ddp_token', 'test-token-123');
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: 'ddp_role', newValue: 'admin' }),
+      );
+    });
+
+    // Assert: the guard kept the buttons hidden
+    expect(screen.queryByRole('switch', { name: /dummy/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /keluar/i })).not.toBeInTheDocument();
   });
 });

@@ -7,7 +7,21 @@ import { useDummyStore } from '@/dummy/store';
 export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const [hasToken, setHasToken] = useState(false);
   const isDummy = useDummyStore((s) => s.isDummy);
-  useEffect(() => { setHasToken(Boolean(getStoredToken())); }, []);
+  useEffect(() => {
+    // Re-read on every auth change: an in-page login (LoginForm) never remounts
+    // this component, so a mount-only read would leave the buttons hidden.
+    const sync = () => setHasToken(Boolean(getStoredToken()));
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'ddp_token') sync();
+    };
+    sync();
+    window.addEventListener('ddp-auth-change', sync);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('ddp-auth-change', sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   function handleLogout() {
     clearStoredToken();

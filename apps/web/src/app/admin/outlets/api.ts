@@ -1,4 +1,150 @@
 import { apiUrl, authHeaders } from '@/lib/api';
+import { withDummyRead } from '@/dummy/guards';
+import { useDummyStore } from '@/dummy/store';
+import { JABODETABEK_TERRITORIES } from '@/dummy/seed';
+
+// ── Dummy-mode entity shapes (subset of the T5/T6 relational graph) ─────────
+interface DummyOutletEntity {
+  id: string;
+  name: string;
+  territoryId: string;
+  city: string;
+  lat: number;
+  lon: number;
+}
+
+interface DummyOrderEntity {
+  id: number;
+  order_id: string;
+  outlet_id: number;
+  outlet_code: string;
+  status: string;
+  total_amount: string;
+  created_at?: string;
+}
+
+const DUMMY_CATEGORIES = [
+  'warung',
+  'minimarket',
+  'supermarket',
+  'grosir',
+  'restoran',
+  'kafe',
+  'toko_kelontong',
+  'lainnya',
+];
+
+function dummyState(): { outlets: DummyOutletEntity[]; orders: DummyOrderEntity[] } {
+  const entities = useDummyStore.getState().dummyEntities as
+    | Partial<{ outlets: DummyOutletEntity[]; orders: DummyOrderEntity[] }>
+    | null;
+  return { outlets: entities?.outlets ?? [], orders: entities?.orders ?? [] };
+}
+
+function numericOutletId(id: string): number {
+  const n = Number(String(id).replace(/^dummy-/, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function territoryById(territoryId: string): { id: number; name: string } | undefined {
+  const idx = JABODETABEK_TERRITORIES.findIndex((t) => t.id === territoryId);
+  if (idx < 0) return undefined;
+  return { id: idx + 1, name: JABODETABEK_TERRITORIES[idx].name };
+}
+
+function toAdminOutlet(entity: DummyOutletEntity, index: number): AdminOutlet {
+  const territory = territoryById(entity.territoryId) ?? { id: index + 1, name: entity.city };
+  return {
+    id: numericOutletId(entity.id),
+    name: entity.name,
+    category: DUMMY_CATEGORIES[index % DUMMY_CATEGORIES.length],
+    territory_id: territory.id,
+    territory,
+    is_active: index % 7 !== 0,
+    score: (index * 7) % 100,
+    city: entity.city,
+    district: `${entity.city} ${(index % 5) + 1}`,
+    address: `Jl. Dummy ${entity.name.replace(/\s+/g, ' ')} No. ${index + 1}`,
+    latitude: entity.lat,
+    longitude: entity.lon,
+    phone: `+62 8${String(10000000 + index).padStart(9, '0')}`,
+  };
+}
+
+function listDummyOutlets(filters: OutletFilters): OutletsListResult {
+  let outlets = dummyState().outlets.map((o, i) => toAdminOutlet(o, i));
+
+  if (filters.search) {
+    const q = filters.search.toLowerCase();
+    outlets = outlets.filter((o) => o.name.toLowerCase().includes(q));
+  }
+  if (filters.category) outlets = outlets.filter((o) => o.category === filters.category);
+  if (filters.territory_id) {
+    outlets = outlets.filter((o) => String(o.territory_id) === String(filters.territory_id));
+  }
+  if (filters.is_active !== undefined && filters.is_active !== '') {
+    const want = filters.is_active === 'true';
+    outlets = outlets.filter((o) => Boolean(o.is_active) === want);
+  }
+
+  const limit = filters.limit ?? 15;
+  const cursor = filters.cursor ?? 0;
+  return {
+    outlets: outlets.slice(cursor, cursor + limit),
+    hasMore: cursor + limit < outlets.length,
+    limit,
+    cursor,
+  };
+}
+
+function resolveOutletId(outletId: number): number {
+  const { outlets } = dummyState();
+  const found = outlets.find((o) => numericOutletId(o.id) === outletId);
+  if (found) return outletId;
+  return outlets.length > 0 ? numericOutletId(outlets[0].id) : outletId;
+}
+
+function dummyOutletOrders(
+  outletId: number,
+  opts?: { limit?: number; cursor?: number },
+): { orders: OutletOrder[]; hasMore: boolean } {
+  const resolvedId = resolveOutletId(outletId);
+  const matched = dummyState().orders.filter((o) => o.outlet_id === resolvedId);
+  const limit = opts?.limit ?? 15;
+  const cursor = opts?.cursor ?? 0;
+  const page = matched.slice(cursor, cursor + limit).map((o) => ({
+    id: o.id,
+    order_id: o.order_id,
+    status: o.status,
+    total_amount: o.total_amount,
+    created_at: o.created_at,
+  }));
+  return { orders: page, hasMore: cursor + limit < matched.length };
+}
+
+function dummyOutletSummary(outletId: number): OutletSummary {
+  const resolvedId = resolveOutletId(outletId);
+  const { outlets, orders } = dummyState();
+  const outlet = outlets.find((o) => numericOutletId(o.id) === resolvedId);
+  const outletOrders = orders.filter((o) => o.outlet_id === resolvedId);
+  const total = outletOrders.reduce(
+    (sum, o) => sum + (Number(String(o.total_amount).replace(/[^0-9.]/g, '')) || 0),
+    0,
+  );
+  const lastOrder = outletOrders
+    .map((o) => o.created_at)
+    .filter((d): d is string => Boolean(d))
+    .sort()
+    .pop() ?? null;
+  return {
+    outlet_id: resolvedId,
+    outlet_name: outlet?.name ?? `Outlet ${resolvedId}`,
+    total_orders: outletOrders.length,
+    total_amount: total.toFixed(2),
+    total_spend: total.toFixed(2),
+    last_order_date: lastOrder,
+  };
+}
 
 export interface AdminOutlet {
   id: number;
@@ -58,6 +204,14 @@ function parseError(data: unknown, fallback: string): string {
 }
 
 export async function fetchAdminOutlets(token: string, filters: OutletFilters = {}): Promise<OutletsListResult> {
+  return withDummyRead(
+    useDummyStore.getState().isDummy,
+    listDummyOutlets(filters),
+    () => fetchAdminOutletsReal(token, filters),
+  );
+}
+
+async function fetchAdminOutletsReal(token: string, filters: OutletFilters): Promise<OutletsListResult> {
   const query = new URLSearchParams();
   if (filters.search) query.set('search', filters.search);
   if (filters.category) query.set('category', filters.category);
@@ -88,6 +242,14 @@ export async function updateOutlet(token: string, outletId: number, payload: Par
 }
 
 export async function fetchOutletOrders(token: string, outletId: number, opts?: { limit?: number; cursor?: number }): Promise<{ orders: OutletOrder[]; hasMore: boolean }> {
+  return withDummyRead(
+    useDummyStore.getState().isDummy,
+    dummyOutletOrders(outletId, opts),
+    () => fetchOutletOrdersReal(token, outletId, opts),
+  );
+}
+
+async function fetchOutletOrdersReal(token: string, outletId: number, opts?: { limit?: number; cursor?: number }): Promise<{ orders: OutletOrder[]; hasMore: boolean }> {
   const query = new URLSearchParams();
   query.set('limit', String(opts?.limit ?? 15));
   if (opts?.cursor) query.set('cursor', String(opts.cursor));
@@ -100,6 +262,14 @@ export async function fetchOutletOrders(token: string, outletId: number, opts?: 
 }
 
 export async function fetchOutletSummary(token: string, outletId: number): Promise<OutletSummary> {
+  return withDummyRead(
+    useDummyStore.getState().isDummy,
+    dummyOutletSummary(outletId),
+    () => fetchOutletSummaryReal(token, outletId),
+  );
+}
+
+async function fetchOutletSummaryReal(token: string, outletId: number): Promise<OutletSummary> {
   const response = await fetch(apiUrl(`/admin/outlets/${outletId}/summary`), { headers: authHeaders(token) });
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Ringkasan outlet tidak dapat dimuat.'));

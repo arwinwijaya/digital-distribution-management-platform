@@ -1,6 +1,6 @@
 # Roadmap Implementation Checklist
 
-**Audit date:** 2026-09-14
+**Audit date:** 2026-09-16
 **Source roadmap:** [`development-roadmap.md`](development-roadmap.md)  
 **Execution evidence:** [`docs/pocket/plans/2025-09-08-development-phasing/closeout.md`](docs/pocket/plans/2025-09-08-development-phasing/closeout.md), [`docs/pocket/plans/2026-09-10-operational-readiness/closeout.md`](docs/pocket/plans/2026-09-10-operational-readiness/closeout.md), [`docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md`](docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md)
 
@@ -13,17 +13,19 @@
 
 ## Overall status
 
-**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`, tetapi beberapa capability bisnis dan kesiapan produksi masih menjadi pekerjaan lanjutan.
+**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`. Business Validation Production Pilot (pre-pilot compatibility & readiness) dan Concierge Production Pilot Phase 6 Business Validation (`DONE`, lihat `docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md` + `docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md`) telah menambahkan infrastruktur pilot (kelayakan partner 10 outlet/30d, pengukuran lifecycle order→payment, pengawalan error<5%/delivery>95%/payment>90%, decision matrix Phase 6). Fase berikutnya adalah eksekusi lapangan sesungguhnya (partner/outlet nyata, order produksi) dan Phase 7–10.
 
 | Roadmap phase | Status | Ringkasan |
 |---|---|---|
-| Phase 0 — Business Validation & Planning | `[~]` Partial | Dokumen planning ada, tetapi validasi bisnis, riset pengguna, BRD, dan partner database belum terbukti. |
+| Phase 0 — Business Validation & Planning | `[~]` Partial | Dokumen planning ada, tetapi validasi bisnis, riset pengguna, BRD, dan partner database belum terbukti. Pre-pilot platform readiness sudah ditutup oleh `2026-09-14-business-validation-production-pilot` (`READY_FOR_PILOT=allow`), dan Phase 6 Business Validation tervalidasi secara teknikal oleh `2026-09-15-concierge-production-pilot` (`PilotQualificationService`, `PilotMetricsService`, `PilotEvaluationService`, 24 uji `Pilot*` PASS). |
 | Phase 1 — MVP Platform | `[~]` Partial | Core flow berjalan; role management, promosi, scoring, kategori outlet, dan beberapa analytics belum lengkap. |
 | Phase 2 — Sales & Distribution Automation | `[~]` Partial | Invoice, reminder, payment, delivery, sales visit, dan WhatsApp order tersedia; sales target, live tracking, dan broadcast promosi belum ada. |
-| Phase 3 — Data Intelligence & AI | `[~]` Foundation selesai | Pipeline snapshot, territory/geographic BI, supplier BI, stock planning, measurement, admin UI/map, dan atomic publication sudah tersedia; ML/LLM serta action workflow belum ada. |
+| Phase 3 — Data Intelligence & AI | `[x]` Done | Foundation sudah selesai (pipeline, geographic/supplier BI, stock planning, measurement, admin UI/map, atomic publication) — lihat `docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md`. ML/LLM production dan action workflow tetap `[ ]` out-of-scope Phase 3. |
 | Phase 4 — Ecosystem Expansion | `[~]` Partial | Marketplace multi-supplier dasar tersedia; pricing, financial services, distributor network, dan automated replenishment belum tersedia. |
 
 ## Phase 0 — Business Validation & Planning
+
+### Field/business validation (belum selesai)
 
 - `[~]` Current distribution workflow terdokumentasi di `docs/panduan-pengguna.md` dan `docs/dokumentasi-teknis.md`; belum ada artefak observasi/validasi lapangan.
 - `[ ]` Supplier relationship process mapping.
@@ -34,6 +36,23 @@
 - `[x]` Product roadmap — `development-roadmap.md`.
 - `[x]` MVP scope — `docs/pocket/spec/2025-09-08-development-phasing/`.
 - `[ ]` Initial partner database. Model/factory supplier dan outlet bukan bukti database partner nyata.
+
+### Platform readiness & Phase 6 instrumentation (selesai)
+
+- `[x]` Pre-pilot compatibility baseline — `docs/pilot/pre-pilot-compatibility-baseline.md`, `docs/pilot/pre-pilot-compatibility-matrix.md`; created by T1 `2026-09-14-business-validation-production-pilot` (`476f437`).
+- `[x]` Pre-pilot controls, correlation ID, operational event append-only — `apps/api/app/Services/PrePilotFeatureGate.php`, `apps/api/app/Http/Middleware/AttachCorrelationId.php`, `apps/api/app/Models/OperationalEvent.php`, `apps/api/app/Services/OperationalEventService.php`, `apps/api/database/migrations/2026_09_15_000001_create_operational_events_table.php`; created by T3 (`a775bdd`).
+- `[x]` Readiness + operational issue diagnostics API — `apps/api/app/Services/OperationalReadinessService.php`, `apps/api/app/Services/OperationalIssueService.php`, `apps/api/app/Http/Controllers/OperationalReadinessController.php`; created by T4 (`1d94bbb`).
+- `[x]` Admin operational web surface — `apps/web/src/app/operations/page.tsx`, `apps/web/src/lib/operations-api.ts`, `apps/web/src/lib/operations-types.ts`; created by T5 (`847779b`).
+- `[x]` Pre-pilot runbook & gate — `docs/pilot/pre-pilot-runbook.md`, `docs/pilot/pre-pilot-gate-checklist.md`; created by T6 (`c77c0d5`).
+- `[x]` Partner qualification validation — `apps/api/app/Services/PilotQualificationService.php` (`evaluate`, `countQualifiedOutlets`, `checkDocumentation`, `checkPic`, `checkInternet`), threshold 10 outlet/30d; created by T1 `2026-09-15-concierge-production-pilot` (`71b6b15`).
+- `[x]` Pilot metrics & KPI — `apps/api/app/Services/PilotMetricsService.php` (`measureLifecycleTiming`→`calculateSpeedDelta`, `calculateReliability`, `countValidOrders`, `evaluateVolume` +3d extend), excludes cancelled/bump events; created by T2 (`184ea92`).
+- `[x]` Pilot evaluation & decision — `apps/api/app/Services/PilotEvaluationService.php` (`evaluate`→`decision/kpiSummary/guardrailsMet/phase7Evidence/lessonsLearned/rootCauseAnalysis/recommendations`), constants `ERROR_RATE_LIMIT<5`, `DELIVERY_SUCCESS_LIMIT>95`, `PAYMENT_COMPLETION_LIMIT>90`, `MIN_VALID_ORDERS=20`; created by T3 (`6598ce0`).
+- `[x]` Pilot TDD tests — `apps/api/tests/Feature/PilotQualificationTest.php` (6 uji), `apps/api/tests/Feature/PilotWorkflowTest.php` (14 uji), `apps/api/tests/Feature/PilotEvaluationTest.php` (4 uji), `apps/api/tests/Support/PilotWorkflowFixtures.php`; 24 uji `Pilot*` PASS.
+
+### Outstanding (belum selesai)
+
+- `[ ]` AWS deployment, object storage, backup/restore, secrets management, dan production observability.
+- `[ ]` Eksekusi lapangan pilot produksi sesungguhnya dengan partner/outlet nyata, minimum 20 order valid, KPI −30% time vs baseline, decision matrix → Phase 7 evidence.
 
 ## Phase 1 — MVP Platform Development
 

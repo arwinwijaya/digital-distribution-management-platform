@@ -978,10 +978,10 @@
     "semantic_hash": "bcbf5cb6dc33d2d5e1409c01c02a8474"
   },
   "development-roadmap.md": {
-    "mtime": 1789447417.6600564,
-    "seen": 1789458927.8995757,
-    "ast_hash": "0f06d6fa7a9b6b2e8354805e78051602",
-    "semantic_hash": "0f06d6fa7a9b6b2e8354805e78051602"
+    "mtime": 1789526684.280951,
+    "seen": 1789526949.6949077,
+    "ast_hash": "30f43cd2e53430dcaf76ee5e25b56d7a",
+    "semantic_hash": "30f43cd2e53430dcaf76ee5e25b56d7a"
   },
   "docker-compose.yml": {
     "mtime": 1789456231.0109653,
@@ -1284,8 +1284,8 @@
     "semantic_hash": "c150209a4022e66e023126a442d6670e"
   },
   "apps/api/app/Models/Territory.php": {
-    "mtime": 1789354593.9147353,
-    "seen": 1789458927.899233,
+    "mtime": 1789524570.6274698,
+    "seen": 1789526949.694529,
     "ast_hash": "df1a4dcb09c00969f6b7cc0baa388480",
     "semantic_hash": "df1a4dcb09c00969f6b7cc0baa388480"
   },
@@ -2052,10 +2052,10 @@
     "semantic_hash": "647f16298a0c54645138fdcb5dfbad71"
   },
   "checklist.md": {
-    "mtime": 1789447417.65906,
-    "seen": 1789458927.8995748,
-    "ast_hash": "cc8025653f9295ed265cf338de3c7216",
-    "semantic_hash": "cc8025653f9295ed265cf338de3c7216"
+    "mtime": 1789526724.126441,
+    "seen": 1789526949.6949067,
+    "ast_hash": "13ad05eb0e2661e0fa0af2e3da6ab601",
+    "semantic_hash": "13ad05eb0e2661e0fa0af2e3da6ab601"
   },
   "docs/pocket/plans/2025-09-08-development-phasing/closeout.md": {
     "mtime": 1789005287.0334864,
@@ -2310,10 +2310,10 @@
     "semantic_hash": "11a66eb1a730a5365510de6023863051"
   },
   "apps/api/app/Services/OperationalEventService.php": {
-    "mtime": 1789449166.3017647,
-    "seen": 1789458927.8992631,
-    "ast_hash": "08624c00a03092baef02fe7b925dcb64",
-    "semantic_hash": "08624c00a03092baef02fe7b925dcb64"
+    "mtime": 1789524531.9281034,
+    "seen": 1789526949.694563,
+    "ast_hash": "6b46c07cfc85a53811715ebb2449e607",
+    "semantic_hash": "6b46c07cfc85a53811715ebb2449e607"
   },
   "apps/api/app/Services/OperationalIssueService.php": {
     "mtime": 1789449653.8838277,
@@ -2532,10 +2532,10 @@
     "semantic_hash": "19a46bca2816600e5fd6ccf1bedbc529"
   },
   "docs/pocket/plans/2026-09-14-business-validation-production-pilot/log.json": {
-    "mtime": 1789453447.2435517,
-    "seen": 1789458927.8995478,
-    "ast_hash": "a4f748203c6280ed7635b6f186e5a734",
-    "semantic_hash": "a4f748203c6280ed7635b6f186e5a734"
+    "mtime": 1789526283.0336046,
+    "seen": 1789526949.6948776,
+    "ast_hash": "8efea690c94d6286dc76e0feaea80066",
+    "semantic_hash": "8efea690c94d6286dc76e0feaea80066"
   },
   "docs/pocket/plans/2026-09-14-business-validation-production-pilot/reviews/T1-review.json": {
     "mtime": 1789447417.794452,
@@ -2656,5 +2656,107 @@
     "seen": 1789458927.8996363,
     "ast_hash": "89841a0ecafa78f0f5c9f1e354853682",
     "semantic_hash": "89841a0ecafa78f0f5c9f1e354853682"
+  },
+  "apps/api/app/Services/PilotEvaluationService.php": {
+    "mtime": 1789525533.9932358,
+    "seen": 1789526949.6945698,
+    "ast_hash": "918a6daa22b2a57473185ed0e076789a",
+    "semantic_hash": "918a6daa22b2a57473185ed0e076789a"
+  },
+  "apps/api/app/Services/PilotMetricsService.php": {
+    "mtime": 1789524492.1803234,
+    "seen": 1789526949.6945713,
+    "ast_hash": "83e0a065aa2e53f1c72bc40f5e431e37",
+    "semantic_hash": "83e0a065aa2e53f1c72bc40f5e431e37"
+  },
+  "apps/api/app/Services/PilotQualificationService.php": {
+    "mtime": 1789523888.6064577,
+    "seen": 1789526949.6945724,
+    "ast_hash": "8f35a51ab957ec4c0e3d6396f9322fee",
+    "semantic_hash": "8f35a51ab957ec4c0e3d6396f9322fee"
+  },
+  "apps/api/database/seeders/DatabaseSeeder.php": {
+    "mtime": 1789461687.9356883,
+    "seen": 1789526949.6946633,
+    "ast_hash": "07410c2a38ea1b15ba426338cf24c393",
+    "semantic_hash": "07410c2a38ea1b15ba426338cf24c393"
+  },
+  "apps/api/tests/Feature/PilotEvaluationTest.php": {
+    "mtime": 1789525617.6975958,
+    "seen": 1789526949.6947331,
+    "ast_hash": "bdfec1657d06882e142ba32cd4fcf386",
+    "semantic_hash": "bdfec1657d06882e142ba32cd4fcf386"
+  },
+  "apps/api/tests/Feature/PilotQualificationTest.php": {
+    "mtime": 1789523662.6635022,
+    "seen": 1789526949.694734,
+    "ast_hash": "f9d2b12442368fae95a2b4403a697ea6",
+    "semantic_hash": "f9d2b12442368fae95a2b4403a697ea6"
+  },
+  "apps/api/tests/Feature/PilotWorkflowTest.php": {
+    "mtime": 1789525249.919438,
+    "seen": 1789526949.694735,
+    "ast_hash": "6e9a759ef015d0738e6dd46d27b513ba",
+    "semantic_hash": "6e9a759ef015d0738e6dd46d27b513ba"
+  },
+  "apps/api/tests/Support/PilotWorkflowFixtures.php": {
+    "mtime": 1789524484.1665313,
+    "seen": 1789526949.694766,
+    "ast_hash": "24237d00ea36be80d5dfc95bd47ac77c",
+    "semantic_hash": "24237d00ea36be80d5dfc95bd47ac77c"
+  },
+  "docs/pocket/plans/2026-09-15-concierge-production-pilot/log.json": {
+    "mtime": 1789525839.112642,
+    "seen": 1789526949.694899,
+    "ast_hash": "d248dd4ff65926386e61b7eee1c3db56",
+    "semantic_hash": "d248dd4ff65926386e61b7eee1c3db56"
+  },
+  "docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md": {
+    "mtime": 1789526596.2646446,
+    "seen": 1789526949.6949086,
+    "ast_hash": "9238cdc4bde58f595875d16df4cbf84f",
+    "semantic_hash": "9238cdc4bde58f595875d16df4cbf84f"
+  },
+  "docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md": {
+    "mtime": 1789526624.9427238,
+    "seen": 1789526949.6949098,
+    "ast_hash": "7f4d052c0e87b2fc848b703a744b85fa",
+    "semantic_hash": "7f4d052c0e87b2fc848b703a744b85fa"
+  },
+  "docs/pocket/plans/2026-09-15-concierge-production-pilot/execution-plan.md": {
+    "mtime": 1789521546.6579134,
+    "seen": 1789526949.6949108,
+    "ast_hash": "74c94032cf2b13911ab1965439df5045",
+    "semantic_hash": "74c94032cf2b13911ab1965439df5045"
+  },
+  "docs/pocket/plans/2026-09-15-concierge-production-pilot/execution-plan/index.md": {
+    "mtime": 1789522780.9736717,
+    "seen": 1789526949.694912,
+    "ast_hash": "b9e28523e24f1d41f02d0e9402d87d2b",
+    "semantic_hash": "b9e28523e24f1d41f02d0e9402d87d2b"
+  },
+  "docs/pocket/plans/2026-09-15-concierge-production-pilot/execution-plan/tasks/T1-pilot-infrastructure-partner-qualification-kpi-helpers.md": {
+    "mtime": 1789522780.974756,
+    "seen": 1789526949.694913,
+    "ast_hash": "785c10c374bb9bda3ebef3bb9aa62955",
+    "semantic_hash": "785c10c374bb9bda3ebef3bb9aa62955"
+  },
+  "docs/pocket/plans/2026-09-15-concierge-production-pilot/execution-plan/tasks/T2-pilot-workflow-execution-order-to-payment-lifecycle-with-kpi-collection.md": {
+    "mtime": 1789522780.9757533,
+    "seen": 1789526949.694914,
+    "ast_hash": "6b78a2379eabe78848d8e84810dee5c2",
+    "semantic_hash": "6b78a2379eabe78848d8e84810dee5c2"
+  },
+  "docs/pocket/plans/2026-09-15-concierge-production-pilot/execution-plan/tasks/T3-pilot-evaluation-decision-matrix-phase-7-evidence-documentation.md": {
+    "mtime": 1789522780.9757533,
+    "seen": 1789526949.694915,
+    "ast_hash": "289cd0c219454879cbb5f94e66e4c1f0",
+    "semantic_hash": "289cd0c219454879cbb5f94e66e4c1f0"
+  },
+  "docs/pocket/spec/2026-09-15-concierge-production-pilot/concierge-pilot-spec.md": {
+    "mtime": 1789463312.8244405,
+    "seen": 1789526949.694916,
+    "ast_hash": "4f077c38d155a88ec7660aa31404b365",
+    "semantic_hash": "4f077c38d155a88ec7660aa31404b365"
   }
 }

@@ -15,9 +15,9 @@ data-driven business by utilizing:
 -   Operational automation
 -   AI-based recommendation and forecasting
 
-## Implementation Status Audit (2026-09-14)
+## Implementation Status Audit (2026-09-16)
 
-Roadmap ini **belum 100% terimplementasi**. Execution plan awal, operational readiness, dan Phase 3 Data Intelligence Foundation sudah selesai dengan `REVIEW_PASS`, tetapi beberapa capability bisnis dan kesiapan produksi masih menjadi pekerjaan lanjutan.
+Roadmap **tetap belum 100% terimplementasi**. Sejak audit 2026-09-14, dua plan tambahan selesai: Business Validation Production Pilot (pre-pilot compatibility & readiness, 6 tasks T1→T6, `DONE`) dan Concierge Production Pilot Phase 6 (3 services pilot + TDD, `DONE`). Data Intelligence, operational wall (readiness pipeline), dan infrastruktur pilot/pengukuran kini memiliki rangkaian penutup yang lengkap. Sisa pekerjaan adalah validasi lapangan sebenarnya (pilot produksi dengan partner/outlet nyata) dan sisa fase 7–10.
 
 Legend: `[x]` implemented · `[~]` partial/MVP/foundation · `[ ]` not implemented · `[?]` outcome belum terverifikasi.
 
@@ -25,15 +25,15 @@ Detail checklist per fitur tersedia di [`checklist.md`](checklist.md). Closeout 
 
 - [`Operational Readiness`](docs/pocket/plans/2026-09-10-operational-readiness/closeout.md)
 - [`Phase 3 Data Intelligence Foundation`](docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md)
-
-Catatan: `README.md` memakai penomoran fase implementasi teknis (hingga Phase 5), sedangkan dokumen ini memakai fase roadmap bisnis 0–4. Keduanya merujuk ke implementasi repository yang sama.
+- [`Business Validation — Pre-Pilot Compatibility & Readiness`](docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md)
+- [`Concierge Production Pilot — Phase 6 Business Validation`](docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md)
 
 Ringkasan:
 
-- Phase 0 — Business Validation & Planning: `[~]` dokumen ada, tetapi riset bisnis, BRD, dan partner database belum terbukti.
+- Phase 0 — Business Validation & Planning: `[~]` dokumen ada, tetapi riset bisnis, BRD, dan partner database belum terbukti. Sejak saat itu, **platform readiness sudah dibuktikan** oleh `2026-09-14-business-validation-production-pilot` (T1 baseline `docs/pilot/pre-pilot-compatibility-baseline.md` + compatibility gate `docs/pilot/pre-pilot-runbook.md`, `READY_FOR_PILOT=allow`—record `OperationalEvent`/`operational_events` hanya append, tanpa mutasi sumber transaksi), dan **Phase 6 Business Validation tervalidasi secara teknikal** oleh `2026-09-15-concierge-production-pilot` (T1 `PilotQualificationService` qualification 10-outlet/30d, T2 `PilotMetricsService` lifecycle `measureLifecycleTiming`→`calculateSpeedDelta` + guardrails `error<5% / delivery>95% / payment>90%`, T3 `PilotEvaluationService` decision matrix scale-up/iterate/stop + `phase7Evidence`). Validasi **lapangan yang sesungguhnya** (partner & order nyata) belum dieksekusi.
 - Phase 1 — MVP Platform: `[~]` core flow sudah ada, tetapi role management, promosi, outlet scoring/category, dan sebagian analytics belum lengkap.
 - Phase 2 — Sales & Distribution Automation: `[~]` invoice, reminder, payment, delivery, sales visit, dan WhatsApp order tersedia; sales target, live tracking, dan broadcast promosi belum ada.
-- Phase 3 — Data Intelligence & AI: `[~]` foundation selesai—pipeline, geographic/supplier BI, stock planning, measurement, admin UI/map, dan atomic publication tersedia; ML/LLM dan action workflow belum ada.
+- Phase 3 — Data Intelligence & AI: `[x]` **DONE** — foundation selesai: pipeline, geographic/supplier BI, stock planning, measurement, admin UI/map, dan atomic publication tersedia; ML/LLM production dan action workflow tetap `[ ]` out-of-scope Phase 3.
 - Phase 4 — Ecosystem Expansion: `[~]` marketplace dasar ada; dynamic pricing, financial services, distributor network, dan automated replenishment belum tersedia.
 
 ------------------------------------------------------------------------
@@ -368,18 +368,21 @@ Capability:
 
 ## Phase 6 — Business Validation & Production Pilot
 
-**Tujuan:** memastikan produk, proses bisnis, dan lingkungan production tervalidasi sebelum scale-up.
+Status (2026-09-16): **teknikal DONE, validasi lapangan tertunda (deferred)** — lihat dua closeout Phase 6 di atas.
 
-**Scope:**
+**Apa yang sudah dilakukan (terbukti di repo):**
 
-- Supplier relationship process mapping.
-- Outlet ordering behavior research.
-- Interview owner, supplier, sales, outlet, dan delivery team.
-- Business Requirement Document (BRD).
-- Initial partner database.
+- **Pre-pilot platform readiness:** `docs/pilot/pre-pilot-compatibility-baseline.md`, `docs/pilot/pre-pilot-runbook.md`, `docs/pilot/pre-pilot-gate-checklist.md`, `docs/pilot/pre-pilot-compatibility-matrix.md`, `config/ops_events.php`, `OperationalEvent`/`operational_events` append-only, `PrePilotFeatureGate`/`AttachCorrelationId`, `OperationalReadinessService`+`OperationalIssueService` (plan `docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md`, 6 tasks `476f437..c77c0d5`, gate `READY_FOR_PILOT`).
+- **Concierge pilot instrumentation:** T1 `apps/api/app/Services/PilotQualificationService.php` + `apps/api/tests/Feature/PilotQualificationTest.php` (threshold 10 outlet/30 hari, PIC 08:00–17:00, docs+internet checks), T2 `apps/api/app/Services/PilotMetricsService.php` + `apps/api/tests/Feature/PilotWorkflowTest.php` + `apps/api/tests/Support/PilotWorkflowFixtures.php` (lifecycle New→Confirmed→Delivered→Invoiced→Paid, `measureLifecycleTiming`→`calculateSpeedDelta` target −30%, guardrails error/delivery/payment, volume `countValidOrders` exclude cancelled/bump +3d when <20), T3 `apps/api/app/Services/PilotEvaluationService.php` + `apps/api/tests/Feature/PilotEvaluationTest.php` (decision `SCALE_UP|ITERATE|STOP`, `phase7Evidence`, `lessonsLearned`, `rootCauseAnalysis`, `recommendations`) — 24 uji `Pilot*` PASS — lihat `docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md` (3 tasks `71b6b15..6598ce0`). `OperationalEventService` hanya ditambah `extraMetadata`+`getEventsByCorrelation`/`getPilotEvents` (tidak ada migrasi skema).
+- **Runbook & pengukuran:** pilot 1 partner / 1 territory, 1 minggu +3 hari extend, min 20 order valid, KPI −30% time vs baseline (48j→~4j = −91.7%), guardrails error<5%/delivery>95%/payment>90%.
+
+**Apa yang masih tertunda:**
+
+- Supplier relationship process mapping, outlet ordering research, interview lintas fungsi, BRD, dan partner database produksi.
 - AWS deployment, object storage, backup/restore, secrets management, dan production observability.
+- Pilot produksi sesungguhnya dengan partner/outlet nyata untuk menghasilkan KPI dari transaksi live (bukan `DataSeeder`/fixture).
 
-**Exit criteria:** satu partner pilot aktif, proses bisnis terdokumentasi, production runbook tersedia, serta KPI baseline (active outlet, digital ordering, processing time, dan payment collection) terukur.
+**Exit criteria (belum penuh):** satu partner pilot aktif yang menjalankan order nyata, proses bisnis terdokumentasi, production runbook diperbarui dengan hasil lapangan, serta KPI baseline (active outlet, digital ordering, processing time, payment collection) terukur dari data live.
 
 ## Phase 7 — MVP Completion & Core Operations
 

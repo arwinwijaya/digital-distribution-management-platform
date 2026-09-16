@@ -65,4 +65,12 @@ class Promotion extends Model
             && $today->lte($this->end_date)
             && $today->gte($this->start_date);
     }
+
+    public function markAsBroadcast(): void
+    {
+        $this->forceFill([
+            'broadcast_at' => now(),
+            'updated_at' => now(),
+        ])->save();
+    }
 }

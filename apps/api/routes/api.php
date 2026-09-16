@@ -18,6 +18,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\PromotionBroadcastController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\GeographicAnalyticsController;
@@ -67,6 +68,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/admin/promotions/{id}', [PromotionController::class, 'show']);
     Route::patch('/admin/promotions/{id}', [PromotionController::class, 'update']);
     Route::delete('/admin/promotions/{id}', [PromotionController::class, 'destroy']);
+    Route::post('/admin/promotions/{id}/broadcast', [PromotionBroadcastController::class, 'broadcast']);
 
     // Admin-controlled finance role assignment and removal.
     Route::post('/admin/users/{userId}/finance-role', [FinanceRoleController::class, 'assign']);

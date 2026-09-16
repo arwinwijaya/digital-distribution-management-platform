@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Contracts\WhatsAppClient;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Outlet;
 use App\Models\Product;
+use App\Models\Promotion;
 use App\Models\WhatsAppMessage;
 use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +61,187 @@ class WhatsAppOutboundService
         }
 
         return $this->deliver($message);
+    }
+
+    /**
+     * Broadcast a promotion to eligible outlets via WhatsApp (F6).
+     *
+     * Targeting: outlets with >= 1 order in the last 30 days, excluding
+     * outlets whose recent orders referenced products that are not
+     * purchasable (inactive product or inactive supplier, via
+     * Product::scopePurchasable).
+     *
+     * Idempotency reconciliation:
+     * The F6 spec names a single logical_key ("promo-broadcast:{promo_id}"),
+     * but one key can only guard one row while N outlet messages need N rows.
+     * Each outlet message therefore gets a per-outlet key
+     * ("promo-broadcast:{promo_id}:{outlet_id}") for row-level dedup via
+     * insertOrIgnore, while the promo's broadcast_at timestamp is the overall
+     * already-sent marker. Re-calling after broadcast_at is set never creates
+     * duplicates; it only re-delivers rows stuck at failed.
+     *
+     * @return array{created: int, already_sent: bool, sent: int, failed: int}
+     */
+    public function broadcastPromotion(Promotion $promo): array
+    {
+        $promo = $promo->fresh() ?? $promo;
+
+        if ($promo->broadcast_at !== null) {
+            return $this->retryFailedBroadcast($promo);
+        }
+
+        $outlets = $this->broadcastEligibleOutlets();
+        $keys = [];
+        foreach ($outlets as $outlet) {
+            $keys[$outlet->id] = "promo-broadcast:{$promo->id}:{$outlet->id}";
+        }
+
+        $existing = WhatsAppMessage::whereIn('logical_key', array_values($keys))
+            ->pluck('logical_key')
+            ->all();
+        $existingLookup = array_flip($existing);
+
+        $rows = [];
+        foreach ($outlets as $outlet) {
+            if (isset($existingLookup[$keys[$outlet->id]])) {
+                continue;
+            }
+            $logicalKey = $keys[$outlet->id];
+            $rows[] = [
+                'logical_key' => $logicalKey,
+                'provider_idempotency_key' => hash('sha256', $logicalKey),
+                'direction' => 'outbound',
+                'phone' => $outlet->phone,
+                'message_type' => WhatsAppMessage::MESSAGE_TYPE_PROMO_BROADCAST,
+                'body' => $this->formatPromotionBroadcastBody($promo, $outlet),
+                'payload' => json_encode(['promotion_id' => $promo->id], JSON_THROW_ON_ERROR),
+                'status' => 'pending',
+                'outlet_id' => $outlet->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        DB::transaction(function () use ($rows): void {
+            foreach (array_chunk($rows, 500) as $chunk) {
+                if ($chunk !== []) {
+                    DB::table('whatsapp_messages')->insertOrIgnore($chunk);
+                }
+            }
+        });
+
+        $messages = WhatsAppMessage::whereIn('logical_key', array_values($keys))->get();
+
+        foreach ($messages as $message) {
+            if ($message->status === 'sent') {
+                continue;
+            }
+            $this->retryMessage($message);
+        }
+
+        $fresh = WhatsAppMessage::whereIn('logical_key', array_values($keys))->get();
+
+        // Freeze the promo once at least one broadcast row exists so later
+        // calls take the already_sent + retry-failed path. A run with zero
+        // eligible outlets leaves broadcast_at null so a later broadcast can
+        // still pick up newly eligible outlets.
+        if ($fresh->isNotEmpty()) {
+            $promo->markAsBroadcast();
+        }
+
+        return [
+            'created' => $fresh->count() - count($existing),
+            'already_sent' => false,
+            'sent' => $fresh->where('status', 'sent')->count(),
+            'failed' => $fresh->where('status', 'failed')->count(),
+        ];
+    }
+
+    /**
+     * Re-deliver only the failed rows of an already-broadcast promo.
+     * Never creates new rows.
+     *
+     * @return array{created: int, already_sent: bool, sent: int, failed: int}
+     */
+    private function retryFailedBroadcast(Promotion $promo): array
+    {
+        $failed = WhatsAppMessage::where('message_type', WhatsAppMessage::MESSAGE_TYPE_PROMO_BROADCAST)
+            ->where('status', 'failed')
+            ->where('logical_key', 'like', "promo-broadcast:{$promo->id}:%")
+            ->get();
+
+        $resent = 0;
+        foreach ($failed as $message) {
+            $result = $this->retryMessage($message);
+            if ($result->status === 'sent') {
+                $resent++;
+            }
+        }
+
+        $remaining = WhatsAppMessage::where('message_type', WhatsAppMessage::MESSAGE_TYPE_PROMO_BROADCAST)
+            ->where('status', 'failed')
+            ->where('logical_key', 'like', "promo-broadcast:{$promo->id}:%")
+            ->count();
+
+        return [
+            'created' => 0,
+            'already_sent' => true,
+            'sent' => $resent,
+            'failed' => $remaining,
+        ];
+    }
+
+    /**
+     * Outlets with >= 1 order in the last 30 days, minus outlets whose
+     * recent orders referenced non-purchasable products.
+     *
+     * @return \Illuminate\Support\Collection<int, Outlet>
+     */
+    private function broadcastEligibleOutlets()
+    {
+        $since = now()->subDays(30);
+
+        $recentOutletIds = Order::query()
+            ->where('orders.created_at', '>=', $since)
+            ->distinct()
+            ->pluck('orders.outlet_id');
+
+        if ($recentOutletIds->isEmpty()) {
+            return collect();
+        }
+
+        $purchasableIds = Product::purchasable()->pluck('products.id');
+
+        $taintedOutletIds = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('orders.created_at', '>=', $since)
+            ->whereNotIn('order_items.product_id', $purchasableIds)
+            ->distinct()
+            ->pluck('orders.outlet_id');
+
+        return Outlet::query()
+            ->whereIn('id', $recentOutletIds)
+            ->whereNotIn('id', $taintedOutletIds)
+            ->orderBy('id')
+            ->get();
+    }
+
+    private function formatPromotionBroadcastBody(Promotion $promo, Outlet $outlet): string
+    {
+        $discountLabel = $promo->discount_type === 'percentage'
+            ? "{$promo->discount_value}% ({$promo->discount_type})"
+            : "Rp {$promo->discount_value} ({$promo->discount_type})";
+
+        $start = $promo->start_date instanceof \DateTimeInterface
+            ? $promo->start_date->format('Y-m-d')
+            : (string) $promo->start_date;
+        $end = $promo->end_date instanceof \DateTimeInterface
+            ? $promo->end_date->format('Y-m-d')
+            : (string) $promo->end_date;
+
+        return "Hi {$outlet->name}! New promotion \"{$promo->name}\" is live: "
+            . "discount {$discountLabel}, valid {$start} to {$end}, "
+            . "minimum order Rp {$promo->min_order}. Happy selling!";
     }
 
     public function retryMessage(WhatsAppMessage $message): WhatsAppMessage

@@ -27,15 +27,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -44,13 +35,20 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, xml, ctype, json, bcmath, pdo, pgsql
-          coverage: xdebug
+          extensions: mbstring, xml, ctype, json, bcmath, pdo, pgsql, intl
+          coverage: none
+          tools: composer:v2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir --working-dir=apps/api)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
         with:
-          node-version: '20'
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('apps/api/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
       - name: Prepare Laravel directories
         working-directory: apps/api
@@ -58,7 +56,7 @@ jobs:
 
       - name: Install Dependencies
         working-directory: apps/api
-        run: composer install --no-progress --prefer-dist
+        run: composer install --no-progress --prefer-dist --no-interaction --optimize-autoloader
 
       - name: Prepare Environment
         working-directory: apps/api
@@ -66,7 +64,7 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      - name: Run Migrations
+      - name: Run Migrations & Tests
         working-directory: apps/api
         env:
           DB_CONNECTION: pgsql
@@ -75,18 +73,9 @@ jobs:
           DB_DATABASE: ddp_test
           DB_USERNAME: ddp_user
           DB_PASSWORD: ddp_password
-        run: php artisan migrate --force
-
-      - name: Run Tests
-        working-directory: apps/api
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_DATABASE: ddp_test
-          DB_USERNAME: ddp_user
-          DB_PASSWORD: ddp_password
-        run: php artisan test
+        run: |
+          php artisan migrate --force
+          php artisan test --without-tty
 
   # Next.js Web Tests
   web-tests:

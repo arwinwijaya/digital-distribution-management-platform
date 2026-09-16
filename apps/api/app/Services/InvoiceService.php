@@ -49,15 +49,48 @@ class InvoiceService
     /**
      * Cancel an unpaid invoice and its order atomically. Any payment row,
      * regardless of status or amount, permanently blocks cancellation.
+     *
+     * New orders have no invoice yet — they are cancelled by transitioning
+     * the order status directly (no invoice row). The caller may pass a
+     * cancelled order as a placeholder invoice variant is never used.
      */
     public function cancelOrder(int $orderId): Invoice
     {
         return DB::transaction(function () use ($orderId): Invoice {
             $order = Order::query()->lockForUpdate()->findOrFail($orderId);
+
+            // New orders have no invoice row yet. Transition order directly.
             $invoice = Invoice::query()
                 ->where('order_id', $order->id)
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->first();
+
+            if ($invoice === null) {
+                if ($order->status !== 'New') {
+                    throw new ConflictHttpException("The order cannot be cancelled in its current state.");
+                }
+                if ($order->payments()->exists()) {
+                    throw new ConflictHttpException('Orders with payment rows cannot be cancelled.');
+                }
+                $order->recordStatus('Cancelled', 'Order cancelled before invoice creation');
+
+                // Return a transient Invoice-like placeholder that satisfies the
+                // Invoice return type so callers can still format a response.
+                // Using a synthetic Invoice instance without persisting it keeps
+                // the OrderController contract stable and avoids changing return
+                // type across the call boundary.
+                $placeholder = new Invoice([
+                    'order_id'     => $order->id,
+                    'outlet_id'    => $order->outlet_id,
+                    'status'       => Invoice::CANCELLED,
+                    'total_amount' => $order->total_amount,
+                    'balance_amount' => 0,
+                ]);
+                $placeholder->id = 0;
+                $placeholder->exists = false;
+
+                return $placeholder;
+            }
 
             if ($order->payments()->exists()) {
                 throw new ConflictHttpException('Orders with payment rows cannot be cancelled.');

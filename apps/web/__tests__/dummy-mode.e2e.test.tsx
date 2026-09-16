@@ -60,8 +60,6 @@ beforeEach(() => {
   localStorage.setItem('ddp_token', TOKEN);
   localStorage.setItem('ddp_role', 'admin');
   useDummyStore.getState().reset();
-  localStorage.setItem('ddp_token', TOKEN);
-  localStorage.setItem('ddp_role', 'admin');
 
   // Register deterministic generator pinned to fixed today.
   setDummyGenerator((today?: Date) => buildFullDummy(today ?? FIXED_TODAY) as unknown as DummyEntities);
@@ -224,9 +222,10 @@ describe('RED Cycle 1 — analytics + GeoMap + order + funnel + finance', () => 
 
 describe('RED Cycle 2 — refresh persistence + auto re-fetch + zero-network sweep', () => {
   it('after remount, store restores isDummy + dummyEntities non-null; analytics non-empty after remount; toggle OFF clears entities and triggers real fetch', async () => {
-    // ── Step 1: toggle ON via Topbar, create a mutation ───────────────
+    // ── Step 1: toggle ON via Topbar, capture baseline, create a mutation ─
     const first = toggleDummyOnViaTopbar();
     first.unmount(); // single Topbar per jsdom at a time (getByRole hygiene)
+    const preMutationSnapshot = JSON.parse(JSON.stringify(useDummyStore.getState().dummyEntities));
     const created = await createSalesOrder(TOKEN, {
       outlet_id: 1,
       items: [{ product_id: 1, quantity: 1 }],
@@ -235,18 +234,34 @@ describe('RED Cycle 2 — refresh persistence + auto re-fetch + zero-network swe
 
     // ── Step 2: simulate refresh ──────────────────────────────────────
     //   - localStorage['dummy:isDummy'] is still '1' (persisted by toggle)
-    //   - Clear entities singleton via resetEntities (keeps isDummy flag)
-    //   - Re-register generator → setDummyGenerator regenerates because
-    //     isDummy=true && dummyEntities===null (T2 store init path)
-    //   - Re-mount Topbar → aria-checked should be true (flag restored)
+    //   - Verify flag survives and prove readPersistedFlag() recovery via
+    //     an isolated module (store reads localStorage at creation time)
     expect(localStorage.getItem(DUMMY_FLAG_KEY)).toBe('1');
+
+    // Exercise readPersistedFlag() store-creation path in isolation:
+    // a fresh require() of the Zustand module must recover isDummy from
+    // localStorage and regenerate identical entities from the same seed.
+    let isolatedIsDummy = false;
+    let isolatedEntities: unknown = null;
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fresh: typeof import('@/dummy/store') = require('@/dummy/store');
+      fresh.setDummyGenerator((today?: Date) => buildFullDummy(today ?? FIXED_TODAY) as unknown as DummyEntities);
+      isolatedIsDummy = fresh.useDummyStore.getState().isDummy;
+      isolatedEntities = fresh.useDummyStore.getState().dummyEntities;
+    });
+    expect(isolatedIsDummy).toBe(true);
+    expect(isolatedEntities).toEqual(preMutationSnapshot);
+
+    // Main-store refresh simulation: clear entities, keep persisted flag,
+    // re-register generator → setDummyGenerator regenerates because
+    // isDummy=true && dummyEntities===null (T2 store init path)
     useDummyStore.getState().resetEntities(); // clear entities, keep flag
     expect(useDummyStore.getState().isDummy).toBe(true);
     expect(useDummyStore.getState().dummyEntities).toBeNull();
 
-    // Re-init via the seam: setDummyGenerator regenerates when flag set + entities null
     setDummyGenerator((today?: Date) => buildFullDummy(today ?? FIXED_TODAY) as unknown as DummyEntities);
-    expect(useDummyStore.getState().dummyEntities).not.toBeNull();
+    expect(useDummyStore.getState().dummyEntities).toEqual(preMutationSnapshot);
 
     // Re-mount Topbar — flag restored from localStorage
     const { unmount } = render(<Topbar />);

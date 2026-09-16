@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminOutletController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuthController;
@@ -48,6 +49,12 @@ Route::middleware('auth:api')->group(function () {
     // Stale JWT rejection must run after auth is resolved but before
     // any request body is processed.
     Route::middleware('reject.stale_jwt')->group(function () {
+    // Admin outlet management (CRUD, purchase history, scoring)
+    Route::get('/admin/outlets', [AdminOutletController::class, 'index']);
+    Route::patch('/admin/outlets/{id}', [AdminOutletController::class, 'update']);
+    Route::get('/admin/outlets/{outletId}/orders', [AdminOutletController::class, 'orders']);
+    Route::get('/admin/outlets/{outletId}/summary', [AdminOutletController::class, 'summary']);
+
     // Admin-controlled finance role assignment and removal.
     Route::post('/admin/users/{userId}/finance-role', [FinanceRoleController::class, 'assign']);
     Route::delete('/admin/users/{userId}/finance-role', [FinanceRoleController::class, 'remove']);

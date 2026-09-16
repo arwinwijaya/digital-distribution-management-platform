@@ -52,6 +52,7 @@ class StoreOrderRequest extends FormRequest
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer|distinct|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
+            'promotion_id' => 'nullable|integer|exists:promotions,id',
             // prepareForValidation supplies the payload-derived identity when the
             // client does not send one; it is never optional at the controller boundary.
             'idempotency_key' => 'required|string|max:255',

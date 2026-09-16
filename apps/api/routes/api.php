@@ -17,6 +17,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\GeographicAnalyticsController;
@@ -59,6 +60,13 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('/admin/outlets/{id}', [AdminOutletController::class, 'update']);
     Route::get('/admin/outlets/{outletId}/orders', [AdminOutletController::class, 'orders']);
     Route::get('/admin/outlets/{outletId}/summary', [AdminOutletController::class, 'summary']);
+
+    // Promotion management (F4): full CRUD admin-only
+    Route::get('/admin/promotions', [PromotionController::class, 'index']);
+    Route::post('/admin/promotions', [PromotionController::class, 'store']);
+    Route::get('/admin/promotions/{id}', [PromotionController::class, 'show']);
+    Route::patch('/admin/promotions/{id}', [PromotionController::class, 'update']);
+    Route::delete('/admin/promotions/{id}', [PromotionController::class, 'destroy']);
 
     // Admin-controlled finance role assignment and removal.
     Route::post('/admin/users/{userId}/finance-role', [FinanceRoleController::class, 'assign']);

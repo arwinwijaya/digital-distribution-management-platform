@@ -27,6 +27,8 @@ class Order extends Model
         'commission_percentage',
         'idempotency_key',
         'idempotency_payload_hash',
+        'promotion_id',
+        'discount_amount',
     ];
 
     /**
@@ -40,6 +42,7 @@ class Order extends Model
             'total_amount' => 'decimal:2',
             'paid_amount' => 'decimal:2',
             'commission_percentage' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
             'due_date' => 'date',
         ];
     }
@@ -76,6 +79,14 @@ class Order extends Model
     public function invoice(): HasOne
     {
         return $this->hasOne(Invoice::class);
+    }
+
+    /**
+     * The promotion snapshot applied at order creation time.
+     */
+    public function promotion(): BelongsTo
+    {
+        return $this->belongsTo(Promotion::class);
     }
 
     public function delivery(): \Illuminate\Database\Eloquent\Relations\HasOne

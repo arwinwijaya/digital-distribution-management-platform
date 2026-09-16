@@ -11,7 +11,13 @@ return new class extends Migration
      */
     public function getConnection(): ?string
     {
-        return config('telescope.storage.database.connection');
+        // When another part of the application migrates a non-default connection
+        // (e.g. migrate:fresh --database=race for concurrency tests), the
+        // Telescope migration must follow that same target. Returning the
+        // configured connection here forces it to always migrate the application
+        // default, which duplicates Telescope tables and throws "table already
+        // exists" errors.
+        return null;
     }
 
     /**

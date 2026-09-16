@@ -447,6 +447,15 @@ class GeographicAnalyticsTest extends TestCase
 
         Carbon::setTestNow();
 
+        // Carbon::setTestNow() clears the frozen-time offset, but the adminToken
+        // was minted while the clock was frozen (iat in the past relative to UTC).
+        // tymon/jwt-auth validates exp/nbf against real UTC time; re-login so the
+        // JWT claims match the restored wall clock.
+        $this->adminToken = $this->postJson('/api/auth/login', [
+            'email' => $this->admin->email,
+            'password' => 'password123',
+        ])->json('data.token');
+
         // -- Verify BI reads the renamed territory from the new snapshot --
         $response = $this->withHeaders($this->adminHeaders())
             ->getJson('/api/admin/analytics/geographic');

@@ -4,6 +4,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { OutletPerformanceChart, SalesTrendChart, OutletPoint, TrendPoint } from '@/components/Charts';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { loadDashboard } from '@/app/dashboard/api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, Input, PageHeader, Select, StatCard } from '@/components/ui';
 
 type Group = 'daily' | 'weekly' | 'monthly';
@@ -46,21 +48,12 @@ function useDashboardData(group: Group): DashboardState & { loadForRole: Dashboa
     setLoading(true);
     setError(null);
     try {
-      const hasDateFilter = Boolean(startDate && endDate);
-      if (currentRole === 'finance') {
-        const query = new URLSearchParams(hasDateFilter ? { start_date: startDate as string, end_date: endDate as string } : {});
-        const queryString = query.toString();
-        const response = await fetch(`${apiUrl('/finance/metrics')}${queryString ? `?${queryString}` : ''}`, { headers: authHeaders(authToken) });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message || 'Metrik keuangan tidak dapat dimuat.');
-        setFinanceMetrics(body.data);
+      const result = await loadDashboard(authToken, currentRole, group, startDate, endDate);
+      if (result.kind === 'finance') {
+        setFinanceMetrics(result.data);
         setDashboard(null);
       } else {
-        const query = new URLSearchParams(hasDateFilter ? { start_date: startDate as string, end_date: endDate as string, group } : { group });
-        const response = await fetch(`${apiUrl('/analytics/dashboard')}?${query}`, { headers: authHeaders(authToken) });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message || 'Data dasbor tidak dapat dimuat.');
-        setDashboard(body.data);
+        setDashboard(result.data);
         setFinanceMetrics(null);
       }
     } catch (reason) {
@@ -189,6 +182,12 @@ export default function DashboardPage() {
   const [group, setGroup] = useState<Group>('daily');
   const data = useDashboardData(group);
   const session = useDashboardSession(data.loadForRole, data.setError);
+
+  useDummyRefresh(() => {
+    if (session.token && session.role) {
+      void data.loadForRole(session.token, session.role, startDate, endDate);
+    }
+  });
 
   if (!session.ready) return <p className="text-sm text-gray-500">Memuat...</p>;
   if (!session.token) return <div className="mx-auto max-w-6xl"><PageHeader title="Dasbor eksekutif" description="Ringkasan performa bisnis dan keuangan." /><LoginForm expectedRole={['admin', 'finance']} onLogin={(nextToken, nextRole) => { session.setToken(nextToken); session.setRole(nextRole); session.setReady(true); void data.loadForRole(nextToken, nextRole); }} /></div>;

@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { apiUrl, authHeaders } from '@/lib/api';
+import { withDummyRead, useDummyRefresh } from '@/dummy/guards';
+import { useDummyStore } from '@/dummy/store';
+import type { FullDummy } from '@/dummy';
 import { Badge, Card, EmptyState, Input, PageHeader, StatusBadge } from '@/components/ui';
 
 interface Product {
@@ -14,6 +17,46 @@ interface Product {
   is_active: boolean;
 }
 
+function money(value: number): string {
+  return (Math.round(value * 100) / 100).toFixed(2);
+}
+
+function buildDummyCatalog(dummy: FullDummy): Product[] {
+  return dummy.products.map((p, idx) => ({
+    id: idx + 1,
+    name: p.name,
+    description: `${p.category} · ${p.sku}`,
+    price: money(p.price),
+    stock_quantity: 40 + ((idx * 13) % 260),
+    category: p.category,
+    is_active: true,
+  }));
+}
+
+/**
+ * Load product catalog for a token + optional search term.
+ * While dummy mode is ON, returns derived catalog rows — zero network.
+ */
+export async function loadProductCatalog(token: string, search = ''): Promise<Product[]> {
+  const { isDummy, dummyEntities } = useDummyStore.getState();
+  const dummy = dummyEntities as FullDummy | null;
+
+  const dummyFiltered: Product[] | null = isDummy && dummy
+    ? buildDummyCatalog(dummy).filter((p) =>
+        search ? p.name.toLowerCase().includes(search.toLowerCase()) : true,
+      )
+    : null;
+
+  return withDummyRead(isDummy, dummyFiltered as Product[], async () => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    const response = await fetch(`${apiUrl('/products')}?${params}`, { headers: authHeaders(token) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Produk tidak dapat dimuat.');
+    return data.data as Product[];
+  });
+}
+
 export default function ProductCatalog({ token }: { token: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -23,18 +66,16 @@ export default function ProductCatalog({ token }: { token: string }) {
   const fetchProducts = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      const response = await fetch(`${apiUrl('/products')}?${params}`, { headers: authHeaders(token) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Produk tidak dapat dimuat.');
-      setProducts(data.data);
+      const result = await loadProductCatalog(token, search);
+      setProducts(result);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Terjadi kesalahan jaringan.');
     } finally { setLoading(false); }
   }, [search, token]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  useDummyRefresh(() => { void fetchProducts(); });
 
   return (
     <div className="mx-auto max-w-6xl">

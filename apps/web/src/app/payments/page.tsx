@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { loadPaymentsList } from '@/app/payments/api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, Input, PageHeader, StatCard, Table } from '@/components/ui';
 
 type Payment = { id: number; order_id: number; amount: string; payment_method: string; receipt_reference: string | null; created_at: string };
@@ -41,30 +43,11 @@ function usePaymentData(): PaymentState {
     setLoading(true);
     setError('');
     try {
-      const query = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
-      const requests = [
-        fetch(`${apiUrl('/payments')}?${query}`, { headers: authHeaders(authToken) }),
-        fetch(`${apiUrl('/invoices')}?${query}`, { headers: authHeaders(authToken) }),
-      ];
-      if (currentRole !== 'finance') requests.push(fetch(apiUrl('/credit-limit'), { headers: authHeaders(authToken) }));
-      const responses = await Promise.all(requests);
-      const paymentsResponse = responses[0];
-      const invoicesResponse = responses[1];
-      const summaryResponse = responses[2];
-      const paymentsBody = await paymentsResponse.json();
-      const invoicesBody = await invoicesResponse.json();
-      if (!paymentsResponse.ok) throw new Error(paymentsBody.message || 'Data pembayaran tidak dapat dimuat.');
-      if (!invoicesResponse.ok) throw new Error(invoicesBody.message || 'Data invoice tidak dapat dimuat.');
-      setPayments(Array.isArray(paymentsBody.data) ? paymentsBody.data : []);
-      setPaymentMeta({ page: Number(paymentsBody.meta?.page ?? page), limit: Number(paymentsBody.meta?.limit ?? PAGE_SIZE), total: Number(paymentsBody.meta?.total ?? 0), has_more: Boolean(paymentsBody.meta?.has_more) });
-      setInvoiceMeta({ page: Number(invoicesBody.meta?.page ?? page), limit: Number(invoicesBody.meta?.limit ?? PAGE_SIZE), total: Number(invoicesBody.meta?.total ?? 0), has_more: Boolean(invoicesBody.meta?.has_more) });
-      if (summaryResponse) {
-        const summaryBody = await summaryResponse.json();
-        if (!summaryResponse.ok) throw new Error(summaryBody.message || 'Saldo kredit tidak dapat dimuat.');
-        setSummary(summaryBody.data);
-      } else {
-        setSummary(null);
-      }
+      const result = await loadPaymentsList(authToken, currentRole, page);
+      setPayments(result.payments);
+      setPaymentMeta(result.paymentMeta);
+      setInvoiceMeta(result.invoiceMeta);
+      setSummary(result.summary);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Data pembayaran tidak dapat dimuat.');
     } finally {
@@ -185,6 +168,10 @@ export default function PaymentsPage() {
       data.setError(reason instanceof Error ? reason.message : 'Pembayaran tidak dapat dicatat.');
     }
   }
+
+  useDummyRefresh(() => {
+    if (session.token && session.role) void data.load(session.token, session.role);
+  });
 
   if (!session.token) return <PaymentLogin error={data.error} onLogin={(nextToken, nextRole) => { session.setToken(nextToken); session.setRole(nextRole); void data.load(nextToken, nextRole); }} />;
 

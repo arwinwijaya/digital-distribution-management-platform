@@ -1,4 +1,24 @@
 import { apiUrl, authHeaders } from '@/lib/api';
+import { withDummyRead } from '@/dummy/guards';
+import { useDummyStore } from '@/dummy/store';
+
+// ── Dummy-mode helpers ──────────────────────────────────────────────────────
+const DUMMY_USERS: AdminUser[] = [
+  { id: 1, name: 'Admin JABODETABEK', email: 'admin@ddp.local', role: 'admin', created_at: '2026-01-01T10:00:00+07:00' },
+  { id: 2, name: 'Budi Sales', email: 'budi.sales@ddp.local', role: 'sales', created_at: '2026-01-05T10:00:00+07:00' },
+  { id: 3, name: 'Citra Finance', email: 'citra.finance@ddp.local', role: 'finance', created_at: '2026-01-05T10:00:00+07:00' },
+  { id: 4, name: 'Agus Driver', email: 'agus.driver@ddp.local', role: 'driver', created_at: '2026-01-06T10:00:00+07:00' },
+  { id: 5, name: 'Siti Supplier', email: 'siti.supplier@ddp.local', role: 'supplier', created_at: '2026-01-07T10:00:00+07:00' },
+  { id: 6, name: 'Hendra Platform', email: 'hendra.platform@ddp.local', role: 'platform_owner', created_at: '2026-01-07T10:00:00+07:00' },
+  { id: 7, name: 'Rina Outlet', email: 'rina.outlet@ddp.local', role: 'outlet', created_at: '2026-01-08T10:00:00+07:00' },
+  { id: 8, name: 'Eko Sales 2', email: 'eko.sales@ddp.local', role: 'sales', created_at: '2026-01-09T10:00:00+07:00' },
+];
+
+function listDummyUsers(params: UsersListParams): UsersListResult {
+  const filtered = params.role ? DUMMY_USERS.filter((u) => u.role === params.role) : DUMMY_USERS;
+  const limit = params.limit ?? 20;
+  return { users: filtered.slice(0, limit), hasMore: filtered.length > limit, limit };
+}
 
 export interface AdminUser {
   id: number;
@@ -28,6 +48,14 @@ function parseError(data: unknown, fallback: string): string {
 }
 
 export async function fetchAdminUsers(token: string, params: UsersListParams = {}): Promise<UsersListResult> {
+  return withDummyRead(
+    useDummyStore.getState().isDummy,
+    listDummyUsers(params),
+    () => fetchAdminUsersReal(token, params),
+  );
+}
+
+async function fetchAdminUsersReal(token: string, params: UsersListParams): Promise<UsersListResult> {
   const query = new URLSearchParams();
   if (params.role) query.set('role', params.role);
   query.set('limit', String(params.limit ?? 20));

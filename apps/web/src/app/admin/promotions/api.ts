@@ -1,4 +1,53 @@
 import { apiUrl, authHeaders } from '@/lib/api';
+import { withDummyRead } from '@/dummy/guards';
+import { useDummyStore } from '@/dummy/store';
+
+// ── Dummy helpers ───────────────────────────────────────────────────────────
+interface DummyProductEntity { sku: string; name: string; category: string; price: number }
+
+/**
+ * Derive a deterministic promotion catalogue from the dummy product list.
+ * Promotions are 1:1 with the first N products so the list is relational
+ * (each `product_id` resolves to a real dummy product).
+ */
+function listDummyPromotions(opts?: { limit?: number; cursor?: number }): { promotions: AdminPromotion[]; hasMore: boolean; nextCursor: number | null } {
+  const entities = useDummyStore.getState().dummyEntities as Partial<{ products: DummyProductEntity[] }> | null;
+  const products = entities?.products ?? [];
+  const limit = opts?.limit ?? 15;
+  const cursor = opts?.cursor ?? 0;
+  const count = Math.min(10, Math.max(6, Math.floor(products.length / 3)));
+  const all: AdminPromotion[] = Array.from({ length: count }, (_, i) => {
+    const product = products[i % Math.max(1, products.length)];
+    const percentage = i % 3 !== 2;
+    const startDay = (i % 20) + 1;
+    const startDate = `2026-01-${String(startDay).padStart(2, '0')}`;
+    const endDate = `2026-02-${String(startDay).padStart(2, '0')}`;
+    return {
+      id: -(i + 1),
+      name: `Promo ${product?.name ?? `Paket ${i + 1}`}`,
+      description: `Promo dummy untuk ${product?.category ?? 'semua kategori'}.`,
+      discount_type: percentage ? 'percentage' : 'fixed',
+      discount_value: percentage ? (10 + i).toFixed(2) : (10000 + i * 5000).toFixed(2),
+      max_discount: percentage ? '25000.00' : null,
+      product_id: products.length > 0 ? i + 1 : null,
+      product: product ? { id: i + 1, name: product.name } : null,
+      min_order: '100000.00',
+      start_date: `${startDate}T00:00:00+07:00`,
+      end_date: `${endDate}T23:59:59+07:00`,
+      is_active: i % 4 !== 0,
+      broadcast_at: i % 5 === 0 ? '2026-02-01T08:00:00+07:00' : null,
+      created_by: 1,
+      created_at: `${startDate}T09:00:00+07:00`,
+      updated_at: '2026-02-01T09:00:00+07:00',
+    };
+  });
+  const page = all.slice(cursor, cursor + limit);
+  return {
+    promotions: page,
+    hasMore: cursor + limit < all.length,
+    nextCursor: cursor + limit < all.length ? cursor + limit : null,
+  };
+}
 
 export interface AdminPromotion {
   id: number;
@@ -42,6 +91,14 @@ function parseError(data: unknown, fallback: string): string {
 }
 
 export async function fetchPromotions(token: string, opts?: { limit?: number; cursor?: number }): Promise<{ promotions: AdminPromotion[]; hasMore: boolean; nextCursor: number | null }> {
+  return withDummyRead(
+    useDummyStore.getState().isDummy,
+    listDummyPromotions(opts),
+    () => fetchPromotionsReal(token, opts),
+  );
+}
+
+async function fetchPromotionsReal(token: string, opts?: { limit?: number; cursor?: number }): Promise<{ promotions: AdminPromotion[]; hasMore: boolean; nextCursor: number | null }> {
   const query = new URLSearchParams();
   query.set('limit', String(opts?.limit ?? 15));
   if (opts?.cursor) query.set('cursor', String(opts.cursor));

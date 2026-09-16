@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { useDummyStore } from '@/dummy/store';
 
 type NavItem = { href: string; label: string; icon: string; finance?: boolean; adminOnly?: boolean };
 type SidebarAuth = { role: string | null; authResolved: boolean };
@@ -79,6 +80,19 @@ function useSidebarAuth(): SidebarAuth {
 
   useEffect(() => {
     let active = true;
+
+    // When dummy mode is ON, read role from localStorage and skip /auth/me
+    const isDummy = useDummyStore.getState().isDummy;
+    if (isDummy) {
+      const storedRole = localStorage.getItem('ddp_role');
+      if (active) {
+        setRole(storedRole);
+        setAuthResolved(true);
+      }
+      return () => { active = false; };
+    }
+
+    // Dummy OFF — existing flow: resolve role via /auth/me
     const syncRole = createRoleSynchronizer(setRole, setAuthResolved, () => active);
     const handleAuthChange = (event: Event) => {
       const { token, hintedRole } = authChangeDetail(event);

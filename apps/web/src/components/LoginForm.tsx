@@ -55,6 +55,7 @@ function useLoginForm({ onLogin, expectedRole }: LoginFormProps) {
     try {
       const { token, role } = await authenticate(email, password, expectedRole);
       storeToken(token);
+      localStorage.setItem('ddp_role', role);
       window.dispatchEvent(new CustomEvent('ddp-auth-change', { detail: { token, role } }));
       onLogin(token, role);
     } catch (err) {

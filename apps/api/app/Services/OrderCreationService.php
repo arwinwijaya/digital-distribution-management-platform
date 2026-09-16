@@ -29,11 +29,11 @@ class OrderCreationService
      * @param  array{items: array<int, array{product_id: int, quantity: int}>, promotion_id?: int}  $validated
      * @return array{order: Order, created: bool}
      */
-    public function create(array $validated, Outlet $outlet, string $requestIdentity): array
+    public function create(array $validated, Outlet $outlet, string $requestIdentity, ?int $salesUserId = null): array
     {
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
-                return DB::transaction(function () use ($validated, $outlet, $requestIdentity) {
+                return DB::transaction(function () use ($validated, $outlet, $requestIdentity, $salesUserId) {
                     // Serialize all credit consumption for this outlet before reading
                     // outstanding orders. This lock is held until order and stock writes commit.
                     $lockedOutlet = Outlet::whereKey($outlet->id)->lockForUpdate()->firstOrFail();
@@ -77,7 +77,7 @@ class OrderCreationService
 
                     $this->creditLimitService->assertCanPlace($lockedOutlet, $this->moneyToCents($payableTotal));
                     $this->reservePreparedProducts($items);
-                    $order = $this->persistOrder($lockedOutlet, $requestIdentity, $payableTotal, $items, $promotionId, $discountAmount);
+                    $order = $this->persistOrder($lockedOutlet, $requestIdentity, $payableTotal, $items, $promotionId, $discountAmount, $salesUserId);
 
                     return ['order' => $order, 'created' => true];
                 });
@@ -292,10 +292,12 @@ class OrderCreationService
         array $items,
         ?int $promotionId = null,
         float $discountAmount = 0.0,
+        ?int $salesUserId = null,
     ): Order {
         $order = Order::create([
             'order_id' => Order::generateUniqueOrderId(),
             'outlet_id' => $outlet->id,
+            'sales_user_id' => $salesUserId,
             'status' => 'New',
             'total_amount' => $totalAmount,
             'commission_percentage' => config('orders.commission_percentage', 2.00),

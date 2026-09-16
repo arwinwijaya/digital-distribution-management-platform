@@ -20,6 +20,7 @@ class Order extends Model
     protected $fillable = [
         'order_id',
         'outlet_id',
+        'sales_user_id',
         'status',
         'due_date',
         'total_amount',
@@ -87,6 +88,14 @@ class Order extends Model
     public function promotion(): BelongsTo
     {
         return $this->belongsTo(Promotion::class);
+    }
+
+    /**
+     * The sales user who collected this order.
+     */
+    public function salesUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sales_user_id');
     }
 
     public function delivery(): \Illuminate\Database\Eloquent\Relations\HasOne

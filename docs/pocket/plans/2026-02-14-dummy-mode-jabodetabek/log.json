@@ -1,0 +1,125 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-02-14-dummy-mode-jabodetabek",
+    "plan_type": "phased",
+    "status": "IN_PROGRESS",
+    "date_started": "2026-09-16",
+    "date_completed": null,
+    "baseline_sha": "9eadea865939c64e1ac61c314678fedd7a3ba1a1",
+    "pipeline": 4,
+    "plan_file": "execution-plan/index.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/phase-1.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Dummy module scaffold + seeded RNG + date utils + JABODETABEK seed constants",
+          "status": "DONE",
+          "file": "execution-plan/tasks/T1-dummy-module-scaffold-seeded-rng-date-utils-jabode.md",
+          "done_sha": "37b3d73c257d0018cf5f297c7229179e3a503069"
+        },
+        {
+          "id": "T2",
+          "name": "Zustand dummy store (isDummy, entities, role, toggle, localStorage persist)",
+          "status": "DONE",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T2-zustand-dummy-store-isdummy-entities-role-toggle-l.md",
+          "done_sha": "2796b2418211ba8978d196de6e35b8028346af34"
+        },
+        {
+          "id": "T3",
+          "name": "Role persistence at login (ddp_role) + Sidebar offline role read",
+          "status": "DONE",
+          "depends": "T2",
+          "file": "execution-plan/tasks/T3-role-persistence-at-login-ddp-role-sidebar-offline.md",
+          "done_sha": "cefa8c1ebb4ea622c99e34c8ef162a67fe51d11b"
+        },
+        {
+          "id": "T4",
+          "name": "Topbar toggle UI",
+          "status": "DONE",
+          "depends": "T2",
+          "file": "execution-plan/tasks/T4-topbar-toggle-ui.md",
+          "done_sha": "f20a0406024c95709d21fed0e2d56895e57ee7fe"
+        },
+        {
+          "id": "T5",
+          "name": "DummyFactory — master data (territories/outlets/products/suppliers)",
+          "status": "DONE",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T5-dummyfactory-master-data-territories-outlets-produ.md",
+          "done_sha": "29245524f613289e30d013462a3b109127081b3d"
+        },
+        {
+          "id": "T6",
+          "name": "DummyFactory — transactions + analytics/DI/AI aggregates",
+          "status": "DONE",
+          "depends": "T5",
+          "file": "execution-plan/tasks/T6-dummyfactory-transactions-analytics-di-ai-aggregat.md",
+          "done_sha": "93aee807cadd90ea6028aaa136ed37123341ed3f"
+        },
+        {
+          "id": "T7",
+          "name": "Read-guard helper + commit-guard helper",
+          "status": "DONE",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T7-read-guard-helper-commit-guard-helper.md",
+          "done_sha": "3ead2cb259c9b6b429d69ad036d43e6cdf7e7824"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "file": "execution-plan/phase-2.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T8",
+          "name": "Guard data-intelligence-api + operations-api",
+          "status": "WAITING",
+          "depends": "T6, T7",
+          "file": "execution-plan/tasks/T8-guard-data-intelligence-api-operations-api.md"
+        },
+        {
+          "id": "T9",
+          "name": "Guard admin/* + sales/* API modules",
+          "status": "WAITING",
+          "depends": "T6, T7",
+          "file": "execution-plan/tasks/T9-guard-admin-sales-api-modules.md"
+        },
+        {
+          "id": "T10",
+          "name": "Consolidate and guard inline-fetch pages",
+          "status": "WAITING",
+          "depends": "T6, T7",
+          "file": "execution-plan/tasks/T10-consolidate-and-guard-inline-fetch-pages.md"
+        },
+        {
+          "id": "T11",
+          "name": "Fake mutation mutators + write-path guards",
+          "status": "WAITING",
+          "depends": "T6, T7",
+          "file": "execution-plan/tasks/T11-fake-mutation-mutators-write-path-guards.md"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "file": "execution-plan/phase-3.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T12",
+          "name": "Cross-unit Dummy Mode integration verification",
+          "status": "WAITING",
+          "depends": "T6, T7, T8, T9, T10, T11",
+          "file": "execution-plan/tasks/T12-cross-unit-dummy-mode-integration-verification.md"
+        }
+      ]
+    }
+  ]
+}

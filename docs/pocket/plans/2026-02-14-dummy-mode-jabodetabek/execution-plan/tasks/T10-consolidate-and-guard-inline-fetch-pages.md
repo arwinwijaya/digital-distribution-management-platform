@@ -18,6 +18,8 @@ Files:
 - Create: `apps/web/src/app/payments/api.ts`
 - Create: `apps/web/src/app/delivery/api.ts`
 - Create: `apps/web/src/app/invoices/api.ts`
+- Create: `apps/web/src/app/operations/api.ts`
+- Create: `apps/web/src/app/sales/api.ts`
 - Modify: `apps/web/src/app/dashboard/page.tsx`
 - Modify: `apps/web/src/app/analytics/page.tsx`
 - Modify: `apps/web/src/app/payments/page.tsx`
@@ -123,7 +125,7 @@ Steps:
 8. Refactor while green (bounded) + re-run (must stay PASS).
 
 9. Commit:
-   `git add apps/web/src/app/dashboard/api.ts apps/web/src/app/analytics/api.ts apps/web/src/app/payments/api.ts apps/web/src/app/delivery/api.ts apps/web/src/app/invoices/api.ts apps/web/src/app/dashboard/page.tsx apps/web/src/app/analytics/page.tsx apps/web/src/app/payments/page.tsx apps/web/src/app/delivery/page.tsx apps/web/src/app/invoices/page.tsx apps/web/src/app/operations/page.tsx apps/web/src/app/sales/page.tsx apps/web/src/components/ProductCatalog.tsx apps/web/src/components/MarketplaceCatalog.tsx apps/web/src/components/OrderForm.tsx apps/web/src/app/dashboard/dummy-guard.test.tsx`
+   `git add apps/web/src/app/dashboard/api.ts apps/web/src/app/analytics/api.ts apps/web/src/app/payments/api.ts apps/web/src/app/delivery/api.ts apps/web/src/app/invoices/api.ts apps/web/src/app/operations/api.ts apps/web/src/app/sales/api.ts apps/web/src/app/dashboard/page.tsx apps/web/src/app/analytics/page.tsx apps/web/src/app/payments/page.tsx apps/web/src/app/delivery/page.tsx apps/web/src/app/invoices/page.tsx apps/web/src/app/operations/page.tsx apps/web/src/app/sales/page.tsx apps/web/src/components/ProductCatalog.tsx apps/web/src/components/MarketplaceCatalog.tsx apps/web/src/components/OrderForm.tsx apps/web/src/app/dashboard/dummy-guard.test.tsx`
    `git commit -m "feat(dummy): consolidate page data loaders and add dummy guards"`
 
 ## REFERENCES LOADED
@@ -139,7 +141,7 @@ Complexity: deep
 You are consolidating inline-fetch pages for Dummy Mode JABODETABEK.
 Spec: docs/pocket/spec/2026-02-14-dummy-mode-jabodetabek/dummy-mode.md
 Design decision: Option A — Zustand singleton store + per-API-function guard
-Files in scope: the four new `api.ts` files, the eight listed page/component files, and `apps/web/src/app/dashboard/dummy-guard.test.tsx` — no other files
+Files in scope: the seven new `api.ts` files (`dashboard`, `analytics`, `payments`, `delivery`, `invoices`, `operations`, `sales`), the listed page/component files, and `apps/web/src/app/dashboard/dummy-guard.test.tsx` — no other files
 Available after: Phase A T6 + T7 complete
 Architecture rule: Preserve every existing render path, role branch, and date-offset helper exactly; the only behavioral change is where data comes from. `useDummyRefresh` must trigger the real re-fetch on toggle OFF without requiring navigation.
 [RESTATE: Rendering components must NOT change — only the data source moves behind a guarded loader]

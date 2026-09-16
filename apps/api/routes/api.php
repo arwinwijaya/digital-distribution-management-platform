@@ -16,6 +16,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\TerritoryController;
+use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\GeographicAnalyticsController;
 use App\Http\Controllers\MeasurementController;
 use App\Http\Controllers\StockPlanningController;
@@ -44,9 +45,16 @@ Route::post('/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
 
 // Protected routes
 Route::middleware('auth:api')->group(function () {
+    // Stale JWT rejection must run after auth is resolved but before
+    // any request body is processed.
+    Route::middleware('reject.stale_jwt')->group(function () {
     // Admin-controlled finance role assignment and removal.
     Route::post('/admin/users/{userId}/finance-role', [FinanceRoleController::class, 'assign']);
     Route::delete('/admin/users/{userId}/finance-role', [FinanceRoleController::class, 'remove']);
+
+    // General user listing + role assignment (F1 — platform_owner is superset of admin).
+    Route::get('/admin/users', [UserRoleController::class, 'index']);
+    Route::patch('/admin/users/{userId}/role', [UserRoleController::class, 'assignRole']);
     // Payment terms are administrator-controlled and outlet-scoped.
     Route::get('/admin/outlets/{outletId}/payment-terms', [OutletController::class, 'showPaymentTerms']);
     Route::put('/admin/outlets/{outletId}/payment-terms', [OutletController::class, 'updatePaymentTerms']);
@@ -61,6 +69,7 @@ Route::middleware('auth:api')->group(function () {
     });
     Route::prefix('auth')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
+        Route::patch('/me', [AuthController::class, 'update']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
     });
@@ -153,9 +162,10 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'show'])->middleware('deny.finance');
     Route::put('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update'])->middleware('deny.finance');
     Route::post('/admin/outlets/{outletId}/credit-limit', [CreditLimitController::class, 'update'])->middleware('deny.finance');
-});
+    }); // reject.stale_jwt
+}); // auth:api
 
-Route::middleware('auth:api')->get('/finance/access', [FinanceRoleController::class, 'access']);
+Route::middleware(['auth:api', 'reject.stale_jwt'])->get('/finance/access', [FinanceRoleController::class, 'access']);
 
 // Health check
 Route::get('/health', function () {

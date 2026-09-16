@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Contracts\WhatsAppClient;
+use App\Policies\UserPolicy;
 use App\Services\AuthService;
+use App\Services\FinanceAuthorizationService;
 use App\Services\WhatsAppHttpClient;
 use Illuminate\Support\ServiceProvider;
 
@@ -18,6 +20,9 @@ class AppServiceProvider extends ServiceProvider
             return new AuthService;
         });
         $this->app->bind(WhatsAppClient::class, WhatsAppHttpClient::class);
+        $this->app->bind(UserPolicy::class, function ($app) {
+            return new UserPolicy(app(FinanceAuthorizationService::class));
+        });
     }
 
     /**

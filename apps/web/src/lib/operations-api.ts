@@ -3,6 +3,8 @@
  * No mutation endpoints; follows apiUrl / authHeaders / getStoredToken conventions.
  */
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { useDummyStore, selectIsDummy } from '@/dummy/store';
+import { withDummyRead } from '@/dummy/guards';
 import type {
   IssueDetailResponse,
   IssueFilters,
@@ -38,7 +40,46 @@ function parseErrorMessage(body: unknown): string | null {
   return null;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Dummy-mode read guards (Option A — per-function)                    */
+/* ------------------------------------------------------------------ */
+
+interface DummyOperations {
+  readiness?: ReadinessData;
+  issues?: OperationIssue[];
+}
+
+function dummyOperations(): DummyOperations | null {
+  const entities = useDummyStore.getState().dummyEntities as
+    | { operations?: DummyOperations }
+    | null;
+  return entities?.operations ?? null;
+}
+
+function dummyResult<T>(data: T): FetchResult<T> {
+  return { ok: true, data, error: null, code: null, status: 200, raw: null };
+}
+
+/**
+ * Resolve an issue detail from the in-memory dummy list. `dummy-1` normalizes
+ * to numeric id 1; unknown ids fall back to the first issue so the detail view
+ * is never empty while ON (demo-mode invariant).
+ */
+function resolveDummyIssue(id: string | number): OperationIssue | null {
+  const issues = dummyOperations()?.issues ?? [];
+  const normalized = String(id).replace(/^dummy-/, '');
+  return issues.find((issue) => String(issue.id) === normalized) ?? issues[0] ?? null;
+}
+
 export async function fetchReadiness(token?: string): Promise<FetchResult<ReadinessData>> {
+  return withDummyRead(
+    selectIsDummy(useDummyStore.getState()),
+    dummyResult(dummyOperations()?.readiness ?? null) as FetchResult<ReadinessData>,
+    () => fetchReadinessReal(token),
+  );
+}
+
+async function fetchReadinessReal(token?: string): Promise<FetchResult<ReadinessData>> {
   const t = token ?? getStoredToken();
   const res = await fetch(apiUrl('/admin/operations/readiness'), {
     headers: t ? authHeaders(t) : { Accept: 'application/json' },
@@ -59,6 +100,25 @@ export async function fetchReadiness(token?: string): Promise<FetchResult<Readin
 }
 
 export async function fetchIssues(
+  filters: IssueFilters,
+  token?: string,
+): Promise<FetchResult<{ issues: OperationIssue[]; meta: IssueMeta }>> {
+  return withDummyRead(
+    selectIsDummy(useDummyStore.getState()),
+    dummyResult({
+      issues: dummyOperations()?.issues ?? [],
+      meta: {
+        page: filters.page ?? 1,
+        limit: filters.limit ?? 20,
+        total: (dummyOperations()?.issues ?? []).length,
+        has_more: false,
+      },
+    }),
+    () => fetchIssuesReal(filters, token),
+  );
+}
+
+async function fetchIssuesReal(
   filters: IssueFilters,
   token?: string,
 ): Promise<FetchResult<{ issues: OperationIssue[]; meta: IssueMeta }>> {
@@ -92,6 +152,17 @@ export async function fetchIssues(
 }
 
 export async function fetchIssueDetail(
+  id: string | number,
+  token?: string,
+): Promise<FetchResult<OperationIssue>> {
+  return withDummyRead(
+    selectIsDummy(useDummyStore.getState()),
+    dummyResult(resolveDummyIssue(id)) as FetchResult<OperationIssue>,
+    () => fetchIssueDetailReal(id, token),
+  );
+}
+
+async function fetchIssueDetailReal(
   id: string | number,
   token?: string,
 ): Promise<FetchResult<OperationIssue>> {

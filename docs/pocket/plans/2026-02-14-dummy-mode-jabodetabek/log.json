@@ -114,14 +114,15 @@
     {
       "order": 3,
       "file": "execution-plan/phase-3.md",
-      "status": "WAITING",
+      "status": "REVIEW",
       "tasks": [
         {
           "id": "T12",
           "name": "Cross-unit Dummy Mode integration verification",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T6, T7, T8, T9, T10, T11",
-          "file": "execution-plan/tasks/T12-cross-unit-dummy-mode-integration-verification.md"
+          "file": "execution-plan/tasks/T12-cross-unit-dummy-mode-integration-verification.md",
+          "done_sha": "bc951fee8835f26c9aabac0989e5e6d27deca1b6"
         }
       ]
     }

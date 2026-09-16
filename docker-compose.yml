@@ -66,6 +66,10 @@ services:
       JWT_SECRET: "jwt-secret-for-local"
       JWT_ALGO: HS256
       JWT_TTL: 60
+      # JWT API (tymon/jwt-auth) is stateless: never treat the browser origin as a
+      # stateful Sanctum frontend, otherwise Sanctum injects CSRF validation into
+      # /api/* and login fails with 419 "CSRF token mismatch". See app/Http/Kernel.php.
+      SANCTUM_STATEFUL_DOMAINS: ""
     depends_on:
       db:
         condition: service_healthy

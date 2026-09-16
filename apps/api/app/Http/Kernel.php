@@ -37,8 +37,11 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
 
+        // Note: Sanctum's EnsureFrontendRequestsAreStateful is intentionally NOT
+        // here. This API authenticates via JWT (Authorization: Bearer), not Sanctum
+        // cookie sessions. Including it would make requests from localhost:3000
+        // stateful and inject CSRF validation into /api/* -> 419 "CSRF token mismatch".
         'api' => [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\AttachCorrelationId::class,

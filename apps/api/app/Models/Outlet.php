@@ -13,6 +13,22 @@ class Outlet extends Model
 {
     public const DEFAULT_PAYMENT_TERM_DAYS = 7;
 
+    /**
+     * Allowed outlet category values.
+     *
+     * @var list<string>
+     */
+    public const VALID_CATEGORIES = [
+        'warung',
+        'minimarket',
+        'supermarket',
+        'grosir',
+        'restoran',
+        'kafe',
+        'toko_kelontong',
+        'lainnya',
+    ];
+
     use HasFactory;
 
     /**
@@ -32,7 +48,17 @@ class Outlet extends Model
         'territory_id',
         'is_active',
         'payment_term_days',
+        'category',
+        'score',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Outlet $outlet): void {
+            $outlet->category ??= 'lainnya';
+            $outlet->score ??= 0;
+        });
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -46,7 +72,41 @@ class Outlet extends Model
             'longitude' => 'float',
             'is_active' => 'boolean',
             'payment_term_days' => 'integer',
+            'score' => 'integer',
         ];
+    }
+
+    // ------------------------------------------------------------------
+    // Scopes
+    // ------------------------------------------------------------------
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeInTerritory($query, ?int $territoryId)
+    {
+        if ($territoryId !== null) {
+            return $query->where('territory_id', $territoryId);
+        }
+        return $query;
+    }
+
+    public function scopeOfCategory($query, ?string $category)
+    {
+        if ($category !== null && in_array($category, self::VALID_CATEGORIES, true)) {
+            return $query->where('category', $category);
+        }
+        return $query;
+    }
+
+    public function scopeSearch($query, ?string $search)
+    {
+        if ($search !== null && $search !== '') {
+            return $query->where('name', 'like', "%{$search}%");
+        }
+        return $query;
     }
 
     protected function setPhoneAttribute(mixed $value): void

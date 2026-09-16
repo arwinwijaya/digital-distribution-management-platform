@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateDeliveryStatusRequest;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\OutletScoringService;
 use App\Services\RoutingService;
 use App\Support\ConcurrencyTestBarrier;
 use Illuminate\Database\QueryException;
@@ -17,8 +18,10 @@ use InvalidArgumentException;
 
 class DeliveryController extends Controller
 {
-    public function __construct(private readonly RoutingService $routing)
-    {
+    public function __construct(
+        private readonly RoutingService $routing,
+        private readonly OutletScoringService $scoring,
+    ) {
     }
 
     public function index(Request $request): JsonResponse

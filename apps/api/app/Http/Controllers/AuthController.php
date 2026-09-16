@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\RegisterOutletRequest;
+use App\Http\Requests\UpdateProfileRequest;
 use App\Models\Outlet;
 use App\Models\User;
 use App\Services\AuthService;
@@ -122,6 +123,26 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'created_at' => $user->created_at,
+            ],
+        ]);
+    }
+
+    /**
+     * Update authenticated user profile (name / email only).
+     * Role field must NOT be accepted here — use role assignment endpoint.
+     */
+    public function update(UpdateProfileRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update($request->validated());
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'id'    => $user->id,
+                'name'  => $user->fresh()->name,
+                'email' => $user->fresh()->email,
+                'role'  => $user->fresh()->role,
             ],
         ]);
     }

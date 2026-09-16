@@ -46,6 +46,7 @@ class OutletController extends Controller
 
     public function updatePaymentTerms(SetPaymentTermRequest $request, int $outletId): JsonResponse
     {
+        $this->authorization->assertAdminOrOwner($request->user());
         $outlet = Outlet::findOrFail($outletId);
         $outlet->update([
             'payment_term_days' => $request->validated('payment_term_days'),

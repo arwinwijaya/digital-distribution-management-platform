@@ -12,7 +12,7 @@ class SetPaymentTermRequest extends FormRequest
         $user = $this->user();
 
         return $user !== null
-            && app(FinanceAuthorizationService::class)->isAdmin($user);
+            && app(FinanceAuthorizationService::class)->isAdminOrOwner($user);
     }
 
     public function rules(): array

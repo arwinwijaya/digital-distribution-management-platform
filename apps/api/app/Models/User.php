@@ -25,6 +25,8 @@ class User extends Authenticatable implements JWTSubject
         'role',
         'phone',
         'is_active',
+        'territory_id',
+        'jwt_version',
     ];
 
     /**
@@ -52,7 +54,16 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
-     * Check if user is admin
+     * Check if user is platform owner (superset of admin).
+     */
+    public function isPlatformOwner(): bool
+    {
+        return $this->role === 'platform_owner';
+    }
+
+    /**
+     * Check if user is admin (direct role only; ownership superset
+     * is resolved centrally in FinanceAuthorizationService / UserPolicy).
      */
     public function isAdmin(): bool
     {
@@ -146,6 +157,7 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'role' => $this->role,
+            'jwt_version' => (int) ($this->jwt_version ?? 0),
         ];
     }
 }

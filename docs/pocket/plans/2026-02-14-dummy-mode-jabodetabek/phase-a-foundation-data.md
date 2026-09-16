@@ -29,6 +29,7 @@ T1 → T2, T5, T7 (parallel) → T3, T4 (parallel after T2) → T6 (after T5)
 **Out-of-scope:** Any backend/API endpoint changes; persisting dummy mutations across toggle-OFF/refresh; sharpening driver/sales role scopes in Sidebar (keep current `else → all non-adminOnly`); new prod dependencies (incl. Zod).
 **Assumptions at risk:** Dummy op-issue detail non-navigable; best-effort discard at commit layer (no AbortController threading); generators typed to existing TS interfaces (no Zod).
 **Sequencing:** Dependency order shown is recommended only — pocket enforces actual blocking rules. Do not treat `[depends: TN]` as a hard lock unless the task cannot logically proceed without the prerequisite's output.
+**Test hygiene (all phases):** the dummy store is a module-level Zustand singleton and tests share jsdom `localStorage` — every new test file MUST `beforeEach` → `localStorage.clear()`, reset the store singleton, re-register the stub/real generator; `afterEach` → `jest.restoreAllMocks()`. Tests must never depend on a previous test's end-state.
 
 ### File Structure Map
 ```
@@ -186,30 +187,46 @@ Escalate when: task touches files outside listed scope
 ### Task 2: Zustand dummy store (isDummy, entities, role, toggle, localStorage persist) [depends: T1]
 
 ## OBJECTIVE
-Create the Zustand singleton `useDummyStore` holding `isDummy`, `dummyEntities` (empty until toggle-ON), `role` mirror, and actions `toggle()`, `setRole()`, `resetEntities()`. Toggle-ON generates nothing itself — it only flips the flag and persists to localStorage; factory wiring lands in T5/T6 (tests use a stub generator injected via the store's `generate` slot to keep T2 independent).
+Create the Zustand singleton `useDummyStore` holding `isDummy`, `dummyEntities` (empty until toggle-ON), `role` mirror, and actions `toggle()`, `setRole()`, `resetEntities()`, plus an **init/regenerate path** so that a refresh with `dummy:isDummy === '1'` repopulates entities (Story 1 B: refresh must render the same deterministic data, not just restore the flag). Toggle-ON generates nothing itself beyond calling the injected generator; factory wiring lands in T5/T6 (tests use a stub generator injected via `setDummyGenerator` to keep T2 independent).
+
+DETERMINISM SEAM (LOCKED — do not redesign):
+- The store's `toggle()` takes NO args and calls the injected generator with NO args: `generate()`.
+- The ONLY seam by which `today` reaches the factory is `setDummyGenerator(fn)`. Tests that need a fixed date MUST register `setDummyGenerator((today?) => buildFullDummy(fixedDate))` BEFORE toggling — i.e. the generator closure pins the date, not a toggle argument.
+- Never call `toggle(date)`. `generate()` inside the store must not call `new Date()` itself; the date flows only from the registered generator closure.
+
+Generator contract (fixed here so T5/T6 can implement against it): `type DummyGenerator = (today?: Date) => DummyEntities` — `today` is injectable so tests and Phase C can pin a fixed date via the `setDummyGenerator` closure without touching `Date.now()` inside the factories.
 
 Files:
 - Create: `apps/web/src/dummy/store.ts`
 - Test: `apps/web/src/dummy/store.test.ts`
 
+Test hygiene (applies to this file and every test added in Phase B/C):
+- `beforeEach`: `localStorage.clear()`, reset the Zustand singleton to its initial state (re-create or call a `reset()`), re-register the stub generator.
+- `afterEach`: `jest.restoreAllMocks()`.
+- The store is a module-level singleton — tests must never rely on a previous test's end-state.
+
 Steps:
-1. Write failing test for: toggle ON persists; refresh restores; OFF clears entities
+1. Write failing test for: toggle ON persists flag + generates once; OFF clears entities; entities never persisted
    Test file: `apps/web/src/dummy/store.test.ts`
-   Level: unit
+   Level: integration (collaborates with Zustand singleton + localStorage — not an isolated unit)
 
    Test intent:
-   Given a fresh store with a stub `generate()` returning `{ outlets: 1 }`-shaped entities
+   Given a reset store with a stub `generate()` returning `{ outlets: 1 }`-shaped entities
    When `toggle()` is called ON
    Then:
    - `isDummy === true`
-   - `localStorage['dummy:isDummy'] === '1'` (chosen key; replaces spec example `dummy_is_dummy` — locked here)
+   - `localStorage['dummy:isDummy'] === '1'` (chosen key; replaces the spec's example `dummy_is_dummy` — locked here)
    - `dummyEntities` equals the stub output (generate called exactly once)
+   When `toggle()` is then called OFF
+   Then:
+   - `isDummy === false` AND flag cleared/`'0'` AND `dummyEntities === null`
+   - `localStorage` contains NO entities key (assert the key count / that no value serializes the entities)
 
    Exercise through:
    - `useDummyStore` hook + `useDummyStore.getState()` actions from `apps/web/src/dummy/store.ts`
 
    Test doubles:
-   - mock/fake: stub `generate` function passed to the store creator; jsdom localStorage
+   - mock/fake: stub `generate` via `setDummyGenerator`; jsdom localStorage
    - do NOT mock: the Zustand store itself
 
    Expected RED:
@@ -220,47 +237,73 @@ Steps:
    Expected failure: `Cannot find module '@/dummy/store'`
 
 3. Implement minimal code to satisfy the test:
-   File: `apps/web/src/dummy/store.ts` — `create<DummyState>()(...)` with `persist`-style manual localStorage sync (isDummy only; entities in-memory), `toggle()` (false→true runs generate once; true→false clears entities), `setRole(role)`, `resetEntities()`. Export `useDummyStore`, `selectIsDummy`, and a `setDummyGenerator(fn)` injection slot so T6 can plug the real factory without editing this file.
+   File: `apps/web/src/dummy/store.ts` — `create<DummyState>()(...)`, manual localStorage sync (isDummy only; entities in-memory), `toggle()` (false→true runs `generate()` once with no args — date flows only from the registered generator closure; true→false clears entities), `setRole(role)`, `resetEntities()`, `reset()` for tests. Export `useDummyStore`, `selectIsDummy`, `setDummyGenerator(fn)`, and the `DummyGenerator` type.
 
 4. Run test — verify PASS:
    `cd apps/web && npx jest src/dummy/store.test.ts --runInBand`
    Expected: PASS
 
-5. Write failing test for: OFF clears entities AND flag;entities never persisted
-   Test file: `apps/web/src/dummy/store.test.ts` (append second cycle)
-   Level: unit
+5. Write failing test for: refresh-with-persisted-flag repopulates entities (Story 1 B)
+   Test file: `apps/web/src/dummy/store.test.ts` (append)
+   Level: integration (store init reads localStorage and calls the injected generator)
 
    Test intent:
-   Given store ON with stub entities present
-   When `toggle()` is called OFF
+   Given `localStorage['dummy:isDummy'] === '1'` was set by a previous session, localStorage cleared of entities, and a fresh store module instance (simulated refresh) with a stub generator pinned to a fixed date via `setDummyGenerator(() => stubEntities)`
+   When the store initializes (`useDummyStore.getState()` is read)
    Then:
-   - `isDummy === false`
-   - `localStorage['dummy:isDummy'] === '0'` (or removed; key locked above)
-   - `dummyEntities === null` (never persisted; localStorage has no entities key)
+   - `isDummy === true` (restored from localStorage)
+   - `dummyEntities` is NOT null — the generator ran on init with the persisted flag
+   - re-registering `setDummyGenerator` with the same stub and re-initializing yields deep-equal entities (deterministic across refresh)
 
    Exercise through:
-   - `useDummyStore.getState().toggle()` + localStorage inspection
+   - module init path + `useDummyStore.getState()`
 
    Test doubles:
-   - mock/fake: stub generate; jsdom localStorage
+   - mock/fake: stub generator; jsdom localStorage pre-seeded with the flag
    - do NOT mock: the store
 
    Expected RED:
-   - entities retained after OFF, or entities written to localStorage
+   - `dummyEntities` is null after init (flag restored but data missing) → assertion fails
 
 6. Run test — verify FAIL:
    `cd apps/web && npx jest src/dummy/store.test.ts --runInBand`
-   Expected failure: `expect(entities).toBeNull()` fails
+   Expected failure: `expect(entities).not.toBeNull()` fails
 
-7. Implement minimal code to satisfy the test (same file: clear + never persist entities).
+7. Implement minimal code to satisfy the test (init effect: if persisted flag is `'1'`, run `generate(today)` once).
 
 8. Run test — verify PASS:
    `cd apps/web && npx jest src/dummy/store.test.ts --runInBand`
-   Expected: PASS (both cycles)
+   Expected: PASS
 
-9. Refactor while green (bounded) + re-run (must stay PASS).
+9. Write failing test for: toggle ON again regenerates (fresh rolling window)
+   Test file: `apps/web/src/dummy/store.test.ts` (append)
+   Level: integration (asserts call counts across two toggle cycles via the store singleton)
 
-10. Commit:
+   Test intent:
+   Given the store went ON (generator registered with a stub pinned to date T1), then OFF,
+   When the generator is re-registered with a stub pinned to a later date T2 via `setDummyGenerator(() => stubT2)` and `toggle()` turns ON again
+   Then:
+   - the T2 stub has been called exactly once since registration AND total generations across both cycles equal two
+   - `dummyEntities` reflects the second (T2) generation, not a cached T1 value
+
+   Exercise through:
+   - `useDummyStore.getState().toggle()` twice + re-registration via `setDummyGenerator` between cycles
+
+   Test doubles:
+   - mock/fake: stub generator (jest.fn) with call assertions; jsdom localStorage
+   - do NOT mock: the store
+
+   Expected RED:
+   - second ON reuses the cached first-generation entities, or generate is called only once → assertion fails
+
+   Note: this is the ONE DELIVERABLE scenario that the first draft omitted — do not skip it.
+
+10. Run test — verify FAIL, then implement, then verify PASS:
+   `cd apps/web && npx jest src/dummy/store.test.ts --runInBand`
+
+11. Refactor while green (bounded) + re-run (must stay PASS).
+
+12. Commit:
    `git add apps/web/src/dummy/store.ts apps/web/src/dummy/store.test.ts`
    `git commit -m "feat(dummy): add Zustand dummy store with persisted toggle"`
 
@@ -285,7 +328,8 @@ Architecture rule: No new dependencies; persist ONLY the flag; never call the ba
 ## DELIVERABLE
 Given store OFF with stub generate, When toggle() ON, Then isDummy true AND localStorage flag set AND entities generated exactly once
 Given store ON, When toggle() OFF, Then isDummy false AND flag cleared AND entities null AND no entities key in localStorage
-Given store ON, When toggle() ON again, Then generate runs again (fresh rolling window)
+Given a persisted flag from a previous session, When the store initializes, Then isDummy true AND entities repopulated (not null) AND deterministic for the same injected today
+Given store ON (generator pinned to T1), When toggle OFF then ON after re-registering `setDummyGenerator` with fixed T2, Then two total generations AND entities reflect T2 (fresh rolling window — no cached reuse)
 
 All tests PASS. Commit exists with message matching `feat(dummy): add Zustand dummy store with persisted toggle`.
 
@@ -294,7 +338,10 @@ Format: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 ## QUALITY BAR
 Must-have:
   - Only the flag persists; entities always in-memory
-  - Generator injection slot (`setDummyGenerator`) so T6 plugs the factory without editing this file
+  - Refresh-with-persisted-flag repopulates entities (Story 1 B) — not just the flag
+  - Generator contract is `(today?: Date) => DummyEntities` and `toggle()` calls `generate()` with no args — the date flows ONLY through the `setDummyGenerator` closure (locked seam; never `toggle(date)`)
+  - Generator injection slot (`setDummyGenerator`) so T5/T6 plug the real factory without editing this file
+  - Test hygiene: `beforeEach` clears localStorage + resets the singleton shop
   - Tests written BEFORE implementation (TDD — not after)
   - Commit message follows conventional commits format
 
@@ -360,9 +407,27 @@ Steps:
    `cd apps/web && npx jest src/components/auth-role-offline.test.tsx --runInBand`
    Expected: PASS
 
-5. Write failing test for: Sidebar still calls /auth/me when dummy OFF (no regression)
+4b. Write failing test for: LoginForm persists ddp_role on submit (login-write seam)
    Test file: `apps/web/src/components/auth-role-offline.test.tsx` (append)
    Level: integration
+
+   Test intent:
+   Given `localStorage` empty and a mocked login POST resolving `{ data: { token: 't-token', role: 'finance' } }`
+   When LoginForm is rendered and the login form is submitted
+   Then:
+   - `localStorage['ddp_role'] === 'finance'` AND `localStorage['ddp_token'] === 't-token'`
+
+   Exercise through: rendering `<LoginForm />` (real component), submitting with credentials
+   Test doubles: mock/fake: global fetch for `POST /auth/login`; do NOT mock: LoginForm, localStorage
+   Expected RED: `ddp_role` is never written (only the token is stored today) → assertion fails
+
+4c. Run test — verify FAIL, then implement, then verify PASS:
+   `cd apps/web && npx jest src/components/auth-role-offline.test.tsx --runInBand`
+
+5. Write CHARACTERIZATION test for: Sidebar still calls /auth/me when dummy OFF (no regression)
+   Test file: `apps/web/src/components/auth-role-offline.test.tsx` (append)
+   Level: integration
+   NOTE: this is a REGRESSION GUARD, not a RED test — after step 3's correct OFF-path implementation it will be GREEN immediately. Do not stall waiting for a RED; write it, confirm GREEN, and proceed.
 
    Test intent:
    Given `ddp_token` present, dummy store OFF, `ddp_role` absent
@@ -489,6 +554,24 @@ Steps:
 4. Run test — verify PASS:
    `cd apps/web && npx jest src/components/Topbar.test.tsx --runInBand`
    Expected: PASS
+
+4b. Write failing test for: logout clears ddp_role and resets dummy OFF
+   Test file: `apps/web/src/components/Topbar.test.tsx` (append)
+   Level: integration
+
+   Test intent:
+   Given `ddp_token` + `ddp_role='admin'` present and store toggled ON
+   When the Keluar button is clicked
+   Then:
+   - `localStorage['ddp_role'] === null` AND `localStorage['ddp_token'] === null`
+   - `useDummyStore.getState().isDummy === false` and `localStorage['dummy:isDummy']` cleared
+
+   Exercise through: rendering `<Topbar />` with the real store ON, clicking Keluar
+   Test doubles: mock/fake: stub generator; localStorage seed; do NOT mock: Topbar, store
+   Expected RED: `ddp_role` survives logout (current handleLogout only clears the token) → assertion fails
+
+4c. Run test — verify FAIL, then implement, then verify PASS:
+   `cd apps/web && npx jest src/components/Topbar.test.tsx --runInBand`
 
 5. Refactor while green (bounded) + re-run (must stay PASS).
 
@@ -795,7 +878,12 @@ Escalate when: aggregates import from files outside `apps/web/src/dummy/*` + the
 ### Task 7: Read-guard helper + commit-guard helper [depends: T1] [parallel: T2]
 
 ## OBJECTIVE
-Create the two centralized guard helpers every Phase B call-site uses: `withDummyRead(isDummy, dummyValue, realFetch)` (returns dummy without calling realFetch when ON) and `commitIfCurrent(isDummyAtCall, setState, data)` (best-effort discard: drops data if the flag flipped before commit). Plus a `useDummyRefresh` hook so pages re-fetch automatically on toggle (Phase B subscribes to it).
+Create the two centralized guard helpers every Phase B call-site uses: `withDummyRead(isDummy, dummyValue, realFetch)` (returns dummy without calling realFetch when ON) and `commitIfCurrent(getIsDummy, expectedFlag, setter, data)` (4 args — best-effort discard: drops data if the flag changed before commit). Plus a `useDummyRefresh` hook so pages re-fetch automatically on toggle (Phase B subscribes to it).
+
+Contract (locked here — must match tests):
+- `withDummyRead(isDummy: boolean, dummyValue: T, realFetch: () => Promise<T>): Promise<T>`
+- `commitIfCurrent(getIsDummy: () => boolean, expectedFlag: boolean, setter: (data: T) => void, data: T): boolean` (returns whether commit proceeded; calls setter only if `getIsDummy() === expectedFlag`)
+- `useDummyRefresh(onChange: () => void): void` (subscribes to `isDummy` flips)
 
 Files:
 - Create: `apps/web/src/dummy/guards.ts`
@@ -804,7 +892,7 @@ Files:
 Steps:
 1. Write failing test for: withDummyRead never calls realFetch when ON; commit guard discards on flip
    Test file: `apps/web/src/dummy/guards.test.ts`
-   Level: unit
+   Level: unit (pure helpers — no store/localStorage collaborators)
 
    Test intent:
    Given `isDummy = true`, a dummy value D, and a realFetch jest.fn() resolving R
@@ -812,8 +900,8 @@ Steps:
    Then:
    - result deep-equals D
    - realFetch was NEVER called
-   Given `isDummyAtCall = true` but flag is now false (simulated via getter returning false)
-   When `commitIfCurrent(getFlag, setter, data)` runs
+   Given `getFlag` returning false but `expectedFlag` was `true` (flag flipped since the fetch started)
+   When `commitIfCurrent(getFlag, true, setter, data)` runs
    Then:
    - setter was NEVER called (in-flight result discarded)
 
@@ -832,7 +920,7 @@ Steps:
    Expected failure: `Cannot find module '@/dummy/guards'`
 
 3. Implement minimal code to satisfy the test:
-   File: `apps/web/src/dummy/guards.ts` — `withDummyRead(isDummy, dummyValue, realFetch)` (if ON return dummyValue, else return realFetch()); `commitIfCurrent(getIsDummy, expectedFlag, setter, data)` (call setter only if `getIsDummy() === expectedFlag`; this IS the spec's `commitIfDummy` — renamed for clarity, referenced as such in spec L266); `useDummyRefresh(onChange)` hook subscribing to the store's `isDummy` and invoking `onChange` on flips (used by Phase B pages for auto re-fetch on toggle OFF).
+   File: `apps/web/src/dummy/guards.ts` — `withDummyRead(isDummy, dummyValue, realFetch)` (if ON return dummyValue, else return realFetch()); `commitIfCurrent(getIsDummy: () => boolean, expectedFlag: boolean, setter: (data: T) => void, data: T)` (returns boolean; setter only if `getIsDummy() === expectedFlag` — the 4-arg cross-check; this IS the spec's `commitIfDummy` requirement, spec L266); `useDummyRefresh(onChange)` hook subscribing to the store's `isDummy` and invoking `onChange` on flips (used by Phase B pages for auto re-fetch on toggle OFF).
 
 4. Run test — verify PASS:
    `cd apps/web && npx jest src/dummy/guards.test.ts --runInBand`
@@ -840,15 +928,15 @@ Steps:
 
 5. Write failing test for: OFF path calls realFetch; commit passes through when flag unchanged
    Test file: `apps/web/src/dummy/guards.test.ts` (append)
-   Level: unit
+   Level: unit (pure helpers; the useDummyRefresh SUBSCRIPTION test in step 6a is the integration one)
 
    Test intent:
    Given `isDummy = false`
    When `withDummyRead(false, D, realFetch)` is awaited
    Then:
    - result equals R (realFetch's resolution) AND realFetch called exactly once
-   Given flag unchanged (getter returns same flag)
-   When `commitIfCurrent` runs
+   Given `getFlag` returning false and `expectedFlag` is false (unchanged)
+   When `commitIfCurrent(getFlag, false, setter, data)` runs
    Then:
    - setter called exactly once with data
 
@@ -862,7 +950,21 @@ Steps:
    Expected RED:
    - OFF path returns dummy, or setter skipped despite unchanged flag
 
-6. Run test — verify FAIL / then implement / verify PASS (same commands).
+6a. Write failing test for: useDummyRefresh fires on flip (subscription to the real store)
+   Test file: `apps/web/src/dummy/guards.test.ts` (append)
+   Level: integration (subscribes to the Zustand store singleton)
+
+   Test intent:
+   Given store OFF and a subscriber registered via `renderHook(() => useDummyRefresh(onChange))`
+   When `useDummyStore.getState().toggle()` flips ON then OFF
+   Then `onChange` was called exactly twice (once per flip) and no more without a flip
+
+   Exercise through: the real `useDummyRefresh` hook + the real store toggle
+   Test doubles: mock/fake: callback jest.fn(); do NOT mock: store, hook
+   Expected RED: hook not wired to the store subscription → call count 0
+
+6b. Run test — verify FAIL, then implement, then verify PASS:
+   `cd apps/web && npx jest src/dummy/guards.test.ts --runInBand`
 
 7. Refactor while green (bounded) + re-run (must stay PASS).
 

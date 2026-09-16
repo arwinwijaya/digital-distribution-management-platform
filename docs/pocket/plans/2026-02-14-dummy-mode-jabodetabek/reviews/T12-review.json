@@ -1,0 +1,42 @@
+{
+  "task_id": "T12",
+  "task_name": "Cross-unit Dummy Mode integration verification",
+  "cycle": 2,
+  "timestamp": "2026-09-16T15:05:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": []
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Real Topbar switch click is the UI entry point in Cycle 1 and Cycle 2 — matches spec's goal-level affordance without mocking the component.",
+      "All three story acceptance criteria (analytics non-empty, GeoMap 40–60 bbox, order→payment→invoice side-effects) are verified against real loader functions and real Zustand store — no stubs for system-under-test.",
+      "Zero-network invariant asserted across 31 guarded call-sites (≥25 target met) in a single expect(fetchMock).toHaveBeenCalledTimes(0) covering analytics, DI, operations, admin, sales, and page loaders.",
+      "Determinism across toggle cycles (ON→OFF→ON) properly verified with toEqual deep-equal comparison and fixed-today injection via setDummyGenerator — no Date.now() in assertions.",
+      "Ephemerality proven: after toggle OFF, dummyEntities is null and subsequent loadAnalytics triggers real fetchMock calls.",
+      "Sweep test dynamically imports all guarded modules from actual module paths — every import resolves to real exports.",
+      "Clean lifecycle: beforeEach resets store + seeds localStorage + stubs fetch; afterEach restores global.fetch and resets store.",
+      "Refresh persistence Critical fixed: pre-mutation snapshot captured via JSON deep-clone before mutation and asserted with toEqual after both isolated-module regeneration and main-store re-init; readPersistedFlag() creation path exercised via jest.isolateModules fresh require (bc951fe); redundant localStorage seeding removed."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Test file is 429 lines (was 414), exceeding the ~300-line refactor heuristic. Justified as a comprehensive cross-unit integration test with 4 scenarios (analytics/GeoMap/finance/order + refresh/re-fetch + zero-network sweep + determinism), shared setup, and helpers — but the implementer may want to split into per-cycle files if the file continues to grow.",
+        "location": "apps/web/__tests__/dummy-mode.e2e.test.tsx"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "bc951fee8835f26c9aabac0989e5e6d27deca1b6"
+}

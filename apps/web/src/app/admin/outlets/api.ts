@@ -2,6 +2,7 @@ import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { JABODETABEK_TERRITORIES } from '@/dummy/seed';
+import { updateDummyOutlet } from '@/dummy/mutations';
 
 // ── Dummy-mode entity shapes (subset of the T5/T6 relational graph) ─────────
 interface DummyOutletEntity {
@@ -231,6 +232,9 @@ async function fetchAdminOutletsReal(token: string, filters: OutletFilters): Pro
 }
 
 export async function updateOutlet(token: string, outletId: number, payload: Partial<AdminOutlet> & { name?: string; category?: string; address?: string; city?: string; district?: string; is_active?: boolean }): Promise<AdminOutlet> {
+  if (useDummyStore.getState().isDummy) {
+    return updateDummyOutlet(outletId, payload) as unknown as AdminOutlet;
+  }
   const response = await fetch(apiUrl(`/admin/outlets/${outletId}`), {
     method: 'PATCH',
     headers: authHeaders(token),

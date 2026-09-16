@@ -1,6 +1,7 @@
 import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
+import { updateDummyProductPrice } from '@/dummy/mutations';
 
 // ── Dummy helpers ───────────────────────────────────────────────────────────
 interface DummyProductEntity { sku: string; name: string; category: string; price: number }
@@ -116,6 +117,9 @@ async function fetchProductsReal(token: string, search?: string): Promise<AdminP
 }
 
 export async function updateProductPrice(token: string, productId: number, price: number): Promise<AdminProduct> {
+  if (useDummyStore.getState().isDummy) {
+    return updateDummyProductPrice(productId, price) as unknown as AdminProduct;
+  }
   const response = await fetch(apiUrl(`/admin/products/${productId}`), {
     method: 'PATCH',
     headers: authHeaders(token),

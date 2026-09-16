@@ -1,6 +1,12 @@
 import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
+import {
+  broadcastDummyPromotion,
+  createDummyPromotion,
+  deleteDummyPromotion,
+  updateDummyPromotion,
+} from '@/dummy/mutations';
 
 // ── Dummy helpers ───────────────────────────────────────────────────────────
 interface DummyProductEntity { sku: string; name: string; category: string; price: number }
@@ -109,6 +115,9 @@ async function fetchPromotionsReal(token: string, opts?: { limit?: number; curso
 }
 
 export async function createPromotion(token: string, payload: PromotionInput): Promise<AdminPromotion> {
+  if (useDummyStore.getState().isDummy) {
+    return createDummyPromotion(payload) as unknown as AdminPromotion;
+  }
   const response = await fetch(apiUrl('/admin/promotions'), {
     method: 'POST',
     headers: authHeaders(token),
@@ -120,6 +129,9 @@ export async function createPromotion(token: string, payload: PromotionInput): P
 }
 
 export async function updatePromotion(token: string, promotionId: number, payload: Partial<PromotionInput>): Promise<AdminPromotion> {
+  if (useDummyStore.getState().isDummy) {
+    return updateDummyPromotion(promotionId, payload) as unknown as AdminPromotion;
+  }
   const response = await fetch(apiUrl(`/admin/promotions/${promotionId}`), {
     method: 'PATCH',
     headers: authHeaders(token),
@@ -131,6 +143,10 @@ export async function updatePromotion(token: string, promotionId: number, payloa
 }
 
 export async function deletePromotion(token: string, promotionId: number): Promise<void> {
+  if (useDummyStore.getState().isDummy) {
+    deleteDummyPromotion(promotionId);
+    return;
+  }
   const response = await fetch(apiUrl(`/admin/promotions/${promotionId}`), {
     method: 'DELETE',
     headers: authHeaders(token),
@@ -140,6 +156,9 @@ export async function deletePromotion(token: string, promotionId: number): Promi
 }
 
 export async function broadcastPromotion(token: string, promotionId: number): Promise<{ status: string; message?: string }> {
+  if (useDummyStore.getState().isDummy) {
+    return broadcastDummyPromotion(promotionId);
+  }
   const response = await fetch(apiUrl(`/admin/promotions/${promotionId}/broadcast`), {
     method: 'POST',
     headers: authHeaders(token),

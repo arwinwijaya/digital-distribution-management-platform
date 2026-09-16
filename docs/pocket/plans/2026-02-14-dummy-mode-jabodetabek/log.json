@@ -80,23 +80,26 @@
         {
           "id": "T8",
           "name": "Guard data-intelligence-api + operations-api",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T6, T7",
-          "file": "execution-plan/tasks/T8-guard-data-intelligence-api-operations-api.md"
+          "file": "execution-plan/tasks/T8-guard-data-intelligence-api-operations-api.md",
+          "done_sha": "fa3ddfe926983c7123bcbd6e649f1b48e29a7ed7"
         },
         {
           "id": "T9",
           "name": "Guard admin/* + sales/* API modules",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T6, T7",
-          "file": "execution-plan/tasks/T9-guard-admin-sales-api-modules.md"
+          "file": "execution-plan/tasks/T9-guard-admin-sales-api-modules.md",
+          "done_sha": "7cde36776f35f37dd7bfeacfc1b9b3bb79091f0c"
         },
         {
           "id": "T10",
           "name": "Consolidate and guard inline-fetch pages",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T6, T7",
-          "file": "execution-plan/tasks/T10-consolidate-and-guard-inline-fetch-pages.md"
+          "file": "execution-plan/tasks/T10-consolidate-and-guard-inline-fetch-pages.md",
+          "done_sha": "375d652ef807e95fc8824e7b9aca1d6453ef5b7f"
         },
         {
           "id": "T11",

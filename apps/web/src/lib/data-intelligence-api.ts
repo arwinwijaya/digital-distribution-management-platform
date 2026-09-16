@@ -1,6 +1,7 @@
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { useDummyStore, selectIsDummy } from '@/dummy/store';
 import { withDummyRead } from '@/dummy/guards';
+import { sendDummyFunnelEvent } from '@/dummy/mutations';
 
 function generateUuid(): string {
   if (typeof crypto !== 'undefined' && typeof (crypto as Crypto & { randomUUID?: () => string }).randomUUID === 'function') {
@@ -223,6 +224,9 @@ export async function sendFunnelEvent(
   const token = getStoredToken();
   if (!token) throw new Error('Tidak terotentikasi.');
   const payload = buildFunnelEventPayload(event, context, eventUuid);
+  if (useDummyStore.getState().isDummy) {
+    return sendDummyFunnelEvent(payload) as FunnelEventPayload;
+  }
   const res = await fetch(apiUrl('/admin/measurement/events'), {
     method: 'POST',
     headers: { ...authHeaders(token), 'Content-Type': 'application/json' },

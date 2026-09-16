@@ -2,6 +2,7 @@ import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { JABODETABEK_TERRITORIES } from '@/dummy/seed';
+import { createDummyOrder } from '@/dummy/mutations';
 
 // ── Dummy-mode helpers (READ paths only; writes are T11) ─────────────────────
 interface DummyOutletEntity {
@@ -157,6 +158,9 @@ export async function createSalesOrder(
   token: string,
   payload: { outlet_id: number; items: OrderItemInput[] },
 ): Promise<CreatedSalesOrder> {
+  if (useDummyStore.getState().isDummy) {
+    return createDummyOrder(payload) as unknown as CreatedSalesOrder;
+  }
   const response = await fetch(apiUrl('/sales/orders'), {
     method: 'POST',
     headers: authHeaders(token),

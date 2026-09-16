@@ -1,6 +1,7 @@
 import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
+import { assignDummyUserRole } from '@/dummy/mutations';
 
 // ── Dummy-mode helpers ──────────────────────────────────────────────────────
 const DUMMY_USERS: AdminUser[] = [
@@ -67,6 +68,9 @@ async function fetchAdminUsersReal(token: string, params: UsersListParams): Prom
 }
 
 export async function assignUserRole(token: string, userId: number, role: string): Promise<AdminUser> {
+  if (useDummyStore.getState().isDummy) {
+    return assignDummyUserRole(userId, role) as unknown as AdminUser;
+  }
   const response = await fetch(apiUrl(`/admin/users/${userId}/role`), {
     method: 'PATCH',
     headers: authHeaders(token),

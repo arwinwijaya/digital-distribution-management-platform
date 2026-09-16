@@ -1,0 +1,52 @@
+{
+  "task_id": "T6",
+  "task_name": "DummyFactory — transactions + aggregates + install wiring",
+  "cycle": 1,
+  "timestamp": "2026-09-16T12:14:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "concerns_addressed": [],
+    "issues": [],
+    "status": "PASS"
+  },
+  "stage_2": {
+    "assessment": "Approved",
+    "issues": [
+      {
+        "description": "Commit message uses feat(web) scope; DELIVERABLE requires feat(dummy) scope. Content is the single conventional-commits task commit, so this is a label drift in the scope token, not a content or traceability failure. Deep-grep of the codebase shows scope 'dummy' triggers no lint or filter rule; no tooling or convention breaks. Note: future task commits must use the exact prescribed scope feat(dummy).",
+        "location": "93aee80 (commit message)",
+        "severity": "Minor"
+      },
+      {
+        "description": "DummyBootstrap.tsx (a 'use client' wrapper calling installDummy()) is the 10th file, outside the task's 9-file scope. Justified: layout.tsx is a Server Component, so calling installDummy() directly there would be a no-op for client-side Zustand registration; the wrapper is the minimal correct mechanism. No backend changes, no new dependencies. Record the deviation in the task file for traceability.",
+        "location": "apps/web/src/components/DummyBootstrap.tsx:1-15",
+        "severity": "Minor"
+      },
+      {
+        "description": "Aggregates.suppliers (SupplierPerformanceData) shadows MasterData.suppliers (DummySupplier[]) in buildFullDummy's spread. Verified intentional and correct: T8's fetchSupplierPerformanceData() guard needs the performance shape at that key, and the plain master supplier array remains available internally to the factories (buildSupplierPerformance maps over it). No action needed.",
+        "location": "apps/web/src/dummy/index.ts:buildFullDummy",
+        "severity": "Minor"
+      },
+      {
+        "description": "Forecast accuracy metrics (wape '0.12', accuracy 0.88) are fixed presentation constants gated on actualDays >= 14, while all counts, sums, funnel, forecast orders/sales, rates, and finance metrics are computed from tx. Acceptable: they are measurement-note placeholders, not the aggregate volumes the DELIVERABLE forbids hardcoding; tsc clean and tests verify derivation (orders_total === tx.orders.length).",
+        "location": "apps/web/src/dummy/aggregates.ts:613-614",
+        "severity": "Minor"
+      }
+    ],
+    "status": "PASS",
+    "strengths": [
+      "DELIVERABLE fully verified: 800-1000 orders across 60-day window with weekday/weekend-modulated, trend-shaped volumes (not uniform noise), every order → existing outlet/product, exact 1:1 order→payment/invoice/delivery (T11-ready), deep-equal across runs",
+      "Aggregates derive entirely from tx (counts/sums/groupings); orders_total === tx.orders.length by assertion; analytics recommendations non-empty by construction; forecast 4 periods method dummy-heuristic; map_points == outlets count within 40..60 bbox, table 5 territories; suppliers/stock/measurement, both dashboard shapes incl. all 6 FinanceMetrics keys; operations readiness+issues non-empty",
+      "buildFullDummy(today?) pure composition with new Date() default; installDummy() registered at app bootstrap via DummyBootstrap 'use client' wrapper (correct for Server-Component layout.tsx); tsc --noEmit exit 0; 20 suites/93 tests passing (8 dummy suites/57 tests), no hardcoded aggregate volumes, no store/fetch/Date.now in factories"
+    ]
+  },
+  "overall": "REVIEW_PASS",
+  "reviewed_sha": "93aee80",
+  "loop_info": {
+    "current_cycle": 1,
+    "cycles_remaining": 2,
+    "max_cycles": 2
+  },
+  "fix_instructions": ""
+}

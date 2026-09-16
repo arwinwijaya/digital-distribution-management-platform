@@ -26,6 +26,7 @@ use App\Http\Controllers\MeasurementController;
 use App\Http\Controllers\StockPlanningController;
 use App\Http\Controllers\SupplierPerformanceController;
 use App\Http\Controllers\SalesOrderController;
+use App\Http\Controllers\SalesOutletController;
 use App\Http\Controllers\SalesTargetController;
 use App\Http\Controllers\SalesPerformanceController;
 use App\Http\Controllers\InvoiceReminderController;
@@ -66,6 +67,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/admin/outlets/{outletId}/summary', [AdminOutletController::class, 'summary']);
 
     // Sales order collection (F5): thin wrapper over OrderCreationService with territory binding
+    Route::get('/sales/outlets', [SalesOutletController::class, 'index'])->middleware('deny.finance');
     Route::post('/sales/orders', [SalesOrderController::class, 'store'])->middleware('deny.finance');
     Route::get('/sales/my-performance', [SalesPerformanceController::class, 'myPerformance'])->middleware('deny.finance');
 

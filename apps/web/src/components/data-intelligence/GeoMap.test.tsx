@@ -1,38 +1,69 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, within } from '@testing-library/react';
-import GeoMap from '@/components/data-intelligence/GeoMap';
+import { render, screen } from '@testing-library/react';
 import type { GeographicMapPoint } from '@/lib/data-intelligence-api';
 
 /* ------------------------------------------------------------------ */
-/* Mock react-leaflet so we never import real browser Leaflet.        */
+/* Leaflet mock with a faithful _leaflet_id guard.                     */
 /* ------------------------------------------------------------------ */
 
-jest.mock('react-leaflet', () => {
-  function FakeMapContainer({ children, ...props }: Record<string, unknown> & { children?: React.ReactNode }) {
-    return (
-      <div data-testid="map-container" data-center={JSON.stringify(props.center)} data-zoom={props.zoom}>
-        {children}
-      </div>
-    );
+const mockLeafletMarkers: Array<{ latlng: unknown; popup: string | null }> = [];
+const mockMapFn = jest.fn<void, [HTMLElement]>();
+const mockTileLayerFn = jest.fn(() => ({ addTo: jest.fn() }));
+const mockLatLngBoundsFn = jest.fn((xs: unknown) => ({ latlngs: xs }));
+
+jest.mock('leaflet', () => {
+  function map(container: HTMLElement) {
+    mockMapFn(container as unknown as HTMLElement);
+    const record = container as unknown as Record<string, number | undefined>;
+    if (record._leaflet_id != null) {
+      throw new Error('Map container is already initialized.');
+    }
+    record._leaflet_id = 42;
+    let self: any;
+    self = {
+      setView: jest.fn(() => self),
+      fitBounds: jest.fn(() => self),
+      remove: jest.fn(() => {
+        delete record._leaflet_id;
+      }),
+    };
+    return self;
   }
-  function FakeTileLayer({ attribution, url }: Record<string, string>) {
-    return <div data-testid="tile-layer" data-attribution={attribution} data-url={url} />;
+
+  function marker(latlng: unknown) {
+    const entry = { latlng, popup: null as string | null };
+    mockLeafletMarkers.push(entry);
+    let self: any;
+    self = {
+      addTo: jest.fn(() => self),
+      bindPopup: jest.fn((html: string) => {
+        entry.popup = html;
+        return self;
+      }),
+    };
+    return self;
   }
-  function FakeMarker({ position, children }: Record<string, unknown> & { children?: React.ReactNode }) {
-    return (
-      <div data-testid="marker" data-position={JSON.stringify(position)}>
-        {children}
-      </div>
-    );
-  }
-  function FakePopup({ children }: { children?: React.ReactNode }) {
-    return <div data-testid="popup">{children}</div>;
-  }
-  return { MapContainer: FakeMapContainer, TileLayer: FakeTileLayer, Marker: FakeMarker, Popup: FakePopup };
+
+  return {
+    __esModule: true,
+    default: {
+      map,
+      tileLayer: mockTileLayerFn,
+      marker,
+      latLngBounds: mockLatLngBoundsFn,
+    },
+  };
 });
 
 jest.mock('leaflet/dist/leaflet.css', () => {});
+
+beforeEach(() => {
+  mockLeafletMarkers.length = 0;
+  mockMapFn.mockClear();
+  mockTileLayerFn.mockClear();
+  mockLatLngBoundsFn.mockClear();
+});
 
 const VALID_POINTS: GeographicMapPoint[] = [
   { outlet_id: 1, outlet_name: 'Outlet A', territory: 'Jakarta Selatan', latitude: -6.2, longitude: 106.8, orders: 5, sales: '50000.00' },
@@ -47,7 +78,7 @@ const POINTS_WITH_INVALID: GeographicMapPoint[] = [
 ];
 
 describe('leaflet_map_renders_client_only_with_attribution_and_stable_height', () => {
-  it('GeoMap.tsx begins with "use client" for client-only rendering', async () => {
+  it('GeoMap.tsx begins with "use client" for client-only rendering', () => {
     const fs = require('fs');
     const path = require('path');
     const src = fs.readFileSync(path.resolve(__dirname, '../data-intelligence/GeoMap.tsx'), 'utf8');
@@ -62,27 +93,72 @@ describe('leaflet_map_renders_client_only_with_attribution_and_stable_height', (
     expect(src).toMatch(/dynamic\(\(\)\s*=>\s*import\(.*GeoMap.*\)/);
   });
 
-  it('renders only valid points, has explicit height and OSM attribution', () => {
+  it('renders only valid points with OSM attribution and explicit height', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
     render(<GeoMap points={POINTS_WITH_INVALID} />);
-    const markers = screen.getAllByTestId('marker');
-    expect(markers).toHaveLength(2);
+
+    expect(mockLeafletMarkers).toHaveLength(2);
+    expect(mockLeafletMarkers.map((m) => m.latlng)).toEqual([
+      [-6.2, 106.8],
+      [-6.9175, 107.6191],
+    ]);
+    expect(mockLeafletMarkers[0].popup).toContain('Outlet A');
 
     const container = screen.getByTestId('geo-map');
     expect(container).toHaveStyle({ height: '420px' });
 
-    const tileLayer = screen.getByTestId('tile-layer');
-    expect(tileLayer).toHaveAttribute('data-url', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
-    expect(tileLayer.getAttribute('data-attribution')).toContain('OpenStreetMap');
+    expect(mockTileLayerFn).toHaveBeenCalledWith(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      expect.objectContaining({ attribution: expect.stringContaining('OpenStreetMap') }),
+    );
   });
 
-  it('shows empty state when no points are provided', () => {
+  it('shows empty state when no points are provided', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
     render(<GeoMap points={[]} />);
     expect(screen.getByText(/tidak ada titik peta/i)).toBeInTheDocument();
-    expect(screen.queryByTestId('map-container')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('geo-map')).not.toBeInTheDocument();
   });
 
-  it('renders siblings tables independently of map state', () => {
-    render(<GeoMap points={[]} />);
-    expect(screen.getByText(/tidak ada titik peta/i)).toBeInTheDocument();
+  it('ignores points with invalid/out-of-range coordinates', async () => {
+    const { isValidPoint } = await import('@/components/data-intelligence/GeoMap');
+    expect(isValidPoint(VALID_POINTS[0])).toBe(true);
+    expect(isValidPoint(POINTS_WITH_INVALID[2])).toBe(false);
+    expect(isValidPoint(POINTS_WITH_INVALID[3])).toBe(false);
+    expect(isValidPoint(POINTS_WITH_INVALID[4])).toBe(false);
+  });
+
+  it('survives StrictMode double-mount without "already initialized"', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+
+    const { container } = render(
+      <React.StrictMode>
+        <GeoMap points={VALID_POINTS} />
+      </React.StrictMode>,
+    );
+
+    // StrictMode runs effects twice: effect -> cleanup -> effect.
+    // The second create would throw if cleanup did not clear _leaflet_id.
+    expect(mockMapFn).toHaveBeenCalledTimes(2);
+
+    const mapNode = container.querySelector('[data-testid="geo-map"] > div');
+    expect(mapNode).not.toBeNull();
+    expect((mapNode as unknown as Record<string, unknown>)._leaflet_id).toBe(42);
+  });
+
+  it('transitions empty -> non-empty -> empty without a hook-count crash or leak', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+
+    const { rerender } = render(<GeoMap points={[]} />);
+    expect(screen.getByTestId('geo-map-empty')).toBeInTheDocument();
+
+    rerender(<GeoMap points={VALID_POINTS} />);
+    expect(screen.getByTestId('geo-map')).toBeInTheDocument();
+    expect(mockMapFn).toHaveBeenCalledTimes(1);
+
+    rerender(<GeoMap points={[]} />);
+    expect(screen.getByTestId('geo-map-empty')).toBeInTheDocument();
+    // cleanup removed the map: no live _leaflet_id remains on the detached node
+    expect(mockMapFn).toHaveBeenCalledTimes(1);
   });
 });

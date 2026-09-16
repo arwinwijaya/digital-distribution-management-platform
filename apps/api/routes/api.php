@@ -24,6 +24,9 @@ use App\Http\Controllers\GeographicAnalyticsController;
 use App\Http\Controllers\MeasurementController;
 use App\Http\Controllers\StockPlanningController;
 use App\Http\Controllers\SupplierPerformanceController;
+use App\Http\Controllers\SalesOrderController;
+use App\Http\Controllers\SalesTargetController;
+use App\Http\Controllers\SalesPerformanceController;
 use App\Http\Controllers\InvoiceReminderController;
 use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\OperationalReadinessController;
@@ -60,6 +63,20 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('/admin/outlets/{id}', [AdminOutletController::class, 'update']);
     Route::get('/admin/outlets/{outletId}/orders', [AdminOutletController::class, 'orders']);
     Route::get('/admin/outlets/{outletId}/summary', [AdminOutletController::class, 'summary']);
+
+    // Sales order collection (F5): thin wrapper over OrderCreationService with territory binding
+    Route::post('/sales/orders', [SalesOrderController::class, 'store'])->middleware('deny.finance');
+    Route::get('/sales/my-performance', [SalesPerformanceController::class, 'myPerformance'])->middleware('deny.finance');
+
+    // Sales targets (F5): admin-only CRUD
+    Route::post('/admin/sales-targets', [SalesTargetController::class, 'store']);
+    Route::get('/admin/sales-targets', [SalesTargetController::class, 'index']);
+    Route::get('/admin/sales-targets/{id}', [SalesTargetController::class, 'show']);
+    Route::patch('/admin/sales-targets/{id}', [SalesTargetController::class, 'update']);
+    Route::delete('/admin/sales-targets/{id}', [SalesTargetController::class, 'destroy']);
+
+    // Sales performance (F5): admin-only all-sales view
+    Route::get('/admin/sales/performance', [SalesPerformanceController::class, 'adminPerformance']);
 
     // Promotion management (F4): full CRUD admin-only
     Route::get('/admin/promotions', [PromotionController::class, 'index']);

@@ -1,4 +1,6 @@
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { useDummyStore, selectIsDummy } from '@/dummy/store';
+import { withDummyRead } from '@/dummy/guards';
 
 function generateUuid(): string {
   if (typeof crypto !== 'undefined' && typeof (crypto as Crypto & { randomUUID?: () => string }).randomUUID === 'function') {
@@ -64,7 +66,11 @@ export interface GeographicData {
 }
 
 export async function fetchGeographicData(): Promise<GeographicData> {
-  return adminFetch<GeographicData>('/admin/analytics/geographic');
+  return withDummyRead(
+    selectIsDummy(useDummyStore.getState()),
+    (useDummyStore.getState().dummyEntities as Record<string, unknown>)?.geographic as GeographicData,
+    () => adminFetch<GeographicData>('/admin/analytics/geographic'),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -88,7 +94,11 @@ export interface SupplierPerformanceData {
 }
 
 export async function fetchSupplierPerformanceData(): Promise<SupplierPerformanceData> {
-  return adminFetch<SupplierPerformanceData>('/admin/analytics/suppliers');
+  return withDummyRead(
+    selectIsDummy(useDummyStore.getState()),
+    (useDummyStore.getState().dummyEntities as Record<string, unknown>)?.suppliers as SupplierPerformanceData,
+    () => adminFetch<SupplierPerformanceData>('/admin/analytics/suppliers'),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -117,7 +127,11 @@ export interface StockPlanningData {
 }
 
 export async function fetchStockPlanningData(): Promise<StockPlanningData> {
-  return adminFetch<StockPlanningData>('/admin/analytics/stock-planning');
+  return withDummyRead(
+    selectIsDummy(useDummyStore.getState()),
+    (useDummyStore.getState().dummyEntities as Record<string, unknown>)?.stock as StockPlanningData,
+    () => adminFetch<StockPlanningData>('/admin/analytics/stock-planning'),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -138,7 +152,11 @@ export interface RecommendationMeasurementData {
 }
 
 export async function fetchRecommendationMeasurementData(): Promise<RecommendationMeasurementData> {
-  return adminFetch<RecommendationMeasurementData>('/admin/analytics/measurement/recommendations');
+  return withDummyRead(
+    selectIsDummy(useDummyStore.getState()),
+    ((useDummyStore.getState().dummyEntities as Record<string, unknown>)?.measurement as Record<string, unknown>)?.recommendations as RecommendationMeasurementData,
+    () => adminFetch<RecommendationMeasurementData>('/admin/analytics/measurement/recommendations'),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -160,7 +178,11 @@ export interface ForecastMeasurementData {
 }
 
 export async function fetchForecastMeasurementData(): Promise<ForecastMeasurementData> {
-  return adminFetch<ForecastMeasurementData>('/admin/analytics/measurement/forecasts');
+  return withDummyRead(
+    selectIsDummy(useDummyStore.getState()),
+    ((useDummyStore.getState().dummyEntities as Record<string, unknown>)?.measurement as Record<string, unknown>)?.forecasts as ForecastMeasurementData,
+    () => adminFetch<ForecastMeasurementData>('/admin/analytics/measurement/forecasts'),
+  );
 }
 
 export type FunnelEventType = 'displayed' | 'clicked' | 'cart';

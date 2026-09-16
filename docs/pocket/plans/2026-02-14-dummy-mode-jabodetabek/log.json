@@ -104,9 +104,10 @@
         {
           "id": "T11",
           "name": "Fake mutation mutators + write-path guards",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T6, T7",
-          "file": "execution-plan/tasks/T11-fake-mutation-mutators-write-path-guards.md"
+          "file": "execution-plan/tasks/T11-fake-mutation-mutators-write-path-guards.md",
+          "done_sha": "41dc5333227f44069592f6b58dbc1cf84c42cde3"
         }
       ]
     },

@@ -33,6 +33,7 @@ class OperationalEventService
         int $statusCode,
         string $errorClass = null,
         Throwable $exception = null,
+        array $extraMetadata = [],
     ): void {
         $outcome = $statusCode >= 400 || $exception !== null ? OperationalEvent::OUTCOME_FAILURE : OperationalEvent::OUTCOME_SUCCESS;
 
@@ -41,6 +42,9 @@ class OperationalEventService
             : ($errorClass ?? ($outcome === OperationalEvent::OUTCOME_FAILURE ? 'HttpError' : null));
 
         $metadata = $this->buildRedactedMetadata($route, $action);
+        if (!empty($extraMetadata)) {
+            $metadata = array_merge($metadata, $extraMetadata);
+        }
 
         try {
             OperationalEvent::query()->create([
@@ -75,6 +79,32 @@ class OperationalEventService
             'action' => $action,
             'recorded_at' => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Get operational events by correlation ID.
+     *
+     * @return \Illuminate\Eloquent\Collection
+     */
+    public function getEventsByCorrelation(string $correlationId)
+    {
+        return OperationalEvent::query()
+            ->where('correlation_id', $correlationId)
+            ->orderBy('occurred_at')
+            ->get();
+    }
+
+    /**
+     * Get operational events for a pilot, filtered by pilotId in metadata.
+     *
+     * @return \Illuminate\Eloquent\Collection
+     */
+    public function getPilotEvents(string $pilotId)
+    {
+        return OperationalEvent::query()
+            ->whereJsonContains('metadata', ['pilot_id' => $pilotId])
+            ->orderBy('occurred_at')
+            ->get();
     }
 
     /**

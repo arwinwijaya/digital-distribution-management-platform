@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { loadSalesList } from '@/app/sales/api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, Input, PageHeader, StatusBadge, Table } from '@/components/ui';
 
 type Visit = { id: number; target: string | null; visit_date: string; status: string; notes: string | null };
@@ -25,10 +27,7 @@ export default function SalesPage() {
   const load = async (nextToken: string) => {
     setLoading(true);
     try {
-      const response = await fetch(apiUrl('/sales/visits'), { headers: authHeaders(nextToken) });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || 'Jadwal kunjungan tidak dapat dimuat.');
-      setVisits(body.data);
+      setVisits(await loadSalesList(nextToken));
       setError('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Jadwal kunjungan tidak dapat dimuat.');
@@ -42,6 +41,8 @@ export default function SalesPage() {
     setToken(stored);
     if (stored) load(stored);
   }, []);
+
+  useDummyRefresh(() => { if (token) void load(token); });
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();

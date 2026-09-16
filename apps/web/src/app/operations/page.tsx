@@ -3,7 +3,9 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
-import { fetchReadiness, fetchIssues, fetchIssueDetail } from '@/lib/operations-api';
+import { fetchIssueDetail } from '@/lib/operations-api';
+import { loadOperations } from '@/app/operations/api';
+import { useDummyRefresh } from '@/dummy/guards';
 import type {
   IssueSeverity,
   IssueSource,
@@ -283,20 +285,16 @@ export default function OperationsPage() {
     async (authToken: string, nextPage: number, filters?: { source?: string; status?: string; severity?: string; correlation_id?: string; from?: string; to?: string }) => {
       setState((s) => ({ ...s, readinessState: 'loading', issuesState: 'loading', error: null }));
       const applied = filters ?? { source, status: issueStatus, severity, correlation_id: correlationId, from, to };
-      const readinessResult = await fetchReadiness(authToken);
-      const issuesResult = await fetchIssues(
-        {
-          source: (applied.source || undefined) as IssueSource | undefined,
-          status: (applied.status || undefined) as IssueStatus | undefined,
-          severity: (applied.severity || undefined) as IssueSeverity | undefined,
-          correlation_id: applied.correlation_id || undefined,
-          from: applied.from || undefined,
-          to: applied.to || undefined,
-          page: nextPage,
-          limit,
-        },
-        authToken,
-      );
+      const { readinessResult, issuesResult } = await loadOperations(authToken, {
+        source: (applied.source || undefined) as IssueSource | undefined,
+        status: (applied.status || undefined) as IssueStatus | undefined,
+        severity: (applied.severity || undefined) as IssueSeverity | undefined,
+        correlation_id: applied.correlation_id || undefined,
+        from: applied.from || undefined,
+        to: applied.to || undefined,
+        page: nextPage,
+        limit,
+      });
 
       const readinessDisabled =
         !readinessResult.ok && (readinessResult.code === 'pre_pilot_disabled' || readinessResult.status === 503);
@@ -398,6 +396,10 @@ export default function OperationsPage() {
   const closeDetail = useCallback(() => {
     setState((s) => ({ ...s, detailId: null, detail: null, detailState: 'idle' }));
   }, []);
+
+  useDummyRefresh(() => {
+    if (state.token && state.role === 'admin') void loadAll(state.token, page);
+  });
 
   if (!state.ready) return <p className="text-sm text-gray-500">Memuat...</p>;
   if (!state.token) {

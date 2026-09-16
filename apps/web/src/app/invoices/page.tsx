@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
-import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { getStoredToken } from '@/lib/api';
+import { loadInvoices } from '@/app/invoices/api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, PageHeader, StatCard, StatusBadge, Table } from '@/components/ui';
 
 type Invoice = {
@@ -43,17 +45,9 @@ function useInvoiceData(): InvoiceState {
     setLoading(true);
     setError(null);
     try {
-      const query = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
-      const response = await fetch(`${apiUrl('/invoices')}?${query}`, { headers: authHeaders(nextToken) });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || 'Data invoice tidak dapat dimuat.');
-      setInvoices(Array.isArray(body.data) ? body.data : []);
-      setMeta({
-        page: Number(body.meta?.page ?? page),
-        limit: Number(body.meta?.limit ?? PAGE_SIZE),
-        total: Number(body.meta?.total ?? 0),
-        has_more: Boolean(body.meta?.has_more),
-      });
+      const result = await loadInvoices(nextToken, page);
+      setInvoices(result.invoices);
+      setMeta(result.meta);
     } catch (reason) {
       setInvoices([]);
       setError(reason instanceof Error ? reason.message : 'Data invoice tidak dapat dimuat.');
@@ -105,6 +99,7 @@ function InvoiceLogin({ onLogin }: { onLogin: (token: string) => void }) {
 
 export default function InvoicesPage() {
   const data = useInvoiceData();
+  useDummyRefresh(() => { if (data.token) void data.load(data.token); });
 
   if (!data.token) return <InvoiceLogin onLogin={(nextToken) => { data.setToken(nextToken); void data.load(nextToken); }} />;
 

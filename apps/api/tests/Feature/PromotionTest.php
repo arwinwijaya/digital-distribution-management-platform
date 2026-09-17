@@ -7,6 +7,7 @@ use App\Models\Outlet;
 use App\Models\Product;
 use App\Models\Promotion;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -14,6 +15,13 @@ use Tests\TestCase;
 class PromotionTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     // -----------------------------------------------------------------
     // Helper: makes a JWT Bearer header for a given User (reuse by all tests).
@@ -87,11 +95,116 @@ class PromotionTest extends TestCase
         $response = $this->withHeader('Authorization', $token)
             ->getJson('/api/admin/promotions?limit=2');
 
+        // limit+1 technique: exactly `limit` rows returned, has_more signals a next page.
         $response->assertOk()
             ->assertJsonPath('status', 'success')
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('has_more', true)
-            ->assertJsonPath('next_cursor', Promotion::orderBy('id')->limit(2)->get()[1]->id);
+            ->assertJsonPath('meta.has_more', true);
+    }
+
+    /**
+     * GWT: Given promotions with varied start/end/created_at, When GET
+     * /api/admin/promotions?limit=15&cursor=0, Then data is created_at DESC
+     * (id DESC tiebreak) and meta.total + meta.summary 4-state are consistent.
+     */
+    public function test_admin_list_promotions_defaults_to_newest_with_total_and_summary(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+
+        $admin = $this->makeAdmin();
+        $token = $this->bearerFor($admin);
+
+        // Ended (id 1) — created March
+        Promotion::factory()->create([
+            'name' => 'Ended Promo',
+            'start_date' => '2026-04-01',
+            'end_date' => '2026-05-01',
+            'created_at' => '2026-03-01 08:00:00',
+        ]);
+        // Active (id 2) — created January
+        Promotion::factory()->create([
+            'name' => 'Active Promo Old',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-30',
+            'created_at' => '2026-01-01 08:00:00',
+        ]);
+        // Scheduled (id 3) — created April
+        Promotion::factory()->create([
+            'name' => 'Scheduled Promo',
+            'start_date' => '2026-07-01',
+            'end_date' => '2026-07-31',
+            'created_at' => '2026-04-01 08:00:00',
+        ]);
+        // Active (id 4) — created February
+        Promotion::factory()->create([
+            'name' => 'Active Promo New',
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-20',
+            'created_at' => '2026-02-01 08:00:00',
+        ]);
+
+        $response = $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?limit=15&cursor=0');
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 4)
+            ->assertJsonPath('meta.summary.total', 4)
+            ->assertJsonPath('meta.summary.active', 2)
+            ->assertJsonPath('meta.summary.scheduled', 1)
+            ->assertJsonPath('meta.summary.ended', 1)
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonPath('meta.limit', 15)
+            ->assertJsonPath('meta.cursor', 0)
+            // created_at DESC: Apr, Mar, Feb, Jan (NOT id order).
+            ->assertJsonPath('data.0.name', 'Scheduled Promo')
+            ->assertJsonPath('data.1.name', 'Ended Promo')
+            ->assertJsonPath('data.2.name', 'Active Promo New')
+            ->assertJsonPath('data.3.name', 'Active Promo Old');
+
+        $json = $response->json();
+        $this->assertSame(
+            $json['meta']['summary']['total'],
+            $json['meta']['summary']['active']
+                + $json['meta']['summary']['scheduled']
+                + $json['meta']['summary']['ended'],
+        );
+        $this->assertArrayNotHasKey('next_cursor', $json);
+    }
+
+    /**
+     * GWT: Given 20 promotions, When GET /api/admin/promotions?cursor=15, Then
+     * the SECOND page is returned by OFFSET (not `where id > 15`).
+     */
+    public function test_admin_list_promotions_cursor_is_offset_based(): void
+    {
+        $admin = $this->makeAdmin();
+        $token = $this->bearerFor($admin);
+
+        // id 1 = oldest ... id 20 = newest, so created_at DESC order is id 20..1.
+        for ($i = 1; $i <= 20; $i++) {
+            Promotion::factory()->create([
+                'name' => 'Promo ' . $i,
+                'created_at' => now()->subDays(21 - $i),
+            ]);
+        }
+
+        $page1 = $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?limit=15&cursor=0');
+        $page1->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonPath('data.0.name', 'Promo 20')
+            ->assertJsonPath('data.14.name', 'Promo 6');
+
+        // Offset 15 => rows 16..20 of the sorted set (id-based would give 16..20 ids).
+        $page2 = $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?limit=15&cursor=15');
+        $page2->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonPath('meta.cursor', 15)
+            ->assertJsonPath('data.0.name', 'Promo 5')
+            ->assertJsonPath('data.4.name', 'Promo 1');
     }
 
     public function test_admin_can_view_promotion(): void

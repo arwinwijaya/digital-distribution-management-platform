@@ -658,6 +658,110 @@ class OrderTest extends TestCase
             ->assertJsonPath('data.id', $orderId);
     }
 
+    // ============================================================
+    // Admin orders list: offset cursor + total + default newest-first
+    // ============================================================
+
+    /**
+     * GWT: Given orders with varied created_at, When GET /admin/orders?limit=100&cursor=0
+     * (auth admin), Then data is ordered created_at DESC, meta.total is the count and
+     * meta.cursor is the requested offset.
+     */
+    public function test_admin_orders_list_returns_newest_first_with_total_and_offset_cursor(): void
+    {
+        $token = $this->loginAsAdmin();
+        $oldest = $this->createOrderAt('ORD-LIST-OLDEST', '2026-01-01 08:00:00');
+        $newest = $this->createOrderAt('ORD-LIST-NEWEST', '2026-03-01 08:00:00');
+        $middle = $this->createOrderAt('ORD-LIST-MIDDLE', '2026-02-01 08:00:00');
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/orders?limit=100&cursor=0');
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.cursor', 0)
+            ->assertJsonPath('meta.limit', 100)
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $middle->id)
+            ->assertJsonPath('data.2.id', $oldest->id);
+    }
+
+    /**
+     * GWT: Given three orders, When GET /admin/orders?limit=1&cursor=1,
+     * Then the SECOND page (by OFFSET) is returned and meta.total stays the full count.
+     */
+    public function test_admin_orders_list_offset_cursor_returns_second_page(): void
+    {
+        $token = $this->loginAsAdmin();
+        $this->createOrderAt('ORD-PAGE-OLDEST', '2026-01-01 08:00:00');
+        $newest = $this->createOrderAt('ORD-PAGE-NEWEST', '2026-03-01 08:00:00');
+        $middle = $this->createOrderAt('ORD-PAGE-MIDDLE', '2026-02-01 08:00:00');
+
+        $firstPage = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/orders?limit=1&cursor=0');
+        $firstPage->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.has_more', true);
+
+        $secondPage = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/orders?limit=1&cursor=1');
+        $secondPage->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.cursor', 1)
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('data.0.id', $middle->id);
+    }
+
+    /**
+     * GWT: Given an outlet (non-admin) user, When GET /admin/orders,
+     * Then the existing admin guard still responds 403 (unchanged).
+     */
+    public function test_non_admin_cannot_list_orders(): void
+    {
+        $this->withHeaders($this->authHeaders())
+            ->getJson('/api/admin/orders')
+            ->assertStatus(403);
+    }
+
+    private function loginAsAdmin(): string
+    {
+        $admin = User::factory()->admin()->create([
+            'email' => 'admin-list@ddp.com',
+            'password' => Hash::make('password123'),
+        ]);
+
+        return $this->postJson('/api/auth/login', [
+            'email' => $admin->email,
+            'password' => 'password123',
+        ])->json('data.token');
+    }
+
+    /**
+     * Persist an order with an explicit created_at/updated_at so list ordering
+     * is deterministic without relying on wall-clock time.
+     */
+    private function createOrderAt(string $orderId, string $createdAt, array $overrides = []): Order
+    {
+        $order = Order::create(array_merge([
+            'order_id' => $orderId,
+            'outlet_id' => $this->outlet->id,
+            'status' => 'New',
+            'total_amount' => 10000,
+            'commission_percentage' => 2.00,
+            'idempotency_key' => 'key-'.$orderId,
+        ], $overrides));
+
+        $order->forceFill([
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ])->save();
+
+        return $order;
+    }
+
     private function prepareRaceDatabase(): void
     {
         $directory = storage_path('framework/testing');

@@ -10,6 +10,8 @@ use App\Services\OrderCreationService;
 use App\Services\WhatsAppService;
 use App\Http\Requests\CancelOrderRequest;
 use App\Support\ConcurrencyTestBarrier;
+use App\Support\ListQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,6 +56,10 @@ class OrderController extends Controller
     /**
      * List orders for administrators. Admins are not required to have an
      * outlet; outlet users remain scoped to their own outlet in show().
+     *
+     * Pagination: limit (default 100, max 100), cursor (offset).
+     * Default order: created_at DESC (nulls last) + id DESC tiebreak.
+     * Response contract: { status, data: [], meta: { has_more, limit, cursor, total } }
      */
     public function index(Request $request): JsonResponse
     {
@@ -67,10 +73,24 @@ class OrderController extends Controller
         // Keep the legacy array response while enforcing a server-side bound.
         // Callers can request fewer rows, but never an unbounded order history.
         $limit = min(max((int) $request->query('limit', 100), 1), 100);
-        $orders = Order::with(['items.product'])
-            ->latest('created_at')
+        $cursor = max((int) $this->scalarQueryString($request, 'cursor', '0'), 0);
+
+        $query = Order::query()->with(['items.product']);
+
+        // Aggregate total derives from the SAME unfiltered builder (before
+        // limit/offset/order) — never count the paginated rows.
+        $meta = array_merge(
+            ['limit' => $limit, 'cursor' => $cursor],
+            $this->buildListMeta(clone $query),
+        );
+
+        // limit+1 technique: fetch one extra row to determine has_more.
+        $orders = $query
+            ->orderByRaw(ListQuery::rawOrder('created_at', 'desc'))
             ->limit($limit + 1)
+            ->offset($cursor)
             ->get();
+
         $hasMore = $orders->count() > $limit;
         $orders = $orders->take($limit)
             ->map(fn (Order $order) => $this->formatOrderResponse($order));
@@ -78,8 +98,31 @@ class OrderController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $orders,
-            'meta' => ['limit' => $limit, 'has_more' => $hasMore],
+            'meta' => array_merge(['has_more' => $hasMore], $meta),
         ]);
+    }
+
+    /**
+     * Read a query param only when it is a scalar string, otherwise return the
+     * default. Guards against array input (`?cursor[]=x`) which would otherwise
+     * raise an "Array to string conversion" error and yield HTTP 500.
+     */
+    private function scalarQueryString(Request $request, string $key, string $default): string
+    {
+        $value = $request->query($key, $default);
+
+        return is_string($value) ? $value : $default;
+    }
+
+    /**
+     * Build the aggregate meta payload from the SAME unfiltered builder (never
+     * counts the limited rows).
+     *
+     * @return array<string, mixed>
+     */
+    private function buildListMeta(Builder $query): array
+    {
+        return ListQuery::meta((clone $query)->count());
     }
 
     /**

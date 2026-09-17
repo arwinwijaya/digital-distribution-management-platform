@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
-import { fetchProducts, updateProductPrice, fetchPriceHistory, type AdminProduct, type PriceHistoryEntry } from './api';
+import { fetchAdminProducts, updateProductPrice, fetchPriceHistory, type AdminProduct, type PriceHistoryEntry } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Table } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Table, TableSummary } from '@/components/ui';
+import { formatDateTime, type ColumnSort } from '@/lib/admin-table';
 
 export default function AdminProductsPage() {
   const [token, setToken] = useState<string | null>(null);
@@ -22,13 +23,38 @@ export default function AdminProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<AdminProduct | null>(null);
   const [priceHistory, setPriceHistory] = useState<PriceHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // Table state
+  const [sort, setSort] = useState<ColumnSort>({ column: 'created_at', order: 'desc' });
+  const [cursor, setCursor] = useState(0);
+  const [total, setTotal] = useState<number>();
+  const [tableSummary, setTableSummary] = useState<{ total: number; out_of_stock: number }>();
 
-  const loadProducts = useCallback(async (authToken: string, q?: string) => {
+  // Latest sort/cursor readable inside `loadProducts` WITHOUT adding them to its
+  // dependency list (which would otherwise re-run the mount effect and reset the
+  // page on every sort/page change).
+  const sortRef = useRef(sort);
+  sortRef.current = sort;
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
+
+  const loadProducts = useCallback(async (authToken: string, opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort }) => {
     setLoading(true); setError(null);
     try {
-      setProducts(await fetchProducts(authToken, q));
+      const nextSort = opts?.sort ?? sortRef.current;
+      const nextCursor = opts?.cursor ?? (opts?.resetCursor ? 0 : cursorRef.current);
+      const result = await fetchAdminProducts(authToken, {
+        search: search || undefined,
+        limit: 15,
+        cursor: nextCursor,
+        sort: nextSort.column,
+        order: nextSort.order,
+      });
+      setProducts(result.products);
+      setCursor(nextCursor);
+      if (result.total !== undefined) setTotal(result.total);
+      if (result.summary) setTableSummary(result.summary);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Daftar produk tidak dapat dimuat.'); } finally { setLoading(false); }
-  }, []);
+  }, [search]);
 
   const loadHistory = useCallback(async (authToken: string, productId: number) => {
     setHistoryLoading(true); setActionError(null);
@@ -40,10 +66,10 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     const stored = getStoredToken(); setToken(stored); setReady(true);
-    if (stored) loadProducts(stored);
+    if (stored) loadProducts(stored, { resetCursor: true });
   }, [loadProducts]);
 
-  useDummyRefresh(() => { if (token) void loadProducts(token); });
+  useDummyRefresh(() => { if (token) void loadProducts(token, { resetCursor: true }); });
 
   function startEdit(product: AdminProduct) {
     setEditingProduct(product); setNewPrice(String(product.price ?? '')); setActionError(null); setActionSuccess(null);
@@ -67,7 +93,7 @@ export default function AdminProductsPage() {
   }
 
   if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
-  if (!token) return <div className="mx-auto max-w-6xl"><PageHeader title="Kelola produk" description="Lihat daftar produk, ubah harga, dan lihat riwayat perubahan harga." /><div className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-700">Masuk sebagai administrator untuk mengelola produk.</div><LoginForm expectedRole="admin" onLogin={(nextToken) => { setToken(nextToken); loadProducts(nextToken); }} /></div>;
+  if (!token) return <div className="mx-auto max-w-6xl"><PageHeader title="Kelola produk" description="Lihat daftar produk, ubah harga, dan lihat riwayat perubahan harga." /><div className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-700">Masuk sebagai administrator untuk mengelola produk.</div><LoginForm expectedRole="admin" onLogin={(nextToken) => { setToken(nextToken); loadProducts(nextToken, { resetCursor: true }); }} /></div>;
 
   const columns = [
     {
@@ -86,13 +112,23 @@ export default function AdminProductsPage() {
       ),
     },
     {
-      key: 'stock',
+      key: 'stock_quantity',
       header: 'Stok',
       render: (p: AdminProduct) => (
         <span className={`font-medium ${typeof p.stock_quantity === 'number' && p.stock_quantity <= 0 ? 'text-danger-600' : 'text-gray-800'}`}>
           {typeof p.stock_quantity === 'number' ? p.stock_quantity : '—'}
         </span>
       ),
+    },
+    {
+      key: 'created_at',
+      header: 'Dibuat',
+      render: (p: AdminProduct) => <span className="text-xs text-gray-600">{formatDateTime(p.created_at ?? null)}</span>,
+    },
+    {
+      key: 'updated_at',
+      header: 'Diperbarui',
+      render: (p: AdminProduct) => <span className="text-xs text-gray-600">{formatDateTime(p.updated_at ?? null)}</span>,
     },
     {
       key: 'action',
@@ -110,13 +146,29 @@ export default function AdminProductsPage() {
       <Card className="mb-5 p-5">
         <div className="grid gap-3 sm:grid-cols-3">
           <Input label="Cari produk" placeholder="Nama atau SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <div className="flex items-end"><Button onClick={() => token && loadProducts(token, search || undefined)} disabled={loading} className="w-full">Cari</Button></div>
+          <div className="flex items-end"><Button onClick={() => token && loadProducts(token, { resetCursor: true })} disabled={loading} className="w-full">Cari</Button></div>
           <div className="hidden sm:block" />
         </div>
       </Card>
       <div className="grid gap-5 lg:grid-cols-[1.7fr_1fr]">
         <Card className="overflow-hidden">
-          {loading ? <p className="p-8 text-sm text-gray-500">Memuat produk...</p> : <Table columns={columns} rows={products} rowKey={(p) => p.id} empty={<EmptyState icon={<span>📦</span>} title="Belum ada produk" description="Produk akan muncul di sini." />} />}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+            <TableSummary
+              total={total ?? products.length}
+              breakdown={tableSummary ? [{ label: 'stok habis', value: tableSummary.out_of_stock }] : undefined}
+              noun="produk"
+            />
+          </div>
+          {loading ? (
+            <p className="p-8 text-sm text-gray-500">Memuat produk...</p>
+          ) : (
+            <Table
+              columns={columns}
+              rows={products}
+              rowKey={(p) => p.id}
+              empty={<EmptyState icon={<span>📦</span>} title="Belum ada produk" description="Produk akan muncul di sini." />}
+            />
+          )}
         </Card>
         <div className="space-y-5">
           {editingProduct && (

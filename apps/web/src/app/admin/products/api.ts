@@ -2,6 +2,7 @@ import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { updateDummyProductPrice } from '@/dummy/mutations';
+import { compareRows, paginate } from '@/lib/admin-table';
 
 // ── Dummy helpers ───────────────────────────────────────────────────────────
 interface DummyProductEntity { sku: string; name: string; category: string; price: number }
@@ -15,8 +16,8 @@ function productsDummy(): DummyAllProducts {
   return { products: entities?.products ?? [], orders: entities?.orders ?? [] };
 }
 
-function listDummyProducts(search?: string): AdminProduct[] {
-  let list = productsDummy().products.map((p, i) => ({
+function baseDummyProducts(): AdminProduct[] {
+  return productsDummy().products.map((p, i) => ({
     id: i + 1,
     name: p.name,
     price: p.price.toFixed(2),
@@ -27,11 +28,51 @@ function listDummyProducts(search?: string): AdminProduct[] {
     supplier_id: (i % 8) + 1,
     description: `Dummy product — ${p.category}`,
   } as AdminProduct));
+}
+
+function listDummyProducts(search?: string): AdminProduct[] {
+  let list = baseDummyProducts();
   if (search) {
     const q = search.toLowerCase();
     list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q));
   }
   return list;
+}
+
+/**
+ * Dummy parity for the admin products table: same sort/pagination/summary
+ * contract as the real `GET /products` list. Dummy products carry no
+ * `created_at`, so the default `created_at DESC` falls back to `id DESC`
+ * (nulls-last) through the shared `compareRows` comparator.
+ */
+function listDummyAdminProducts(filters: ProductFilters): ProductsListResult {
+  let list = baseDummyProducts();
+
+  if (filters.search) {
+    const q = filters.search.toLowerCase();
+    list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q));
+  }
+
+  const total = list.length;
+  const outOfStock = list.filter((p) => typeof p.stock_quantity === 'number' && p.stock_quantity <= 0).length;
+
+  const sortCol = filters.sort || 'created_at';
+  const sortOrder = filters.order === 'asc' ? 'asc' : 'desc';
+  list = [...list].sort((a, b) =>
+    compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, sortCol, sortOrder),
+  );
+
+  const limit = filters.limit ?? 15;
+  const cursor = filters.cursor ?? 0;
+  const paginated = paginate(list, cursor, limit);
+  return {
+    products: paginated.page,
+    hasMore: paginated.hasMore,
+    limit,
+    cursor,
+    total,
+    summary: { total, out_of_stock: outOfStock },
+  };
 }
 
 function dummyPriceHistory(productId: number, opts?: { limit?: number; cursor?: number }): PriceHistoryResult {
@@ -73,6 +114,25 @@ export interface AdminProduct {
   is_active?: boolean;
   supplier_id?: number | null;
   description?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ProductFilters {
+  search?: string;
+  limit?: number;
+  cursor?: number;
+  sort?: string;
+  order?: string;
+}
+
+export interface ProductsListResult {
+  products: AdminProduct[];
+  hasMore: boolean;
+  limit: number;
+  cursor: number;
+  total?: number;
+  summary?: { total: number; out_of_stock: number };
 }
 
 export interface PriceHistoryEntry {
@@ -114,6 +174,36 @@ async function fetchProductsReal(token: string, search?: string): Promise<AdminP
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Daftar produk tidak dapat dimuat.'));
   return Array.isArray(data.data) ? (data.data as AdminProduct[]) : [];
+}
+
+export async function fetchAdminProducts(token: string, filters: ProductFilters = {}): Promise<ProductsListResult> {
+  return withDummyRead(
+    useDummyStore.getState().isDummy,
+    listDummyAdminProducts(filters),
+    () => fetchAdminProductsReal(token, filters),
+  );
+}
+
+async function fetchAdminProductsReal(token: string, filters: ProductFilters): Promise<ProductsListResult> {
+  const query = new URLSearchParams();
+  if (filters.search) query.set('search', filters.search);
+  query.set('limit', String(filters.limit ?? 15));
+  query.set('cursor', String(filters.cursor ?? 0));
+  query.set('sort', filters.sort || 'created_at');
+  query.set('order', filters.order || 'desc');
+  const response = await fetch(apiUrl(`/products?${query.toString()}`), { headers: authHeaders(token) });
+  const data = await response.json();
+  if (!response.ok) throw new Error(parseError(data, 'Daftar produk tidak dapat dimuat.'));
+  const products = Array.isArray(data.data) ? (data.data as AdminProduct[]) : [];
+  const meta = (data.meta ?? {}) as { has_more?: boolean; limit?: number; cursor?: number; total?: number; summary?: { total: number; out_of_stock: number } };
+  return {
+    products,
+    hasMore: Boolean(meta.has_more),
+    limit: Number(meta.limit ?? filters.limit ?? 15),
+    cursor: Number(meta.cursor ?? filters.cursor ?? 0),
+    total: meta.total !== undefined ? Number(meta.total) : undefined,
+    summary: meta.summary,
+  };
 }
 
 export async function updateProductPrice(token: string, productId: number, price: number): Promise<AdminProduct> {

@@ -9,6 +9,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Digital Distribution Management Platform',
   description: 'FMCG Digital Distribution Ecosystem',
+  appleWebApp: { capable: true, title: 'DDP', statusBarStyle: 'default' },
 };
 
 export default function RootLayout({

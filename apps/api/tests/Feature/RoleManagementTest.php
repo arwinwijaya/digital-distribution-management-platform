@@ -289,6 +289,95 @@ class RoleManagementTest extends TestCase
             ->assertJsonPath('data.2.id', $admin->id);
     }
 
+    /**
+     * GWT: Given an invalid sort param, When GET /api/admin/users, Then HTTP 200
+     * with the default newest-first order (never 422/500).
+     */
+    public function test_user_listing_silently_falls_back_for_invalid_sort(): void
+    {
+        Carbon::setTestNow('2026-06-01 12:00:00');
+
+        $admin = $this->createUserWithRole('admin', 'admin-invalid-sort', ['created_at' => '2026-01-01 08:00:00']);
+        $this->createUserWithRole('outlet', 'user-invalid-older', ['created_at' => '2026-01-01 08:00:00']);
+        $newer = $this->createUserWithRole('sales', 'user-invalid-newer', ['created_at' => '2026-03-01 08:00:00']);
+
+        $token = $this->loginAs($admin);
+
+        $this->withToken($token)
+            ->getJson('/api/admin/users?sort=__proto__&order=desc')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newer->id);
+    }
+
+    /**
+     * GWT: Given a non-scalar (array) sort param, When GET /api/admin/users,
+     * Then HTTP 200 with the default newest-first order (never 500).
+     */
+    public function test_user_listing_handles_non_scalar_sort_param_without_error(): void
+    {
+        Carbon::setTestNow('2026-06-01 12:00:00');
+
+        $admin = $this->createUserWithRole('admin', 'admin-array-sort', ['created_at' => '2026-01-01 08:00:00']);
+        $this->createUserWithRole('outlet', 'user-array-older', ['created_at' => '2026-01-01 08:00:00']);
+        $newer = $this->createUserWithRole('sales', 'user-array-newer', ['created_at' => '2026-03-01 08:00:00']);
+
+        $token = $this->loginAs($admin);
+
+        $this->withToken($token)
+            ->getJson('/api/admin/users?sort[]=x')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newer->id);
+    }
+
+    /**
+     * GWT: Given sort=name&order=asc, When GET /api/admin/users, Then users are
+     * ordered by name ascending.
+     */
+    public function test_user_listing_sorts_by_name_ascending(): void
+    {
+        $admin = $this->createUserWithRole('admin', 'admin-name-sort', ['name' => 'Zulu Admin']);
+        $this->createUserWithRole('outlet', 'user-name-zebra', ['name' => 'Zebra User']);
+        $this->createUserWithRole('sales', 'user-name-alpha', ['name' => 'Alpha User']);
+        $this->createUserWithRole('sales', 'user-name-mango', ['name' => 'Mango User']);
+
+        $token = $this->loginAs($admin);
+
+        $this->withToken($token)
+            ->getJson('/api/admin/users?sort=name&order=asc')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Alpha User')
+            ->assertJsonPath('data.1.name', 'Mango User')
+            ->assertJsonPath('data.2.name', 'Zebra User')
+            ->assertJsonPath('data.3.name', 'Zulu Admin');
+    }
+
+    /**
+     * GWT: Given role=sales, When GET /api/admin/users?role=sales&limit=20,
+     * Then meta.total counts sales ONLY (filtered) and every row is sales.
+     */
+    public function test_user_listing_role_filtered_total_counts_only_matching_role(): void
+    {
+        $admin = $this->createUserWithRole('admin', 'admin-filtered-total');
+        $this->createUserWithRole('outlet', 'user-filtered-outlet');
+        $this->createUserWithRole('sales', 'user-filtered-sales-1');
+        $this->createUserWithRole('sales', 'user-filtered-sales-2');
+        $this->createUserWithRole('sales', 'user-filtered-sales-3');
+
+        $token = $this->loginAs($admin);
+
+        $response = $this->withToken($token)
+            ->getJson('/api/admin/users?role=sales&limit=20')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 3);
+
+        $data = $response->json('data');
+        $this->assertCount(3, $data);
+
+        foreach ($data as $user) {
+            $this->assertEquals('sales', $user['role']);
+        }
+    }
+
     // ─── F1: Fix updatePaymentTerms missing admin assertion ──────────
 
     public function test_update_payment_terms_requires_admin(): void

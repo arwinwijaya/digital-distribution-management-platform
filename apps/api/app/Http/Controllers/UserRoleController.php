@@ -26,6 +26,11 @@ class UserRoleController extends Controller
     }
 
     /**
+     * Sortable columns allowlist (invalid values silently fall back to default).
+     */
+    private const SORT_ALLOWLIST = ['created_at', 'updated_at', 'name', 'email', 'role', 'id'];
+
+    /**
      * List users with optional role filter and cursor-limit pagination (limit+1).
      *
      * Query params:
@@ -34,6 +39,7 @@ class UserRoleController extends Controller
      *   - cursor: offset, default 0
      *
      * Default order: created_at DESC (nulls last) + id DESC tiebreak.
+     * Sort: sort/order against allowlist, invalid values fall back to default.
      * Response contract: { status, data: [], meta: { has_more, limit, cursor, total } }
      */
     public function index(Request $request): JsonResponse
@@ -61,7 +67,7 @@ class UserRoleController extends Controller
 
         // limit+1 technique: fetch one extra row to determine has_more.
         $rows = $query
-            ->orderByRaw(ListQuery::rawOrder('created_at', 'desc'))
+            ->orderByRaw(ListQuery::rawOrder(...$this->resolveSort($request)))
             ->limit($limit + 1)
             ->offset($cursor)
             ->get();
@@ -69,13 +75,30 @@ class UserRoleController extends Controller
         $hasMore = $rows->count() > $limit;
         $data = $hasMore ? $rows->take($limit)->values() : $rows->values();
 
-        $meta = array_merge(['has_more' => $hasMore], $meta);
-
         return response()->json([
             'status' => 'success',
             'data'   => $data,
-            'meta'   => $meta,
+            'meta'   => array_merge(['has_more' => $hasMore], $meta),
         ]);
+    }
+
+    /**
+     * Resolve [column, order] against the allowlist, silently falling back to
+     * created_at DESC for invalid/unsafe input. Reads are scalar-safe: array
+     * params (e.g. ?sort[]=x) fall back to the default instead of raising an
+     * "Array to string conversion" 500.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function resolveSort(Request $request): array
+    {
+        return ListQuery::resolveSort(
+            self::SORT_ALLOWLIST,
+            $this->scalarQueryString($request, 'sort', ''),
+            $this->scalarQueryString($request, 'order', 'desc'),
+            'created_at',
+            'desc',
+        );
     }
 
     /**

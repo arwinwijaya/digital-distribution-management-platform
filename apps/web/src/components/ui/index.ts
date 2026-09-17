@@ -10,3 +10,4 @@ export { default as Modal } from './Modal';
 export { default as PageHeader } from './PageHeader';
 export { default as EmptyState } from './EmptyState';
 export { default as Table } from './Table';
+export type { ColumnSort, TableDensity } from '@/lib/admin-table';

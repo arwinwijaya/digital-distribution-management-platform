@@ -1,5 +1,5 @@
 import { KeyboardEvent, ReactNode } from 'react';
-import type { ColumnSort } from '@/lib/admin-table';
+import type { ColumnSort, TableDensity } from '@/lib/admin-table';
 
 type Column<T> = {
   key: string;
@@ -19,6 +19,18 @@ type Props<T> = {
   sort?: ColumnSort;
   /** Called with the clicked column key; ignored for non-sortable columns. */
   onSort?: (column: string) => void;
+  /** Row density bucket; defaults to `default` (the legacy padding). */
+  density?: TableDensity;
+};
+
+/**
+ * Density -> padding classes. `default` MUST stay byte-identical to the legacy
+ * markup so the 6 not-yet-migrated admin pages render unchanged.
+ */
+const DENSITY_PADDING: Record<TableDensity, { th: string; td: string }> = {
+  compact: { th: 'px-5 py-2', td: 'px-5 py-2' },
+  default: { th: 'px-5 py-3', td: 'px-5 py-3.5' },
+  comfortable: { th: 'px-5 py-4', td: 'px-5 py-5' },
 };
 
 /** Map the canonical `SortOrder` to the exact `aria-sort` token. */
@@ -37,8 +49,10 @@ function SortIndicator({ ariaSort }: { ariaSort: 'ascending' | 'descending' | 'n
   );
 }
 
-export default function Table<T>({ columns, rows, rowKey, empty, sortableColumns, sort, onSort }: Props<T>) {
+export default function Table<T>({ columns, rows, rowKey, empty, sortableColumns, sort, onSort, density = 'default' }: Props<T>) {
   if (rows.length === 0) return <>{empty ?? <div className="p-8 text-center text-sm text-gray-500">Belum ada data.</div>}</>;
+
+  const padding = DENSITY_PADDING[density] ?? DENSITY_PADDING.default;
 
   const handleHeaderKeyDown = (event: KeyboardEvent<HTMLTableCellElement>, columnKey: string) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -61,7 +75,7 @@ export default function Table<T>({ columns, rows, rowKey, empty, sortableColumns
                   tabIndex={sortable ? 0 : undefined}
                   onClick={sortable ? () => onSort?.(column.key) : undefined}
                   onKeyDown={sortable ? (event) => handleHeaderKeyDown(event, column.key) : undefined}
-                  className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 ${sortable ? 'cursor-pointer select-none hover:text-gray-700' : ''} ${column.className ?? ''}`}
+                  className={`${padding.th} text-xs font-semibold uppercase tracking-wide text-gray-500 ${sortable ? 'cursor-pointer select-none hover:text-gray-700' : ''} ${column.className ?? ''}`}
                 >
                   {column.header}
                   {headerSort ? <SortIndicator ariaSort={headerSort} /> : null}
@@ -73,7 +87,7 @@ export default function Table<T>({ columns, rows, rowKey, empty, sortableColumns
         <tbody className="divide-y divide-gray-100 bg-white">
           {rows.map((row) => (
             <tr key={rowKey(row)} className="transition-colors hover:bg-gray-50/70">
-              {columns.map((column) => <td key={column.key} className={`px-5 py-3.5 text-gray-700 ${column.className ?? ''}`}>{column.render(row)}</td>)}
+              {columns.map((column) => <td key={column.key} className={`${padding.td} text-gray-700 ${column.className ?? ''}`}>{column.render(row)}</td>)}
             </tr>
           ))}
         </tbody>

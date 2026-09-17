@@ -183,3 +183,61 @@ describe('Cycle 1 — sortable headers, aria-sort and inert columns', () => {
     expect(container).toBeDefined();
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Cycle 2 — density prop changes padding                              */
+/* ------------------------------------------------------------------ */
+
+/** Extract the numeric vertical padding (the `py-*` token) from a cell class. */
+function paddingY(element: HTMLElement): number {
+  const match = /py-(\d+(?:\.\d+)?)/.exec(element.className);
+  return match ? Number.parseFloat(match[1]) : Number.NaN;
+}
+
+describe('Cycle 2 — density prop changes padding', () => {
+  it('keeps the legacy default padding when no density prop is supplied', () => {
+    render(<Table columns={columns} rows={rows} rowKey={rowKey} />);
+
+    const th = screen.getAllByRole('columnheader')[0];
+    const td = screen.getAllByRole('cell')[0];
+    expect(th).toHaveClass('py-3');
+    expect(td).toHaveClass('py-3.5');
+  });
+
+  it('shrinks th/td padding below the default for density="compact"', () => {
+    render(<Table columns={columns} rows={rows} rowKey={rowKey} density="compact" />);
+
+    const th = screen.getAllByRole('columnheader')[0];
+    const td = screen.getAllByRole('cell')[0];
+    expect(th).toHaveClass('py-2');
+    expect(td).toHaveClass('py-2');
+    expect(paddingY(th)).toBeLessThan(3);
+    expect(paddingY(td)).toBeLessThan(3.5);
+  });
+
+  it('grows th/td padding above the default for density="comfortable"', () => {
+    render(<Table columns={columns} rows={rows} rowKey={rowKey} density="comfortable" />);
+
+    const th = screen.getAllByRole('columnheader')[0];
+    const td = screen.getAllByRole('cell')[0];
+    expect(th).toHaveClass('py-4');
+    expect(td).toHaveClass('py-5');
+    expect(paddingY(th)).toBeGreaterThan(3);
+    expect(paddingY(td)).toBeGreaterThan(3.5);
+  });
+
+  it('renders an explicit density="default" identically to the no-prop bucket', () => {
+    const { container: omitted } = render(<Table columns={columns} rows={rows} rowKey={rowKey} />);
+    const omittedTh = omitted.querySelector('th')?.className ?? '';
+    const omittedTd = omitted.querySelector('td')?.className ?? '';
+
+    const { container: explicit } = render(
+      <Table columns={columns} rows={rows} rowKey={rowKey} density="default" />,
+    );
+    const explicitTh = explicit.querySelector('th')?.className ?? '';
+    const explicitTd = explicit.querySelector('td')?.className ?? '';
+
+    expect(explicitTh).toBe(omittedTh);
+    expect(explicitTd).toBe(omittedTd);
+  });
+});

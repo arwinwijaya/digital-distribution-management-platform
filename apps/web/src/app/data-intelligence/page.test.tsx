@@ -183,6 +183,16 @@ describe('admin page consumes shared API contract', () => {
     expect(screen.getByText(/Jakarta Selatan/)).toBeInTheDocument();
     expect(screen.getByText(/Unassigned/)).toBeInTheDocument();
 
+    // Money is rendered as id-ID Rupiah, not the raw fixed-2-decimal string
+    expect(screen.getByText('Rp 150.000')).toBeInTheDocument();
+    expect(screen.queryByText('150000.00')).not.toBeInTheDocument();
+
+    // The shared Table renders real <th> headers and right-aligns numbers
+    const territoryTable = screen.getByTestId('territory-table');
+    expect(within(territoryTable).getByRole('columnheader', { name: 'Wilayah' })).toBeInTheDocument();
+    expect(within(territoryTable).getByRole('columnheader', { name: 'Penjualan' })).toHaveClass('text-right');
+    expect(within(territoryTable).getByRole('columnheader', { name: 'Outlet' })).toHaveClass('text-right');
+
     // Supplier coverage/status from shared contract
     expect(screen.getByText(/Supplier A/)).toBeInTheDocument();
     expect(screen.getByText(/0\.85/)).toBeInTheDocument();

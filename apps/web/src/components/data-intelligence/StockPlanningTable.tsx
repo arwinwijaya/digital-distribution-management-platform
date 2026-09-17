@@ -1,50 +1,85 @@
-interface StockItem {
-  product_id: number;
-  product_name?: string;
-  sku: string;
-  status: string;
-  available_stock: number;
-  average_daily_demand: number;
-  reorder_quantity?: number;
-  suggested_reorder_quantity?: number | null;
-}
+import { EmptyState, StatusBadge, Table } from '@/components/ui';
+import { formatCount, formatDecimal } from '@/lib/format';
+import type { StockPlanRecord } from '@/lib/data-intelligence-api';
 
 interface Props {
-  items: StockItem[];
+  items: StockPlanRecord[];
   loading?: boolean;
 }
 
 export default function StockPlanningTable({ items, loading }: Props) {
-  if (loading) return <p className="text-sm text-gray-500">Memuat...</p>;
+  if (loading) return <p className="py-6 text-center text-sm text-gray-500">Memuat…</p>;
   if (!items.length) {
-    return <p data-testid="empty-stock" className="py-6 text-center text-sm text-gray-400">Belum ada data stok.</p>;
+    return (
+      <p data-testid="empty-stock" className="py-6 text-center text-sm text-gray-400">
+        Belum ada data stok.
+      </p>
+    );
   }
+
+  const columns = [
+    {
+      key: 'product',
+      header: 'Produk',
+      render: (item: StockPlanRecord) => (
+        <span className="font-medium text-gray-900">{item.product_name ?? item.sku}</span>
+      ),
+    },
+    {
+      key: 'sku',
+      header: 'SKU',
+      render: (item: StockPlanRecord) => <span className="font-mono text-xs text-gray-500">{item.sku}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: StockPlanRecord) => <StatusBadge status={item.status} />,
+    },
+    {
+      key: 'available',
+      header: 'Stok',
+      className: 'text-right',
+      render: (item: StockPlanRecord) => (
+        <span className="tabular-nums text-gray-700">{formatCount(item.available_stock)}</span>
+      ),
+    },
+    {
+      key: 'demand',
+      header: 'Permintaan / hari',
+      className: 'text-right',
+      render: (item: StockPlanRecord) => (
+        <span className="tabular-nums text-gray-700">{formatDecimal(item.average_daily_demand)}</span>
+      ),
+    },
+    {
+      key: 'reorder',
+      header: 'Reorder',
+      className: 'text-right',
+      render: (item: StockPlanRecord) => {
+        const quantity = item.reorder_quantity ?? 0;
+        return quantity > 0 ? (
+          <span className="font-medium tabular-nums text-primary-700">{formatCount(quantity)}</span>
+        ) : (
+          <span className="tabular-nums text-gray-400">0</span>
+        );
+      },
+    },
+  ];
+
   return (
-    <div className="overflow-x-auto" data-testid="stock-table">
-      <table className="w-full text-sm">
-        <thead>
-          <tr>
-            <th className="px-3 py-2 text-left">Produk</th>
-            <th className="px-3 py-2 text-left">SKU</th>
-            <th className="px-3 py-2 text-center">Status</th>
-            <th className="px-3 py-2 text-right">Stok</th>
-            <th className="px-3 py-2 text-right">Permintaan / hari</th>
-            <th className="px-3 py-2 text-right">Reorder</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((p) => (
-            <tr key={p.product_id}>
-              <td className="px-3 py-2">{p.product_name ?? p.sku}</td>
-              <td className="px-3 py-2">{p.sku}</td>
-              <td className="px-3 py-2 text-center">{p.status}</td>
-              <td className="px-3 py-2 text-right">{p.available_stock}</td>
-              <td className="px-3 py-2 text-right">{p.average_daily_demand}</td>
-              <td className="px-3 py-2 text-right">{p.suggested_reorder_quantity ?? p.reorder_quantity ?? 0}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div data-testid="stock-table">
+      <Table
+        columns={columns}
+        rows={items}
+        rowKey={(item) => item.product_id}
+        empty={
+          <EmptyState
+            icon={<span>📦</span>}
+            title="Belum ada data stok"
+            description="Rencana stok akan muncul setelah snapshot tersedia."
+          />
+        }
+      />
     </div>
   );
 }

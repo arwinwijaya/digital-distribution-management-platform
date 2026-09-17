@@ -119,7 +119,10 @@ export default function DataIntelligencePage() {
 
       <div className="space-y-4">
         <Card className="p-5">
-          <h3 className="mb-3 text-base font-semibold text-gray-900">Wilayah</h3>
+          <div className="mb-3">
+            <h3 className="text-base font-semibold text-gray-900">Wilayah</h3>
+            <p className="mt-0.5 text-xs text-gray-500">Sebaran outlet dan penjualan per wilayah.</p>
+          </div>
           <GeoMap points={snapshot.geographic?.map_points ?? []} />
           <div className="mt-4">
             <TerritoryTable territories={snapshot.geographic?.table ?? []} loading={loading} />
@@ -127,17 +130,26 @@ export default function DataIntelligencePage() {
         </Card>
 
         <Card className="p-5">
-          <h3 className="mb-3 text-base font-semibold text-gray-900">Kinerja Supplier</h3>
+          <div className="mb-3">
+            <h3 className="text-base font-semibold text-gray-900">Kinerja Supplier</h3>
+            <p className="mt-0.5 text-xs text-gray-500">Tingkat pemenuhan, ketepatan waktu, dan kelengkapan katalog supplier.</p>
+          </div>
           <SupplierPerformanceTable suppliers={snapshot.suppliers?.suppliers ?? []} loading={loading} />
         </Card>
 
         <Card className="p-5">
-          <h3 className="mb-3 text-base font-semibold text-gray-900">Perencanaan Stok</h3>
+          <div className="mb-3">
+            <h3 className="text-base font-semibold text-gray-900">Perencanaan Stok</h3>
+            <p className="mt-0.5 text-xs text-gray-500">Sinyal reorder dan proyeksi permintaan harian per produk.</p>
+          </div>
           <StockPlanningTable items={snapshot.stock?.items ?? []} loading={loading} />
         </Card>
 
         <Card className="p-5">
-          <h3 className="mb-3 text-base font-semibold text-gray-900">Pengukuran</h3>
+          <div className="mb-3">
+            <h3 className="text-base font-semibold text-gray-900">Pengukuran</h3>
+            <p className="mt-0.5 text-xs text-gray-500">Funnel rekomendasi dan akurasi prakiraan.</p>
+          </div>
           <MeasurementCards
             funnel={snapshot.recommendationFunnel?.funnel ?? []}
             forecast={

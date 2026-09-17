@@ -3,7 +3,7 @@
  *
  * Cycle 1: sort allowlist mirror + normalizeSort.
  */
-import { SORT_ALLOWLISTS, normalizeSort, compareRows, paginate, formatDateTime, buildCountLabel } from '@/lib/admin-table';
+import { SORT_ALLOWLISTS, normalizeSort, compareRows, paginate, formatDateTime, buildCountLabel, toggleSort } from '@/lib/admin-table';
 
 describe('SORT_ALLOWLISTS (mirror of backend controller allowlists)', () => {
   it('exposes an allowlist for all 6 admin pages', () => {
@@ -157,5 +157,28 @@ describe('buildCountLabel', () => {
     const label = buildCountLabel({ total: undefined, cursor: 15, limit: 15, hasMore: true });
     expect(label).toBe('Halaman 2 · ada data lain');
     expect(label).not.toContain('dari');
+  });
+});
+
+describe('toggleSort (single source of sort direction logic)', () => {
+  it('flips direction when the same column is clicked again (desc → asc)', () => {
+    expect(toggleSort({ column: 'name', order: 'desc' }, 'name')).toEqual({
+      column: 'name',
+      order: 'asc',
+    });
+  });
+
+  it('flips direction when the same column is clicked again (asc → desc)', () => {
+    expect(toggleSort({ column: 'name', order: 'asc' }, 'name')).toEqual({
+      column: 'name',
+      order: 'desc',
+    });
+  });
+
+  it('starts a new column at desc', () => {
+    expect(toggleSort({ column: 'created_at', order: 'desc' }, 'email')).toEqual({
+      column: 'email',
+      order: 'desc',
+    });
   });
 });

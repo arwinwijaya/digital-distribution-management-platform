@@ -173,3 +173,21 @@ export function buildCountLabel({ total, cursor, limit, hasMore }: CountLabelInp
 
   return `Halaman ${page}`;
 }
+
+/** Component-level sort state (`column` naming) used by `Table` header toggling. */
+export interface ColumnSort {
+  column: string;
+  order: SortOrder;
+}
+
+/**
+ * The SINGLE source of sort-direction logic for table headers: clicking the
+ * active column flips its order (desc → asc → desc); clicking a different
+ * column starts it at `desc` (newest-first default).
+ */
+export function toggleSort(current: ColumnSort, column: string): ColumnSort {
+  if (current.column === column) {
+    return { column, order: current.order === 'asc' ? 'desc' : 'asc' };
+  }
+  return { column, order: 'desc' };
+}

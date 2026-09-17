@@ -2,8 +2,22 @@
 
 namespace App\Support;
 
+use Illuminate\Http\Request;
+
 class ListQuery
 {
+    /**
+     * Read a query param as a string, returning the default for array/missing
+     * input. Guards against `?sort[]=x` which would otherwise raise
+     * "Array to string conversion" and yield HTTP 500.
+     */
+    public static function scalarString(Request $request, string $key, string $default): string
+    {
+        $value = $request->query($key, $default);
+
+        return is_string($value) ? $value : $default;
+    }
+
     /**
      * Resolve a sort column/order against an allowlist, with safe fallbacks.
      *

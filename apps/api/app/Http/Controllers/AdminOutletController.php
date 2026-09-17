@@ -37,15 +37,15 @@ class AdminOutletController extends Controller
 
         // Cursor-limit pagination
         $limit = min(max((int) $request->query('limit', 15), 1), 100);
-        $cursor = max((int) $request->query('cursor', 0), 0);
+        $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
 
         // Sort allowlist with silent fallback to created_at DESC for invalid input.
         // Reads must be scalar-safe: array params (e.g. ?sort[]=x) fall back to
         // the default instead of raising an "Array to string conversion" 500.
         [$sortColumn, $sortOrder] = ListQuery::resolveSort(
             self::SORT_ALLOWLIST,
-            $this->scalarQueryString($request, 'sort', ''),
-            $this->scalarQueryString($request, 'order', 'desc'),
+            ListQuery::scalarString($request, 'sort', ''),
+            ListQuery::scalarString($request, 'order', 'desc'),
             'created_at',
             'desc',
         );
@@ -107,18 +107,6 @@ class AdminOutletController extends Controller
         }
 
         return $query;
-    }
-
-    /**
-     * Read a query param only when it is a scalar string, otherwise return the
-     * default. Guards against array input (`?sort[]=x`) which would otherwise
-     * raise an "Array to string conversion" error and yield HTTP 500.
-     */
-    private function scalarQueryString(Request $request, string $key, string $default): string
-    {
-        $value = $request->query($key, $default);
-
-        return is_string($value) ? $value : $default;
     }
 
     /**

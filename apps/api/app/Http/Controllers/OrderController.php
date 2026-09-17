@@ -78,7 +78,7 @@ class OrderController extends Controller
         // Keep the legacy array response while enforcing a server-side bound.
         // Callers can request fewer rows, but never an unbounded order history.
         $limit = min(max((int) $request->query('limit', 100), 1), 100);
-        $cursor = max((int) $this->scalarQueryString($request, 'cursor', '0'), 0);
+        $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
 
         $query = Order::query()->with(['items.product']);
 
@@ -87,8 +87,8 @@ class OrderController extends Controller
         // default instead of raising an "Array to string conversion" 500.
         [$sortColumn, $sortOrder] = ListQuery::resolveSort(
             self::SORT_ALLOWLIST,
-            $this->scalarQueryString($request, 'sort', ''),
-            $this->scalarQueryString($request, 'order', 'desc'),
+            ListQuery::scalarString($request, 'sort', ''),
+            ListQuery::scalarString($request, 'order', 'desc'),
             'created_at',
             'desc',
         );
@@ -116,18 +116,6 @@ class OrderController extends Controller
             'data' => $orders,
             'meta' => array_merge(['has_more' => $hasMore], $meta),
         ]);
-    }
-
-    /**
-     * Read a query param only when it is a scalar string, otherwise return the
-     * default. Guards against array input (`?cursor[]=x`) which would otherwise
-     * raise an "Array to string conversion" error and yield HTTP 500.
-     */
-    private function scalarQueryString(Request $request, string $key, string $default): string
-    {
-        $value = $request->query($key, $default);
-
-        return is_string($value) ? $value : $default;
     }
 
     /**

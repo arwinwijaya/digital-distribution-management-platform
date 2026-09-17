@@ -32,7 +32,7 @@ class ProductController extends Controller
         $query = $this->applyCatalogFilters(Product::query(), $request);
 
         $limit = $this->resolveLimit($request);
-        $cursor = max((int) $this->scalarQueryString($request, 'cursor', '0'), 0);
+        $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
 
         // Aggregate total derives from the SAME filtered builder (before limit/offset/order).
         $meta = [
@@ -84,7 +84,7 @@ class ProductController extends Controller
             return self::DEFAULT_LIMIT;
         }
 
-        $limit = (int) $this->scalarQueryString($request, 'limit', (string) self::DEFAULT_LIMIT);
+        $limit = (int) ListQuery::scalarString($request, 'limit', (string) self::DEFAULT_LIMIT);
 
         return min(max($limit, 1), self::DEFAULT_LIMIT);
     }
@@ -100,22 +100,11 @@ class ProductController extends Controller
     {
         return ListQuery::resolveSort(
             self::SORT_ALLOWLIST,
-            $this->scalarQueryString($request, 'sort', ''),
-            $this->scalarQueryString($request, 'order', 'asc'),
+            ListQuery::scalarString($request, 'sort', ''),
+            ListQuery::scalarString($request, 'order', 'asc'),
             'id',
             'asc',
         );
     }
 
-    /**
-     * Read a query param only when it is a scalar string, otherwise return the
-     * default. Guards against array input (`?sort[]=x`, `?cursor[]=x`) which
-     * would otherwise raise an "Array to string conversion" error and 500.
-     */
-    private function scalarQueryString(Request $request, string $key, string $default): string
-    {
-        $value = $request->query($key, $default);
-
-        return is_string($value) ? $value : $default;
-    }
 }

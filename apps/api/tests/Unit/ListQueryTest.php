@@ -93,4 +93,22 @@ class ListQueryTest extends TestCase
             ListQuery::resolveSort(['created_at', 'name', 'id'], '__proto__', 'desc')
         );
     }
+
+    public function test_scalar_string_returns_value_for_scalar_input(): void
+    {
+        $request = \Illuminate\Http\Request::create('/?cursor=15');
+        $this->assertSame('15', ListQuery::scalarString($request, 'cursor', '0'));
+    }
+
+    public function test_scalar_string_returns_default_for_array_input(): void
+    {
+        $request = \Illuminate\Http\Request::create('/?cursor[]=x');
+        $this->assertSame('0', ListQuery::scalarString($request, 'cursor', '0'));
+    }
+
+    public function test_scalar_string_returns_default_when_absent(): void
+    {
+        $request = \Illuminate\Http\Request::create('/');
+        $this->assertSame('0', ListQuery::scalarString($request, 'cursor', '0'));
+    }
 }

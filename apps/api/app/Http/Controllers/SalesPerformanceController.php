@@ -81,7 +81,7 @@ class SalesPerformanceController extends Controller
         $period = $this->resolvePeriod($request);
 
         $limit  = min(max((int) $request->integer('limit', 100), 1), 100);
-        $cursor = max((int) $this->scalarQueryString($request, 'cursor', '0'), 0);
+        $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
 
         $query = User::where('role', 'sales');
 
@@ -139,23 +139,11 @@ class SalesPerformanceController extends Controller
     {
         return ListQuery::resolveSort(
             self::SORT_ALLOWLIST,
-            $this->scalarQueryString($request, 'sort', ''),
-            $this->scalarQueryString($request, 'order', 'asc'),
+            ListQuery::scalarString($request, 'sort', ''),
+            ListQuery::scalarString($request, 'order', 'asc'),
             'name',
             'asc',
         );
-    }
-
-    /**
-     * Read a query param only when it is a scalar string, otherwise return the
-     * default. Guards against array input (`?cursor[]=x`) which would otherwise
-     * raise an "Array to string conversion" error and yield HTTP 500.
-     */
-    private function scalarQueryString(Request $request, string $key, string $default): string
-    {
-        $value = $request->query($key, $default);
-
-        return is_string($value) ? $value : $default;
     }
 
     /**

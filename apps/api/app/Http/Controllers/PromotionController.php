@@ -38,7 +38,7 @@ class PromotionController extends Controller
         $this->assertAdminOrOwner($request);
 
         $limit = min(max((int) $request->query('limit', 15), 1), 100);
-        $cursor = max((int) $this->scalarQueryString($request, 'cursor', '0'), 0);
+        $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
         $now = Carbon::now();
 
         // Aggregates derive from the SAME base query (before limit/offset).
@@ -73,8 +73,8 @@ class PromotionController extends Controller
     {
         return ListQuery::resolveSort(
             self::SORT_ALLOWLIST,
-            $this->scalarQueryString($request, 'sort', ''),
-            $this->scalarQueryString($request, 'order', 'desc'),
+            ListQuery::scalarString($request, 'sort', ''),
+            ListQuery::scalarString($request, 'order', 'desc'),
             'created_at',
             'desc',
         );
@@ -104,18 +104,6 @@ class PromotionController extends Controller
             'scheduled' => $scheduled,
             'ended' => $ended,
         ]);
-    }
-
-    /**
-     * Read a query param only when it is a scalar string, otherwise return the
-     * default. Guards against array input (`?cursor[]=x`) which would otherwise
-     * raise an "Array to string conversion" error and yield HTTP 500.
-     */
-    private function scalarQueryString(Request $request, string $key, string $default): string
-    {
-        $value = $request->query($key, $default);
-
-        return is_string($value) ? $value : $default;
     }
 
     public function show(Request $request, int $id): JsonResponse

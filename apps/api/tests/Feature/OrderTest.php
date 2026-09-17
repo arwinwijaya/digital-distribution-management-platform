@@ -726,6 +726,68 @@ class OrderTest extends TestCase
             ->assertStatus(403);
     }
 
+    /**
+     * GWT: Given orders with different statuses, When GET /admin/orders?sort=status&order=asc,
+     * Then data is ordered by status ascending.
+     */
+    public function test_admin_orders_list_sorts_by_status_ascending(): void
+    {
+        $token = $this->loginAsAdmin();
+        // created_at DESC (default) = New, Confirmed, Cancelled — the opposite of
+        // status ASC, so this only passes when the sort param is honoured.
+        $this->createOrderAt('ORD-SORT-NEW', '2026-01-03 08:00:00', ['status' => 'New']);
+        $this->createOrderAt('ORD-SORT-CONFIRMED', '2026-01-02 08:00:00', ['status' => 'Confirmed']);
+        $this->createOrderAt('ORD-SORT-CANCELLED', '2026-01-01 08:00:00', ['status' => 'Cancelled']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/orders?sort=status&order=asc');
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.status', 'Cancelled')
+            ->assertJsonPath('data.1.status', 'Confirmed')
+            ->assertJsonPath('data.2.status', 'New')
+            ->assertJsonPath('meta.total', 3);
+    }
+
+    /**
+     * GWT: Given an invalid sort column, When GET /admin/orders?sort=__proto__&order=desc,
+     * Then HTTP 200 with the default newest-first order (never 422/500).
+     */
+    public function test_admin_orders_list_silently_falls_back_for_invalid_sort(): void
+    {
+        $token = $this->loginAsAdmin();
+        $this->createOrderAt('ORD-FALLBACK-OLDER', '2026-01-01 08:00:00');
+        $this->createOrderAt('ORD-FALLBACK-NEWER', '2026-03-01 08:00:00');
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/orders?sort=__proto__&order=desc');
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.order_id', 'ORD-FALLBACK-NEWER')
+            ->assertJsonPath('data.1.order_id', 'ORD-FALLBACK-OLDER')
+            ->assertJsonPath('meta.total', 2);
+    }
+
+    /**
+     * GWT: Given non-scalar (array) sort/order/cursor params, When GET /admin/orders,
+     * Then HTTP 200 with the default newest-first order (never a 500).
+     */
+    public function test_admin_orders_list_handles_non_scalar_params_without_error(): void
+    {
+        $token = $this->loginAsAdmin();
+        $this->createOrderAt('ORD-ARRAY-OLDER', '2026-01-01 08:00:00');
+        $this->createOrderAt('ORD-ARRAY-NEWER', '2026-03-01 08:00:00');
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/orders?sort[]=x&order[]=y&cursor[]=z');
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.order_id', 'ORD-ARRAY-NEWER')
+            ->assertJsonPath('data.1.order_id', 'ORD-ARRAY-OLDER')
+            ->assertJsonPath('meta.cursor', 0)
+            ->assertJsonPath('meta.total', 2);
+    }
+
     private function loginAsAdmin(): string
     {
         $admin = User::factory()->admin()->create([

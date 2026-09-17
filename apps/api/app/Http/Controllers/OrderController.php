@@ -19,6 +19,11 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    /**
+     * Sortable columns allowlist (invalid values silently fall back to default).
+     */
+    private const SORT_ALLOWLIST = ['created_at', 'updated_at', 'order_id', 'status', 'total_amount', 'id'];
+
     public function __construct(
         private readonly OrderCreationService $orderCreationService,
         private readonly WhatsAppService $whatsappService,
@@ -77,6 +82,17 @@ class OrderController extends Controller
 
         $query = Order::query()->with(['items.product']);
 
+        // Sort allowlist with silent fallback to created_at DESC for invalid input.
+        // Reads are scalar-safe: array params (e.g. ?sort[]=x) fall back to the
+        // default instead of raising an "Array to string conversion" 500.
+        [$sortColumn, $sortOrder] = ListQuery::resolveSort(
+            self::SORT_ALLOWLIST,
+            $this->scalarQueryString($request, 'sort', ''),
+            $this->scalarQueryString($request, 'order', 'desc'),
+            'created_at',
+            'desc',
+        );
+
         // Aggregate total derives from the SAME unfiltered builder (before
         // limit/offset/order) — never count the paginated rows.
         $meta = array_merge(
@@ -86,7 +102,7 @@ class OrderController extends Controller
 
         // limit+1 technique: fetch one extra row to determine has_more.
         $orders = $query
-            ->orderByRaw(ListQuery::rawOrder('created_at', 'desc'))
+            ->orderByRaw(ListQuery::rawOrder($sortColumn, $sortOrder))
             ->limit($limit + 1)
             ->offset($cursor)
             ->get();

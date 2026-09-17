@@ -10,4 +10,8 @@ export { default as Modal } from './Modal';
 export { default as PageHeader } from './PageHeader';
 export { default as EmptyState } from './EmptyState';
 export { default as Table } from './Table';
+export { default as TablePagination } from './TablePagination';
+export { default as TableSummary } from './TableSummary';
+export { default as TableDensityToggle } from './TableDensityToggle';
+export { useTableDensity } from '@/hooks/useTableDensity';
 export type { ColumnSort, TableDensity } from '@/lib/admin-table';

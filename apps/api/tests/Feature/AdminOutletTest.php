@@ -196,6 +196,72 @@ class AdminOutletTest extends TestCase
     }
 
     /**
+     * GWT: Given an invalid sort param, When GET /admin/outlets, Then HTTP 200 with
+     * the default newest-first order (never 422/500).
+     */
+    public function test_admin_list_silently_falls_back_for_invalid_sort(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        Outlet::factory()->create(['name' => 'Older', 'created_at' => '2026-01-01 08:00:00']);
+        Outlet::factory()->create(['name' => 'Newer', 'created_at' => '2026-03-01 08:00:00']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?sort=__proto__&order=desc');
+
+        $response->assertOk()
+            ->assertJsonPath('data.data.0.name', 'Newer')
+            ->assertJsonPath('data.data.1.name', 'Older');
+    }
+
+    /**
+     * GWT: Given sort=name&order=asc, When GET /admin/outlets, Then outlets sorted by name asc.
+     */
+    public function test_admin_list_sorts_by_name_ascending(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        Outlet::factory()->create(['name' => 'Zebra Store']);
+        Outlet::factory()->create(['name' => 'Alpha Store']);
+        Outlet::factory()->create(['name' => 'Mango Store']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?sort=name&order=asc');
+
+        $response->assertOk()
+            ->assertJsonPath('data.data.0.name', 'Alpha Store')
+            ->assertJsonPath('data.data.1.name', 'Mango Store')
+            ->assertJsonPath('data.data.2.name', 'Zebra Store');
+    }
+
+    /**
+     * GWT: Given an outlet with null created_at, When sorting by created_at asc or desc,
+     * Then the null row is always last.
+     */
+    public function test_admin_list_places_null_created_at_rows_last_in_both_directions(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        Outlet::factory()->create(['name' => 'Dated Older', 'created_at' => '2026-01-01 08:00:00']);
+        Outlet::factory()->create(['name' => 'Dated Newer', 'created_at' => '2026-03-01 08:00:00']);
+        Outlet::factory()->create(['name' => 'Undated', 'created_at' => null]);
+
+        $desc = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?sort=created_at&order=desc');
+        $desc->assertOk()
+            ->assertJsonPath('data.data.0.name', 'Dated Newer')
+            ->assertJsonPath('data.data.1.name', 'Dated Older')
+            ->assertJsonPath('data.data.2.name', 'Undated');
+
+        $asc = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?sort=created_at&order=asc');
+        $asc->assertOk()
+            ->assertJsonPath('data.data.0.name', 'Dated Older')
+            ->assertJsonPath('data.data.1.name', 'Dated Newer')
+            ->assertJsonPath('data.data.2.name', 'Undated');
+    }
+
+    /**
      * GWT: Given outlet user, When calling GET /admin/outlets, Then 403
      */
     public function test_non_admin_cannot_list_outlets(): void

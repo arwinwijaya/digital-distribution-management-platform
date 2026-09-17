@@ -17,10 +17,16 @@ class AdminOutletController extends Controller
     }
 
     /**
+     * Sortable columns allowlist (invalid values silently fall back to default).
+     */
+    private const SORT_ALLOWLIST = ['created_at', 'updated_at', 'name', 'id', 'category', 'score'];
+
+    /**
      * Admin outlet listing with filters and cursor-limit pagination (limit+1).
      *
      * Filters: category, territory_id, is_active, search (by name)
      * Pagination: limit (default 15, max 100), cursor (offset)
+     * Sort: sort/order against allowlist, default created_at DESC (nulls last) + id DESC
      */
     public function index(Request $request): JsonResponse
     {
@@ -61,8 +67,17 @@ class AdminOutletController extends Controller
         $active = (clone $query)->where('is_active', true)->count();
         $inactive = (clone $query)->where('is_active', false)->count();
 
+        // Sort allowlist with silent fallback to created_at DESC for invalid input.
+        [$sortColumn, $sortOrder] = ListQuery::resolveSort(
+            self::SORT_ALLOWLIST,
+            (string) $request->query('sort', ''),
+            (string) $request->query('order', 'desc'),
+            'created_at',
+            'desc',
+        );
+
         $rows = $query
-            ->orderByRaw(ListQuery::rawOrder('created_at', 'desc'))
+            ->orderByRaw(ListQuery::rawOrder($sortColumn, $sortOrder))
             ->limit($limit + 1)
             ->offset($cursor)
             ->get();

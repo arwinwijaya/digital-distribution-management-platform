@@ -220,4 +220,111 @@ describe('admin products page', () => {
       expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
     });
   });
+
+  // ── Cycle 2: sort header click + search reset cursor + paging ────────────
+  describe('sort header click + reset cursor + paging', () => {
+    const pagedResponse = () => listResponse({ total: 100, outOfStock: 3, hasMore: true });
+
+    beforeEach(() => {
+      fetchMock.mockImplementation(async (url: unknown, options?: { method?: string }) => {
+        const urlString = String(url);
+        if (urlString.includes('/admin/products/') && urlString.includes('/prices')) return jsonResponse(historyResponse);
+        if (urlString.includes('/admin/products') && (options?.method === 'PATCH' || options?.method === 'patch')) return jsonResponse(updateResponse);
+        if (urlString.includes('/products')) return jsonResponse(pagedResponse());
+        return jsonResponse({});
+      });
+    });
+
+    it('clicking "Harga" sends sort=price&order=desc&cursor=0 then flips to order=asc', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Harga'));
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).toContain('sort=price');
+        expect(url).toContain('order=desc');
+        expect(url).toContain('cursor=0');
+      });
+
+      await waitFor(() => expect(screen.getByText('Harga')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Harga'));
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).toContain('sort=price');
+        expect(url).toContain('order=asc');
+        expect(url).toContain('cursor=0');
+      });
+    });
+
+    it('changing search while on page >1 resets cursor to 0', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      // Advance to page 2 (cursor=15).
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('cursor=15'));
+
+      const searchInput = screen.getByPlaceholderText('Nama atau SKU');
+      fireEvent.change(searchInput, { target: { value: 'Kopi' } });
+      fireEvent.click(screen.getByText('Cari'));
+
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).toContain('search=Kopi');
+        expect(url).toContain('cursor=0');
+      });
+    });
+
+    it('paging preserves the active sort and filter', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      const searchInput = screen.getByPlaceholderText('Nama atau SKU');
+      fireEvent.change(searchInput, { target: { value: 'Kopi' } });
+      fireEvent.click(screen.getByText('Cari'));
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('search=Kopi'));
+
+      await waitFor(() => expect(screen.getByText('Harga')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Harga'));
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('sort=price'));
+
+      await waitFor(() => expect(screen.getByText('Berikutnya')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).toContain('cursor=15');
+        expect(url).toContain('sort=price');
+        expect(url).toContain('search=Kopi');
+      });
+    });
+
+    it('marks the default created_at header aria-sort="descending" and leaves Aksi inert', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      const createdHeader = () => screen.getByText('Dibuat').closest('th') as HTMLTableCellElement;
+      expect(createdHeader()).toHaveAttribute('aria-sort', 'descending');
+
+      fireEvent.click(createdHeader());
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).toContain('sort=created_at');
+        expect(url).toContain('order=asc');
+        expect(url).toContain('cursor=0');
+      });
+      await waitFor(() => expect(createdHeader()).toHaveAttribute('aria-sort', 'ascending'));
+
+      const actionHeader = screen.getByText('Aksi').closest('th') as HTMLTableCellElement;
+      expect(actionHeader).not.toHaveAttribute('aria-sort');
+      const callsBefore = fetchMock.mock.calls.length;
+      fireEvent.click(actionHeader);
+      await act(async () => { await Promise.resolve(); });
+      expect(fetchMock.mock.calls.length).toBe(callsBefore);
+    });
+  });
 });

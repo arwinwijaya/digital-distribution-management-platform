@@ -5,8 +5,8 @@ import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminProducts, updateProductPrice, fetchPriceHistory, type AdminProduct, type PriceHistoryEntry } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Table, TableSummary } from '@/components/ui';
-import { formatDateTime, type ColumnSort } from '@/lib/admin-table';
+import { Button, Card, EmptyState, Input, PageHeader, Table, TableSummary, TablePagination } from '@/components/ui';
+import { toggleSort, formatDateTime, type ColumnSort } from '@/lib/admin-table';
 
 export default function AdminProductsPage() {
   const [token, setToken] = useState<string | null>(null);
@@ -24,6 +24,7 @@ export default function AdminProductsPage() {
   const [priceHistory, setPriceHistory] = useState<PriceHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   // Table state
+  const [hasMore, setHasMore] = useState(false);
   const [sort, setSort] = useState<ColumnSort>({ column: 'created_at', order: 'desc' });
   const [cursor, setCursor] = useState(0);
   const [total, setTotal] = useState<number>();
@@ -50,6 +51,7 @@ export default function AdminProductsPage() {
         order: nextSort.order,
       });
       setProducts(result.products);
+      setHasMore(result.hasMore);
       setCursor(nextCursor);
       if (result.total !== undefined) setTotal(result.total);
       if (result.summary) setTableSummary(result.summary);
@@ -166,9 +168,26 @@ export default function AdminProductsPage() {
               columns={columns}
               rows={products}
               rowKey={(p) => p.id}
+              sortableColumns={['name', 'sku', 'price', 'stock_quantity', 'created_at', 'updated_at']}
+              sort={sort}
+              onSort={(column) => {
+                const next = toggleSort(sortRef.current, column);
+                setSort(next);
+                if (token) void loadProducts(token, { resetCursor: true, sort: next });
+              }}
               empty={<EmptyState icon={<span>📦</span>} title="Belum ada produk" description="Produk akan muncul di sini." />}
             />
           )}
+          <TablePagination
+            cursor={cursor}
+            limit={15}
+            total={total}
+            hasMore={hasMore}
+            onPageChange={(nextCursor) => {
+              setCursor(nextCursor);
+              if (token) void loadProducts(token, { cursor: nextCursor });
+            }}
+          />
         </Card>
         <div className="space-y-5">
           {editingProduct && (

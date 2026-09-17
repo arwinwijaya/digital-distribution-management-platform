@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminOutlets, fetchOutletOrders, fetchOutletSummary, updateOutlet, type AdminOutlet, type OutletOrder, type OutletSummary } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Select, Table, TableSummary } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Select, Table, TableSummary, TablePagination } from '@/components/ui';
 import { useTableDensity } from '@/hooks/useTableDensity';
-import { formatDateTime, type ColumnSort } from '@/lib/admin-table';
+import { toggleSort, formatDateTime, type ColumnSort } from '@/lib/admin-table';
 
 const CATEGORY_OPTIONS = ['', 'warung', 'minimarket', 'supermarket', 'grosir', 'restoran', 'kafe', 'toko_kelontong', 'lainnya'] as const;
 
@@ -37,29 +37,41 @@ export default function AdminOutletsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   // Table state
   const [sort, setSort] = useState<ColumnSort>({ column: 'created_at', order: 'desc' });
+  const [cursor, setCursor] = useState(0);
   const [total, setTotal] = useState<number>();
   const [tableSummary, setTableSummary] = useState<{ active: number; inactive: number }>();
   const { density } = useTableDensity();
 
-  const loadOutlets = useCallback(async (authToken: string) => {
+  // Latest sort/cursor readable inside `loadOutlets` WITHOUT adding them to its
+  // dependency list (which would otherwise re-run the mount effect and reset the
+  // page on every sort/page change).
+  const sortRef = useRef(sort);
+  sortRef.current = sort;
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
+
+  const loadOutlets = useCallback(async (authToken: string, opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort }) => {
     setLoading(true); setError(null);
     try {
+      const nextSort = opts?.sort ?? sortRef.current;
+      const nextCursor = opts?.cursor ?? (opts?.resetCursor ? 0 : cursorRef.current);
       const result = await fetchAdminOutlets(authToken, {
         search: search || undefined,
         category: category || undefined,
         territory_id: territoryId || undefined,
         is_active: isActive || undefined,
         limit: 15,
-        cursor: 0,
-        sort: sort.column,
-        order: sort.order,
+        cursor: nextCursor,
+        sort: nextSort.column,
+        order: nextSort.order,
       });
       setOutlets(result.outlets);
       setHasMore(result.hasMore);
+      setCursor(nextCursor);
       if (result.total !== undefined) setTotal(result.total);
       if (result.summary) setTableSummary(result.summary);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Daftar outlet tidak dapat dimuat.'); } finally { setLoading(false); }
-  }, [search, category, territoryId, isActive, sort]);
+  }, [search, category, territoryId, isActive]);
 
   const loadOutletDetail = useCallback(async (authToken: string, outletId: number) => {
     setDetailLoading(true); setActionError(null);
@@ -71,10 +83,10 @@ export default function AdminOutletsPage() {
 
   useEffect(() => {
     const stored = getStoredToken(); setToken(stored); setReady(true);
-    if (stored) loadOutlets(stored);
+    if (stored) loadOutlets(stored, { resetCursor: true });
   }, [loadOutlets]);
 
-  useDummyRefresh(() => { if (token) void loadOutlets(token); });
+  useDummyRefresh(() => { if (token) void loadOutlets(token, { resetCursor: true }); });
 
   function startEdit(outlet: AdminOutlet) {
     setEditingOutlet(outlet); setEditName(outlet.name || ''); setEditCategory(outlet.category || 'lainnya'); setEditAddress(outlet.address || ''); setEditCity(outlet.city || ''); setEditDistrict(outlet.district || ''); setActionError(null); setActionSuccess(null);
@@ -159,7 +171,7 @@ export default function AdminOutletsPage() {
             <option value="true">Aktif</option>
             <option value="false">Nonaktif</option>
           </Select>
-          <div className="flex items-end"><Button onClick={() => token && loadOutlets(token)} disabled={loading} className="w-full">Terapkan filter</Button></div>
+          <div className="flex items-end"><Button onClick={() => token && loadOutlets(token, { resetCursor: true })} disabled={loading} className="w-full">Terapkan filter</Button></div>
         </div>
         {hasMore && <p className="mt-3 text-xs text-gray-500">Ada outlet lebih lanjut — sesuaikan filter jika diperlukan.</p>}
       </Card>
@@ -182,10 +194,24 @@ export default function AdminOutletsPage() {
               density={density}
               sortableColumns={['name', 'category', 'score', 'is_active']}
               sort={sort}
-              onSort={(column) => setSort({ column, order: 'desc' })}
+              onSort={(column) => {
+                const next = toggleSort(sortRef.current, column);
+                setSort(next);
+                if (token) void loadOutlets(token, { resetCursor: true, sort: next });
+              }}
               empty={<EmptyState icon={<span>🏪</span>} title="Belum ada outlet" description="Outlet akan muncul di sini." />}
             />
           )}
+          <TablePagination
+            cursor={cursor}
+            limit={15}
+            total={total}
+            hasMore={hasMore}
+            onPageChange={(nextCursor) => {
+              setCursor(nextCursor);
+              if (token) void loadOutlets(token, { cursor: nextCursor });
+            }}
+          />
         </Card>
         <div className="space-y-5">
           {editingOutlet && (

@@ -242,7 +242,7 @@ async function fetchAdminOutletsReal(token: string, filters: OutletFilters): Pro
   if (filters.territory_id) query.set('territory_id', filters.territory_id);
   if (filters.is_active) query.set('is_active', filters.is_active);
   query.set('limit', String(filters.limit ?? 15));
-  if (filters.cursor) query.set('cursor', String(filters.cursor));
+  if (filters.cursor !== undefined) query.set('cursor', String(filters.cursor));
   // Sort defaults: created_at DESC
   query.set('sort', filters.sort || 'created_at');
   query.set('order', filters.order || 'desc');

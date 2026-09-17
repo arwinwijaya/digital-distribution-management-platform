@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchPromotions, createPromotion, updatePromotion, deletePromotion, broadcastPromotion, type AdminPromotion } from './api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatusBadge, Table } from '@/components/ui';
 
 interface PromoForm {
@@ -59,6 +60,8 @@ export default function AdminPromotionsPage() {
     const stored = getStoredToken(); setToken(stored); setReady(true);
     if (stored) loadPromotions(stored);
   }, [loadPromotions]);
+
+  useDummyRefresh(() => { if (token) void loadPromotions(token); });
 
   function openCreateForm() {
     setEditing(null); setForm(EMPTY_FORM); setFormOpen(true); setActionError(null); setActionSuccess(null);

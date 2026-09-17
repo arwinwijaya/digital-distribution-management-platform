@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminOutlets, fetchOutletOrders, fetchOutletSummary, updateOutlet, type AdminOutlet, type OutletOrder, type OutletSummary } from './api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, Input, PageHeader, Select, Table } from '@/components/ui';
 
 const CATEGORY_OPTIONS = ['', 'warung', 'minimarket', 'supermarket', 'grosir', 'restoran', 'kafe', 'toko_kelontong', 'lainnya'] as const;
@@ -53,6 +54,8 @@ export default function AdminOutletsPage() {
     const stored = getStoredToken(); setToken(stored); setReady(true);
     if (stored) loadOutlets(stored);
   }, [loadOutlets]);
+
+  useDummyRefresh(() => { if (token) void loadOutlets(token); });
 
   function startEdit(outlet: AdminOutlet) {
     setEditingOutlet(outlet); setEditName(outlet.name || ''); setEditCategory(outlet.category || 'lainnya'); setEditAddress(outlet.address || ''); setEditCity(outlet.city || ''); setEditDistrict(outlet.district || ''); setActionError(null); setActionSuccess(null);

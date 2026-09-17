@@ -13,6 +13,7 @@ import {
   type CreatedSalesOrder,
   type SalesOutlet,
 } from './api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, Input, PageHeader, Select, Table } from '@/components/ui';
 
 export default function SalesOrdersPage() {
@@ -56,6 +57,8 @@ export default function SalesOrdersPage() {
     setReady(true);
     if (stored) load(stored);
   }, [load]);
+
+  useDummyRefresh(() => { if (token) void load(token); });
 
   const selectedOutlet = useMemo(
     () => outlets.find((o) => String(o.id) === selectedOutletId) ?? null,

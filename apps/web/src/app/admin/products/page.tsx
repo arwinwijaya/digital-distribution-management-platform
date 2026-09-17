@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchProducts, updateProductPrice, fetchPriceHistory, type AdminProduct, type PriceHistoryEntry } from './api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, Input, PageHeader, Table } from '@/components/ui';
 
 export default function AdminProductsPage() {
@@ -41,6 +42,8 @@ export default function AdminProductsPage() {
     const stored = getStoredToken(); setToken(stored); setReady(true);
     if (stored) loadProducts(stored);
   }, [loadProducts]);
+
+  useDummyRefresh(() => { if (token) void loadProducts(token); });
 
   function startEdit(product: AdminProduct) {
     setEditingProduct(product); setNewPrice(String(product.price ?? '')); setActionError(null); setActionSuccess(null);

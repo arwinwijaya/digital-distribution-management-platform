@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminSalesPerformance, formatPercentage, formatRupiah, parseMoney, type SalesPerformanceRow } from './api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, Input, PageHeader, Table } from '@/components/ui';
 
 /** Current YYYY-MM in Asia/Jakarta timezone (indonesia). */
@@ -53,6 +54,8 @@ export default function AdminSalesPerformancePage() {
       load(stored, cp);
     }
   }, [load]);
+
+  useDummyRefresh(() => { if (token && period) void load(token, period); });
 
   const sortedMonths = useMemo(() => {
     const months: string[] = [];

@@ -1,6 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 
 const mockGetStoredToken = jest.fn(() => 'test-token');
 jest.mock('@/lib/api', () => ({
@@ -8,6 +8,8 @@ jest.mock('@/lib/api', () => ({
   authHeaders: (token: string) => ({ Authorization: `Bearer ${token}` }),
   getStoredToken: (...args: unknown[]) => (mockGetStoredToken as (...a: unknown[]) => string | null)(...args),
 }));
+import { useDummyStore } from '@/dummy/store';
+import { installDummy } from '@/dummy/install';
 
 const promotionsResponse = {
   status: 'success',
@@ -28,6 +30,8 @@ describe('admin promotions page', () => {
   let originalFetch: typeof fetch | undefined;
 
   beforeEach(() => {
+    useDummyStore.getState().reset();
+    installDummy();
     mockGetStoredToken.mockReturnValue('test-token');
     originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
     (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (url: unknown, options?: { method?: string }) => {
@@ -54,6 +58,23 @@ describe('admin promotions page', () => {
   afterEach(() => {
     if (originalFetch) (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
     else delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    jest.restoreAllMocks();
+  });
+
+  it('memuat ulang data saat Mode Dummy diaktifkan', async () => {
+    const api = await import('@/app/admin/promotions/api');
+    const spy = jest.spyOn(api, 'fetchPromotions');
+    const { default: Page } = await import('@/app/admin/promotions/page');
+    render(<Page />);
+
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    const before = spy.mock.calls.length;
+
+    act(() => {
+      useDummyStore.getState().toggle();
+    });
+
+    await waitFor(() => expect(spy.mock.calls.length).toBeGreaterThan(before));
   });
 
   it('renders CRUD list with Siarkan button and handles broadcast 404 gracefully', async () => {

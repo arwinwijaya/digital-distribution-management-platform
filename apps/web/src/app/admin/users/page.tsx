@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminUsers, assignUserRole, type AdminUser } from './api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, EmptyState, Input, PageHeader, Select, Table } from '@/components/ui';
 
 const ROLE_OPTIONS = ['', 'admin', 'supplier', 'outlet', 'sales', 'driver', 'finance', 'platform_owner'] as const;
@@ -44,6 +45,8 @@ export default function AdminUsersPage() {
     setReady(true);
     if (stored) loadUsers(stored);
   }, [loadUsers]);
+
+  useDummyRefresh(() => { if (token) void loadUsers(token); });
 
   function handleFilterApply() {
     if (!token) return;

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchMyPerformance, formatPercentage, formatRupiah, parseMoney, type MyPerformance } from './api';
+import { useDummyRefresh } from '@/dummy/guards';
 import { Card, EmptyState, PageHeader, StatCard } from '@/components/ui';
 
 function currentPeriod(): string {
@@ -37,6 +38,8 @@ export default function SalesPerformancePage() {
     setPeriod(cp);
     load(stored, cp);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useDummyRefresh(() => { if (token && period) void load(token, period); });
 
   async function load(authToken: string, targetPeriod: string) {
     setLoading(true);

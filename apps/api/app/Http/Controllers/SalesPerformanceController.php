@@ -6,6 +6,8 @@ use App\Models\SalesTarget;
 use App\Models\User;
 use App\Services\FinanceAuthorizationService;
 use App\Services\SalesPerformanceService;
+use App\Support\ListQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -51,8 +53,11 @@ class SalesPerformanceController extends Controller
     /**
      * GET /admin/sales/performance?period=YYYY-MM — all sales users' performance.
      *
-     * Admin-only (sales users receive 403).
-     * Returns paginated limit+1 over sales users.
+     * Admin-only (sales users receive 403). Offset-cursor pagination (limit+1).
+     * `achievement` is computed per row by the performance service and is NOT a
+     * DB column, so it is deliberately absent from the server sort allowlist.
+     *
+     * Response contract: { status, data: [], meta: { has_more, limit, cursor, total } }
      */
     public function adminPerformance(Request $request): JsonResponse
     {
@@ -68,15 +73,23 @@ class SalesPerformanceController extends Controller
         $period = $this->resolvePeriod($request);
 
         $limit  = min(max((int) $request->integer('limit', 100), 1), 100);
-        $cursor = $request->integer('cursor');
+        $cursor = max((int) $this->scalarQueryString($request, 'cursor', '0'), 0);
 
-        $query = User::where('role', 'sales')->orderBy('id');
+        $query = User::where('role', 'sales');
 
-        if ($cursor > 0) {
-            $query->where('id', '>', $cursor);
-        }
+        // Aggregate total derives from the SAME base query, before limit/offset/order.
+        $meta = array_merge(
+            ['limit' => $limit, 'cursor' => $cursor],
+            $this->buildListMeta($query),
+        );
 
-        $rows = $query->limit($limit + 1)->get();
+        // Default order: name ASC (id DESC as a deterministic tiebreaker).
+        $rows = $query
+            ->orderByRaw(ListQuery::rawOrder('name', 'asc'))
+            ->offset($cursor)
+            ->limit($limit + 1)
+            ->get();
+
         $hasMore = $rows->count() > $limit;
         $data = $rows->take($limit)->values()->map(function (User $salesUser) use ($period) {
             $perf = $this->performanceService->calculatePerformance((int) $salesUser->id, $period);
@@ -90,11 +103,33 @@ class SalesPerformanceController extends Controller
         });
 
         return response()->json([
-            'status'      => 'success',
-            'data'        => $data,
-            'has_more'    => $hasMore,
-            'next_cursor' => $hasMore ? $data->last()['user_id'] ?? null : null,
+            'status' => 'success',
+            'data'   => $data,
+            'meta'   => array_merge(['has_more' => $hasMore], $meta),
         ]);
+    }
+
+    /**
+     * Read a query param only when it is a scalar string, otherwise return the
+     * default. Guards against array input (`?cursor[]=x`) which would otherwise
+     * raise an "Array to string conversion" error and yield HTTP 500.
+     */
+    private function scalarQueryString(Request $request, string $key, string $default): string
+    {
+        $value = $request->query($key, $default);
+
+        return is_string($value) ? $value : $default;
+    }
+
+    /**
+     * Build the aggregate meta payload from the SAME base builder (never counts
+     * the paginated rows).
+     *
+     * @return array<string, mixed>
+     */
+    private function buildListMeta(Builder $query): array
+    {
+        return ListQuery::meta((clone $query)->count());
     }
 
     /**

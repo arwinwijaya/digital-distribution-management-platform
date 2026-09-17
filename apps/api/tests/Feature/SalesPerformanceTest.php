@@ -538,7 +538,76 @@ class SalesPerformanceTest extends TestCase
 
         $response->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('has_more', true)
-            ->assertJsonPath('next_cursor', $response->json('data.1.user_id'));
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonPath('meta.limit', 2);
+    }
+
+    /**
+     * GWT: Given sales users, When GET /admin/sales/performance?limit=100&cursor=0,
+     * Then meta.total counts ALL sales users (not just the page), meta.cursor is
+     * the offset, and the legacy id-based next_cursor key is gone.
+     */
+    public function test_admin_performance_meta_total_and_cursor_offset(): void
+    {
+        $admin = $this->makeAdmin();
+        $period = $this->currentPeriod();
+
+        User::factory()->sales()->create(['name' => 'Alpha Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Bravo Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Charlie Sales', 'is_active' => true]);
+
+        // Non-sales users must NOT count toward total.
+        $this->makeAdmin();
+        User::factory()->outlet()->create(['is_active' => true]);
+
+        $response = $this->withHeader('Authorization', $this->bearerFor($admin))
+            ->getJson("/api/admin/sales/performance?period={$period}&limit=100&cursor=0");
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.cursor', 0)
+            ->assertJsonPath('meta.limit', 100)
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonMissingPath('next_cursor');
+    }
+
+    /**
+     * GWT: Given 4 sales users, When paging with cursor=2, Then the second page is
+     * selected by OFFSET into the same ordering (not `where id > 2`).
+     */
+    public function test_admin_performance_cursor_is_offset_not_id(): void
+    {
+        $admin = $this->makeAdmin();
+        $period = $this->currentPeriod();
+
+        User::factory()->sales()->create(['name' => 'Alpha Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Bravo Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Charlie Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Delta Sales', 'is_active' => true]);
+
+        $all = $this->withHeader('Authorization', $this->bearerFor($admin))
+            ->getJson("/api/admin/sales/performance?period={$period}&limit=100");
+        $all->assertOk()->assertJsonCount(4, 'data');
+        $allNames = collect($all->json('data'))->pluck('name')->all();
+
+        $first = $this->withHeader('Authorization', $this->bearerFor($admin))
+            ->getJson("/api/admin/sales/performance?period={$period}&limit=2&cursor=0");
+        $first->assertOk()
+            ->assertJsonPath('meta.cursor', 0)
+            ->assertJsonPath('meta.has_more', true);
+        $firstNameList = collect($first->json('data'))->pluck('name')->all();
+
+        $second = $this->withHeader('Authorization', $this->bearerFor($admin))
+            ->getJson("/api/admin/sales/performance?period={$period}&limit=2&cursor=2");
+        $second->assertOk()
+            ->assertJsonPath('meta.cursor', 2)
+            ->assertJsonPath('meta.has_more', false);
+        $secondNameList = collect($second->json('data'))->pluck('name')->all();
+
+        $this->assertSame(array_slice($allNames, 0, 2), $firstNameList);
+        $this->assertSame(array_slice($allNames, 2, 2), $secondNameList);
+        $this->assertSame([], array_values(array_intersect($firstNameList, $secondNameList)));
     }
 }

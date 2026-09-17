@@ -6,6 +6,7 @@ use App\Http\Requests\UpdateOutletRequest;
 use App\Models\Order;
 use App\Models\Outlet;
 use App\Services\FinanceAuthorizationService;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -54,8 +55,14 @@ class AdminOutletController extends Controller
         $limit = min(max((int) $request->query('limit', 15), 1), 100);
         $cursor = max((int) $request->query('cursor', 0), 0);
 
+        // Aggregate queries derived from the SAME filtered builder (never count the limited rows).
+        $total = (clone $query)->count();
+
+        $active = (clone $query)->where('is_active', true)->count();
+        $inactive = (clone $query)->where('is_active', false)->count();
+
         $rows = $query
-            ->orderBy('id')
+            ->orderByRaw(ListQuery::rawOrder('created_at', 'desc'))
             ->limit($limit + 1)
             ->offset($cursor)
             ->get();
@@ -70,6 +77,13 @@ class AdminOutletController extends Controller
                 'has_more' => $hasMore,
                 'limit' => $limit,
                 'cursor' => $cursor,
+            ],
+            'meta' => [
+                'total' => $total,
+                'summary' => [
+                    'active' => $active,
+                    'inactive' => $inactive,
+                ],
             ],
         ]);
     }

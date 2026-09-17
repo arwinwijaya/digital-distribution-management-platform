@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\Outlet;
 use App\Models\Territory;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -166,6 +167,32 @@ class AdminOutletTest extends TestCase
         $response->assertOk()
             ->assertJsonCount(5, 'data.data')
             ->assertJsonPath('data.has_more', false);
+    }
+
+    /**
+     * GWT: Given outlets with varied created_at, When GET /admin/outlets (no sort),
+     * Then newest created_at first (id DESC tiebreak) + meta.total + meta.summary.
+     */
+    public function test_admin_list_defaults_to_newest_first_with_total_and_summary(): void
+    {
+        Carbon::setTestNow('2026-06-01 12:00:00');
+
+        $token = $this->loginAsAdmin();
+
+        Outlet::factory()->create(['name' => 'Oldest Outlet', 'created_at' => '2026-01-01 08:00:00', 'is_active' => true]);
+        Outlet::factory()->create(['name' => 'Newest Outlet', 'created_at' => '2026-03-01 08:00:00', 'is_active' => false]);
+        Outlet::factory()->create(['name' => 'Middle Outlet', 'created_at' => '2026-02-01 08:00:00', 'is_active' => true]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?limit=15');
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.summary.active', 2)
+            ->assertJsonPath('meta.summary.inactive', 1)
+            ->assertJsonPath('data.data.0.name', 'Newest Outlet')
+            ->assertJsonPath('data.data.1.name', 'Middle Outlet')
+            ->assertJsonPath('data.data.2.name', 'Oldest Outlet');
     }
 
     /**

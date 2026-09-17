@@ -113,6 +113,46 @@ class ProductTest extends TestCase
         $this->assertSame(['Legacy product'], collect($response->json('data'))->pluck('name')->all());
     }
 
+    public function test_products_default_ordering_is_id_asc_and_meta_total_is_additive(): void
+    {
+        Product::factory()->create(['name' => 'Alpha']);
+        Product::factory()->create(['name' => 'Bravo']);
+        Product::factory()->create(['name' => 'Charlie']);
+
+        $response = $this->withHeaders($this->authHeaders())->getJson('/api/products');
+
+        $response->assertStatus(200)
+            ->assertJson(['status' => 'success']);
+
+        // Legacy default ordering stays id ASC (marketplace consumers depend on it).
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertSame(collect($ids)->sort()->values()->all(), $ids);
+
+        // Additive meta.total mirrors the unfiltered catalog count.
+        $this->assertSame(3, $response->json('meta.total'));
+        $this->assertSame(100, $response->json('meta.limit'));
+        $this->assertSame(0, $response->json('meta.cursor'));
+        $this->assertFalse($response->json('meta.has_more'));
+    }
+
+    public function test_products_can_be_sorted_by_created_at_desc_with_nulls_last(): void
+    {
+        $oldest = Product::factory()->create(['name' => 'Oldest', 'created_at' => now()->subDays(3)]);
+        $middle = Product::factory()->create(['name' => 'Middle', 'created_at' => now()->subDays(2)]);
+        $newest = Product::factory()->create(['name' => 'Newest', 'created_at' => now()->subDay()]);
+        $undated = Product::factory()->create(['name' => 'Undated', 'created_at' => null]);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->getJson('/api/products?sort=created_at&order=desc');
+
+        $response->assertStatus(200);
+
+        $names = collect($response->json('data'))->pluck('name')->all();
+
+        $this->assertSame(['Newest', 'Middle', 'Oldest', 'Undated'], $names);
+        $this->assertSame(4, $response->json('meta.total'));
+    }
+
     public function test_empty_catalog_returns_empty_array(): void
     {
         $response = $this->withHeaders($this->authHeaders())->getJson('/api/products');

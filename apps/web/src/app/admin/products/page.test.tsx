@@ -327,4 +327,83 @@ describe('admin products page', () => {
       expect(fetchMock.mock.calls.length).toBe(callsBefore);
     });
   });
+
+  // ── Cycle 3: density toggle + dummy parity ───────────────────────────────
+  describe('density toggle + dummy parity', () => {
+    it('density toggle changes the table padding class and persists to localStorage', async () => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        const urlString = String(url);
+        if (urlString.includes('/products')) return jsonResponse(listResponse());
+        return jsonResponse({});
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      let headerCell = screen.getByText('Nama Produk').closest('th') as HTMLTableCellElement;
+      expect(headerCell).toHaveClass('py-3');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Nama Produk').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-2');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('compact');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Nama Produk').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-4');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('comfortable');
+    });
+
+    it('dummy listDummyAdminProducts mirrors sort + offset slice + total + summary', async () => {
+      const { fetchAdminProducts } = await import('@/app/admin/products/api');
+      const { compareRows } = await import('@/lib/admin-table');
+      useDummyStore.getState().toggle();
+      expect(useDummyStore.getState().isDummy).toBe(true);
+
+      // Default: created_at DESC → id DESC fallback (dummy products have no created_at).
+      const all = await fetchAdminProducts('t-token', { limit: 200 });
+      const expectedDefault = [...all.products].sort((a, b) =>
+        compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'created_at', 'desc'),
+      );
+      expect(all.products.map((p) => p.id)).toEqual(expectedDefault.map((p) => p.id));
+      expect(all.total).toBe(all.products.length);
+      expect(all.summary).toEqual({
+        total: all.products.length,
+        out_of_stock: all.products.filter((p) => (p.stock_quantity ?? 0) <= 0).length,
+      });
+
+      // Offset slice: cursor 5, limit 5 → ids 6..10 in id DESC order.
+      const page = await fetchAdminProducts('t-token', { limit: 5, cursor: 5 });
+      expect(page.products.map((p) => p.id)).toEqual(all.products.slice(5, 10).map((p) => p.id));
+      expect(page.hasMore).toBe(all.products.length > 10);
+
+      // Explicit name ASC matches compareRows('name','asc').
+      const byName = await fetchAdminProducts('t-token', { limit: 200, sort: 'name', order: 'asc' });
+      const expectedByName = [...byName.products].sort((a, b) =>
+        compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'name', 'asc'),
+      );
+      expect(byName.products.map((p) => p.id)).toEqual(expectedByName.map((p) => p.id));
+
+      // Zero network while dummy mode is ON.
+      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/products')).length).toBe(0);
+    });
+
+    it('renders the summary strip from dummy data (zero network)', async () => {
+      useDummyStore.getState().toggle();
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+
+      await waitFor(() => {
+        const summary = screen.getByTestId('table-summary').textContent ?? '';
+        expect(summary).toMatch(/\d+ produk/);
+        expect(summary).toContain('stok habis');
+      });
+      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/products')).length).toBe(0);
+    });
+  });
 });

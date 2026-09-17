@@ -5,7 +5,8 @@ import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminProducts, updateProductPrice, fetchPriceHistory, type AdminProduct, type PriceHistoryEntry } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Table, TableSummary, TablePagination } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Table, TableSummary, TablePagination, TableDensityToggle } from '@/components/ui';
+import { useTableDensity } from '@/hooks/useTableDensity';
 import { toggleSort, formatDateTime, type ColumnSort } from '@/lib/admin-table';
 
 export default function AdminProductsPage() {
@@ -29,6 +30,7 @@ export default function AdminProductsPage() {
   const [cursor, setCursor] = useState(0);
   const [total, setTotal] = useState<number>();
   const [tableSummary, setTableSummary] = useState<{ total: number; out_of_stock: number }>();
+  const { density, setDensity } = useTableDensity();
 
   // Latest sort/cursor readable inside `loadProducts` WITHOUT adding them to its
   // dependency list (which would otherwise re-run the mount effect and reset the
@@ -160,6 +162,7 @@ export default function AdminProductsPage() {
               breakdown={tableSummary ? [{ label: 'stok habis', value: tableSummary.out_of_stock }] : undefined}
               noun="produk"
             />
+            <TableDensityToggle value={density} onChange={setDensity} />
           </div>
           {loading ? (
             <p className="p-8 text-sm text-gray-500">Memuat produk...</p>
@@ -168,6 +171,7 @@ export default function AdminProductsPage() {
               columns={columns}
               rows={products}
               rowKey={(p) => p.id}
+              density={density}
               sortableColumns={['name', 'sku', 'price', 'stock_quantity', 'created_at', 'updated_at']}
               sort={sort}
               onSort={(column) => {

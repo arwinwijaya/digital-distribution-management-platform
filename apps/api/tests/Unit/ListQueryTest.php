@@ -30,4 +30,20 @@ class ListQueryTest extends TestCase
             ListQuery::resolveSort(['created_at', 'name', 'id'], 'name', 'DROP')
         );
     }
+
+    public function test_raw_order_builds_portable_nulls_last_for_desc(): void
+    {
+        $this->assertSame(
+            '(created_at IS NULL) ASC, created_at DESC, id DESC',
+            ListQuery::rawOrder('created_at', 'desc')
+        );
+    }
+
+    public function test_raw_order_builds_portable_nulls_last_for_asc(): void
+    {
+        $this->assertSame(
+            '(created_at IS NULL) ASC, created_at ASC, id DESC',
+            ListQuery::rawOrder('created_at', 'asc')
+        );
+    }
 }

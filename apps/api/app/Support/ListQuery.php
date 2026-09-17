@@ -19,4 +19,16 @@ class ListQuery
 
         return [$column, $order];
     }
+
+    /**
+     * Build a portable nulls-last ORDER BY expression (works identically in
+     * SQLite and PostgreSQL): NULL rows sort last on both asc and desc, with
+     * id DESC as a deterministic tiebreaker.
+     */
+    public static function rawOrder(string $column, string $order): string
+    {
+        $order = strtoupper($order);
+
+        return sprintf('(%s IS NULL) ASC, %s %s, id DESC', $column, $column, $order);
+    }
 }

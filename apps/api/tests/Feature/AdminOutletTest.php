@@ -63,9 +63,7 @@ class AdminOutletTest extends TestCase
             ->assertJsonStructure([
                 'status',
                 'data' => [
-                    'data' => [
-                        '*' => ['id', 'name', 'phone', 'category', 'score'],
-                    ],
+                    '*' => ['id', 'name', 'phone', 'category', 'score'],
                 ],
             ])
             ->assertJsonPath('status', 'success');
@@ -86,7 +84,7 @@ class AdminOutletTest extends TestCase
             ->getJson("/api/admin/outlets?territory_id={$territory->id}");
 
         $response->assertOk()
-            ->assertJsonCount(1, 'data.data');
+            ->assertJsonCount(1, 'data');
     }
 
     /**
@@ -102,7 +100,8 @@ class AdminOutletTest extends TestCase
             ->getJson('/api/admin/outlets?category=warung');
 
         $response->assertOk()
-            ->assertJsonCount(1, 'data.data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 1);
     }
 
     /**
@@ -118,7 +117,7 @@ class AdminOutletTest extends TestCase
             ->getJson('/api/admin/outlets?is_active=1');
 
         $response->assertOk()
-            ->assertJsonCount(1, 'data.data');
+            ->assertJsonCount(1, 'data');
     }
 
     /**
@@ -134,7 +133,7 @@ class AdminOutletTest extends TestCase
             ->getJson('/api/admin/outlets?search=Alpha');
 
         $response->assertOk()
-            ->assertJsonCount(1, 'data.data');
+            ->assertJsonCount(1, 'data');
     }
 
     /**
@@ -149,8 +148,8 @@ class AdminOutletTest extends TestCase
             ->getJson('/api/admin/outlets?limit=10');
 
         $response->assertOk()
-            ->assertJsonCount(10, 'data.data')
-            ->assertJsonPath('data.has_more', true);
+            ->assertJsonCount(10, 'data')
+            ->assertJsonPath('meta.has_more', true);
     }
 
     /**
@@ -165,8 +164,8 @@ class AdminOutletTest extends TestCase
             ->getJson('/api/admin/outlets?limit=10&cursor=10');
 
         $response->assertOk()
-            ->assertJsonCount(5, 'data.data')
-            ->assertJsonPath('data.has_more', false);
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.has_more', false);
     }
 
     /**
@@ -190,9 +189,9 @@ class AdminOutletTest extends TestCase
             ->assertJsonPath('meta.total', 3)
             ->assertJsonPath('meta.summary.active', 2)
             ->assertJsonPath('meta.summary.inactive', 1)
-            ->assertJsonPath('data.data.0.name', 'Newest Outlet')
-            ->assertJsonPath('data.data.1.name', 'Middle Outlet')
-            ->assertJsonPath('data.data.2.name', 'Oldest Outlet');
+            ->assertJsonPath('data.0.name', 'Newest Outlet')
+            ->assertJsonPath('data.1.name', 'Middle Outlet')
+            ->assertJsonPath('data.2.name', 'Oldest Outlet');
     }
 
     /**
@@ -210,8 +209,8 @@ class AdminOutletTest extends TestCase
             ->getJson('/api/admin/outlets?sort=__proto__&order=desc');
 
         $response->assertOk()
-            ->assertJsonPath('data.data.0.name', 'Newer')
-            ->assertJsonPath('data.data.1.name', 'Older');
+            ->assertJsonPath('data.0.name', 'Newer')
+            ->assertJsonPath('data.1.name', 'Older');
     }
 
     /**
@@ -229,9 +228,9 @@ class AdminOutletTest extends TestCase
             ->getJson('/api/admin/outlets?sort=name&order=asc');
 
         $response->assertOk()
-            ->assertJsonPath('data.data.0.name', 'Alpha Store')
-            ->assertJsonPath('data.data.1.name', 'Mango Store')
-            ->assertJsonPath('data.data.2.name', 'Zebra Store');
+            ->assertJsonPath('data.0.name', 'Alpha Store')
+            ->assertJsonPath('data.1.name', 'Mango Store')
+            ->assertJsonPath('data.2.name', 'Zebra Store');
     }
 
     /**
@@ -249,16 +248,44 @@ class AdminOutletTest extends TestCase
         $desc = $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/admin/outlets?sort=created_at&order=desc');
         $desc->assertOk()
-            ->assertJsonPath('data.data.0.name', 'Dated Newer')
-            ->assertJsonPath('data.data.1.name', 'Dated Older')
-            ->assertJsonPath('data.data.2.name', 'Undated');
+            ->assertJsonPath('data.0.name', 'Dated Newer')
+            ->assertJsonPath('data.1.name', 'Dated Older')
+            ->assertJsonPath('data.2.name', 'Undated');
 
         $asc = $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/admin/outlets?sort=created_at&order=asc');
         $asc->assertOk()
-            ->assertJsonPath('data.data.0.name', 'Dated Older')
-            ->assertJsonPath('data.data.1.name', 'Dated Newer')
-            ->assertJsonPath('data.data.2.name', 'Undated');
+            ->assertJsonPath('data.0.name', 'Dated Older')
+            ->assertJsonPath('data.1.name', 'Dated Newer')
+            ->assertJsonPath('data.2.name', 'Undated');
+    }
+
+    /**
+     * GWT: Given 48 outlets, When GET /admin/outlets?limit=15, Then meta.has_more/limit/cursor
+     * are top-level (cursor=0) and data is a top-level array; beyond-total cursor stays safe.
+     */
+    public function test_admin_list_normalizes_meta_to_top_level_and_handles_cursor_beyond_total(): void
+    {
+        $token = $this->loginAsAdmin();
+        Outlet::factory()->count(48)->create();
+
+        $page1 = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?limit=15');
+
+        $page1->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonPath('meta.limit', 15)
+            ->assertJsonPath('meta.cursor', 0)
+            ->assertJsonPath('meta.total', 48);
+
+        $beyond = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?limit=15&cursor=60');
+
+        $beyond->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonPath('meta.total', 48);
     }
 
     /**

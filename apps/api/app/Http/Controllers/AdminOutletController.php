@@ -85,21 +85,22 @@ class AdminOutletController extends Controller
         $hasMore = $rows->count() > $limit;
         $data = $hasMore ? $rows->take($limit)->values() : $rows->values();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'data' => $data,
+        $meta = array_merge(
+            [
                 'has_more' => $hasMore,
                 'limit' => $limit,
                 'cursor' => $cursor,
             ],
-            'meta' => [
-                'total' => $total,
-                'summary' => [
-                    'active' => $active,
-                    'inactive' => $inactive,
-                ],
-            ],
+            ListQuery::meta($total, [
+                'active' => $active,
+                'inactive' => $inactive,
+            ]),
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+            'meta' => $meta,
         ]);
     }
 

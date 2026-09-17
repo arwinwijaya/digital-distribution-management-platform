@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\RoleAssignmentAudit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -22,13 +23,13 @@ class RoleManagementTest extends TestCase
         ])->assertOk()->json('data.token');
     }
 
-    private function createUserWithRole(string $role, string $emailPrefix): User
+    private function createUserWithRole(string $role, string $emailPrefix, array $attributes = []): User
     {
-        return User::factory()->create([
+        return User::factory()->create(array_merge([
             'role' => $role,
             'email' => "{$emailPrefix}@example.test",
             'password' => Hash::make('password'),
-        ]);
+        ], $attributes));
     }
 
     // ─── F1: Platform Owner Superset Access ──────────────────────────
@@ -255,6 +256,37 @@ class RoleManagementTest extends TestCase
         $data = $response->json('data');
         $this->assertCount(2, $data);
         $this->assertTrue($response->json('meta.has_more'));
+    }
+
+    /**
+     * GWT: Given users with varied created_at, When GET /api/admin/users?limit=20
+     * (auth admin), Then data[0] is the newest created_at (id DESC tiebreak),
+     * meta.total = total users, meta.cursor = 0.
+     */
+    public function test_user_listing_defaults_to_newest_first_with_total_and_cursor(): void
+    {
+        Carbon::setTestNow('2026-06-01 12:00:00');
+
+        $admin = $this->createUserWithRole('admin', 'admin-newest-default', [
+            'created_at' => '2026-01-01 08:00:00',
+        ]);
+        $oldest = $this->createUserWithRole('outlet', 'user-newest-oldest', [
+            'created_at' => '2026-01-02 08:00:00',
+        ]);
+        $newest = $this->createUserWithRole('sales', 'user-newest-latest', [
+            'created_at' => '2026-03-01 08:00:00',
+        ]);
+
+        $token = $this->loginAs($admin);
+
+        $this->withToken($token)
+            ->getJson('/api/admin/users?limit=20')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.cursor', 0)
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id)
+            ->assertJsonPath('data.2.id', $admin->id);
     }
 
     // ─── F1: Fix updatePaymentTerms missing admin assertion ──────────

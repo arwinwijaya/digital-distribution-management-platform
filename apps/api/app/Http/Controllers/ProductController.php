@@ -35,10 +35,17 @@ class ProductController extends Controller
         $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
 
         // Aggregate total derives from the SAME filtered builder (before limit/offset/order).
+        // `summary` is ADDITIVE: total mirrors meta.total, out_of_stock counts the
+        // same filtered set with stock_quantity <= 0 (spec "Summary strip source").
+        $total = (clone $query)->count();
         $meta = [
             'limit' => $limit,
             'cursor' => $cursor,
-            'total' => (clone $query)->count(),
+            'total' => $total,
+            'summary' => [
+                'total' => $total,
+                'out_of_stock' => (clone $query)->where('stock_quantity', '<=', 0)->count(),
+            ],
         ];
 
         // limit+1 technique: fetch one extra row to determine has_more.

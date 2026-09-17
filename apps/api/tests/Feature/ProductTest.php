@@ -203,6 +203,38 @@ class ProductTest extends TestCase
         $this->assertCount(2, $response->json('data'));
     }
 
+    public function test_meta_summary_reports_total_and_out_of_stock_for_the_filtered_set(): void
+    {
+        Product::factory()->create(['name' => 'Indomie Goreng', 'stock_quantity' => 10]);
+        Product::factory()->create(['name' => 'Indomie Kuah', 'stock_quantity' => 0]);
+        Product::factory()->create(['name' => 'Indomie Soto', 'stock_quantity' => -3]);
+        Product::factory()->create(['name' => 'Teh Pucuk', 'stock_quantity' => 0]);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->getJson('/api/products?search=Indomie');
+
+        $response->assertStatus(200);
+
+        // Summary is ADDITIVE and mirrors the SAME filtered set as meta.total.
+        $this->assertSame(3, $response->json('meta.summary.total'));
+        $this->assertSame(2, $response->json('meta.summary.out_of_stock'));
+        $this->assertSame($response->json('meta.total'), $response->json('meta.summary.total'));
+    }
+
+    public function test_meta_summary_excludes_products_of_inactive_suppliers(): void
+    {
+        $inactiveSupplier = Supplier::factory()->create(['subscription_status' => 'inactive']);
+        Product::factory()->create(['supplier_id' => $inactiveSupplier->id, 'stock_quantity' => 0]);
+        Product::factory()->create(['name' => 'Legacy in stock', 'stock_quantity' => 5]);
+        Product::factory()->create(['name' => 'Legacy out of stock', 'stock_quantity' => 0]);
+
+        $response = $this->withHeaders($this->authHeaders())->getJson('/api/products');
+
+        $response->assertOk();
+        $this->assertSame(2, $response->json('meta.summary.total'));
+        $this->assertSame(1, $response->json('meta.summary.out_of_stock'));
+    }
+
     public function test_empty_catalog_returns_empty_array(): void
     {
         $response = $this->withHeaders($this->authHeaders())->getJson('/api/products');

@@ -5,7 +5,7 @@ import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminOutlets, fetchOutletOrders, fetchOutletSummary, updateOutlet, type AdminOutlet, type OutletOrder, type OutletSummary } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Select, Table, TableSummary, TablePagination } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Select, Table, TableSummary, TablePagination, TableDensityToggle } from '@/components/ui';
 import { useTableDensity } from '@/hooks/useTableDensity';
 import { toggleSort, formatDateTime, type ColumnSort } from '@/lib/admin-table';
 
@@ -40,7 +40,7 @@ export default function AdminOutletsPage() {
   const [cursor, setCursor] = useState(0);
   const [total, setTotal] = useState<number>();
   const [tableSummary, setTableSummary] = useState<{ active: number; inactive: number }>();
-  const { density } = useTableDensity();
+  const { density, setDensity } = useTableDensity();
 
   // Latest sort/cursor readable inside `loadOutlets` WITHOUT adding them to its
   // dependency list (which would otherwise re-run the mount effect and reset the
@@ -183,6 +183,7 @@ export default function AdminOutletsPage() {
               breakdown={tableSummary ? [{ label: 'aktif', value: tableSummary.active }, { label: 'nonaktif', value: tableSummary.inactive }] : undefined}
               noun="outlet"
             />
+            <TableDensityToggle value={density} onChange={setDensity} />
           </div>
           {loading ? (
             <p className="p-8 text-sm text-gray-500">Memuat outlet...</p>

@@ -236,4 +236,72 @@ describe('admin outlets page', () => {
       });
     });
   });
+
+  describe('density toggle + dummy parity', () => {
+    it('density toggle changes the table padding class and persists to localStorage', async () => {
+      const { default: Page } = await import('@/app/admin/outlets/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Warung Asri')).toBeInTheDocument());
+
+      // Default density -> legacy padding
+      let headerCell = screen.getByText('Nama Outlet').closest('th') as HTMLTableCellElement;
+      expect(headerCell).toHaveClass('py-3');
+
+      // Switch to Compact
+      fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Nama Outlet').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-2');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('compact');
+
+      // Switch to Comfortable
+      fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Nama Outlet').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-4');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('comfortable');
+    });
+
+    it('dummy branch sorts with the same compareRows ordering (created_at DESC fallback id DESC)', async () => {
+      // Turn dummy mode ON: the page must read dummy data (zero network) and
+      // still apply the default created_at DESC ordering through compareRows.
+      const { useDummyStore } = await import('@/dummy/store');
+      useDummyStore.getState().toggle();
+      expect(useDummyStore.getState().isDummy).toBe(true);
+
+      const { fetchAdminOutlets } = await import('@/app/admin/outlets/api');
+      const { compareRows } = await import('@/lib/admin-table');
+
+      // Default (no sort): created_at DESC.
+      const defaultResult = await fetchAdminOutlets('t-token', { limit: 200 });
+      const expectedDefault = [...defaultResult.outlets].sort((a, b) =>
+        compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'created_at', 'desc'),
+      );
+      expect(defaultResult.outlets.map((o) => o.id)).toEqual(expectedDefault.map((o) => o.id));
+      expect(defaultResult.total).toBe(defaultResult.outlets.length);
+      expect(defaultResult.summary).toEqual({
+        active: defaultResult.outlets.filter((o) => o.is_active).length,
+        inactive: defaultResult.outlets.filter((o) => !o.is_active).length,
+      });
+
+      // Explicit sort by name ASC must match compareRows('name','asc').
+      const byName = await fetchAdminOutlets('t-token', { limit: 200, sort: 'name', order: 'asc' });
+      const expectedByName = [...byName.outlets].sort((a, b) =>
+        compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'name', 'asc'),
+      );
+      expect(byName.outlets.map((o) => o.id)).toEqual(expectedByName.map((o) => o.id));
+
+      // The real network endpoint must NOT be called while dummy mode is ON.
+      const outletCalls = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/outlets'));
+      expect(outletCalls.length).toBe(0);
+
+      const { default: Page } = await import('@/app/admin/outlets/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByTestId('table-summary')).toBeInTheDocument());
+      const summary = screen.getByTestId('table-summary').textContent ?? '';
+      expect(summary).toMatch(/\d+ outlet/);
+    });
+  });
 });

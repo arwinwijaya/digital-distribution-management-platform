@@ -55,3 +55,47 @@ export function normalizeSort(
   }
   return { sort: DEFAULT_SORT_COLUMN, order: normalizedOrder };
 }
+
+function isNullish(value: unknown): boolean {
+  return value === null || value === undefined || value === '';
+}
+
+/** Deterministic tiebreaker: higher id first (id DESC), regardless of sort direction. */
+function idDesc(a: unknown, b: unknown): number {
+  const aId = Number(a ?? 0) || 0;
+  const bId = Number(b ?? 0) || 0;
+  return bId - aId;
+}
+
+/** Compare two non-null sort values (numbers numerically, otherwise as strings). */
+function compareValues(a: unknown, b: unknown): number {
+  if (typeof a === 'number' && typeof b === 'number') {
+    return a - b;
+  }
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+}
+
+/**
+ * Comparator for admin table rows. Nulls (null/undefined/empty string) always
+ * sort LAST on BOTH `asc` and `desc`; equal values tiebreak on `id` DESC.
+ * Use with `Array.prototype.sort`.
+ */
+export function compareRows<T extends Record<string, unknown>>(
+  a: T,
+  b: T,
+  sort: string,
+  order: SortOrder = 'desc',
+): number {
+  const aValue = a[sort];
+  const bValue = b[sort];
+  const aNull = isNullish(aValue);
+  const bNull = isNullish(bValue);
+
+  if (aNull && bNull) return idDesc(a.id, b.id);
+  if (aNull) return 1; // nulls always last
+  if (bNull) return -1;
+
+  let cmp = compareValues(aValue, bValue);
+  if (order === 'desc') cmp = -cmp;
+  return cmp !== 0 ? cmp : idDesc(a.id, b.id);
+}

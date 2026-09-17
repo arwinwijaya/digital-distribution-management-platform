@@ -3,7 +3,7 @@
  *
  * Cycle 1: sort allowlist mirror + normalizeSort.
  */
-import { SORT_ALLOWLISTS, normalizeSort } from '@/lib/admin-table';
+import { SORT_ALLOWLISTS, normalizeSort, compareRows } from '@/lib/admin-table';
 
 describe('SORT_ALLOWLISTS (mirror of backend controller allowlists)', () => {
   it('exposes an allowlist for all 6 admin pages', () => {
@@ -82,5 +82,40 @@ describe('normalizeSort', () => {
       sort: 'name',
       order: 'desc',
     });
+  });
+});
+
+describe('compareRows (nulls-last both directions + id DESC tiebreak)', () => {
+  const rows = [
+    { id: 1, created_at: null },
+    { id: 2, created_at: '2026-01-01' },
+    { id: 3, created_at: '2026-02-01' },
+  ];
+
+  const idsFor = (order: 'asc' | 'desc') =>
+    rows
+      .slice()
+      .sort((a, b) => compareRows(a, b, 'created_at', order))
+      .map((r) => r.id);
+
+  it('desc: newest first, null last → 3,2,1', () => {
+    expect(idsFor('desc')).toEqual([3, 2, 1]);
+  });
+
+  it('asc: oldest first, null still last → 2,3,1', () => {
+    expect(idsFor('asc')).toEqual([2, 3, 1]);
+  });
+
+  it('tiebreaks on id DESC when the sort values are equal', () => {
+    const tied = [
+      { id: 5, created_at: '2026-01-01' },
+      { id: 9, created_at: '2026-01-01' },
+      { id: 7, created_at: '2026-01-01' },
+    ];
+    const sorted = tied
+      .slice()
+      .sort((a, b) => compareRows(a, b, 'created_at', 'asc'))
+      .map((r) => r.id);
+    expect(sorted).toEqual([9, 7, 5]);
   });
 });

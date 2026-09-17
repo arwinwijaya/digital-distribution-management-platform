@@ -207,6 +207,110 @@ class PromotionTest extends TestCase
             ->assertJsonPath('data.4.name', 'Promo 1');
     }
 
+    /**
+     * GWT: Given promotions with varied start_date, When GET
+     * /api/admin/promotions?sort=start_date&order=asc, Then ordered by
+     * start_date ASC (not the default created_at DESC).
+     */
+    public function test_admin_list_promotions_sorts_by_start_date_ascending(): void
+    {
+        $admin = $this->makeAdmin();
+        $token = $this->bearerFor($admin);
+
+        // created_at order intentionally the REVERSE of start_date order, so the
+        // default (created_at DESC) differs from start_date ASC.
+        Promotion::factory()->create(['name' => 'March', 'start_date' => '2026-03-01', 'created_at' => '2026-03-01 08:00:00']);
+        Promotion::factory()->create(['name' => 'January', 'start_date' => '2026-01-01', 'created_at' => '2026-01-01 08:00:00']);
+        Promotion::factory()->create(['name' => 'February', 'start_date' => '2026-02-01', 'created_at' => '2026-02-01 08:00:00']);
+
+        $response = $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?sort=start_date&order=asc');
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.name', 'January')
+            ->assertJsonPath('data.1.name', 'February')
+            ->assertJsonPath('data.2.name', 'March');
+    }
+
+    /**
+     * GWT: Given a promotion with a null created_at, When sorting by created_at
+     * asc or desc, Then the null row is always last.
+     */
+    public function test_admin_list_promotions_places_null_created_at_rows_last_in_both_directions(): void
+    {
+        $admin = $this->makeAdmin();
+        $token = $this->bearerFor($admin);
+
+        Promotion::factory()->create(['name' => 'Dated A', 'created_at' => '2026-02-01 08:00:00']);
+        Promotion::factory()->create(['name' => 'Undated', 'created_at' => null]);
+        Promotion::factory()->create(['name' => 'Dated B', 'created_at' => '2026-01-01 08:00:00']);
+
+        $desc = $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?sort=created_at&order=desc');
+        $desc->assertOk()
+            ->assertJsonPath('data.0.name', 'Dated A')
+            ->assertJsonPath('data.1.name', 'Dated B')
+            ->assertJsonPath('data.2.name', 'Undated');
+
+        $asc = $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?sort=created_at&order=asc');
+        $asc->assertOk()
+            ->assertJsonPath('data.0.name', 'Dated B')
+            ->assertJsonPath('data.1.name', 'Dated A')
+            ->assertJsonPath('data.2.name', 'Undated');
+    }
+
+    /**
+     * GWT: Given an invalid sort param, When GET /api/admin/promotions, Then
+     * HTTP 200 with the default newest-first order (never 422/500).
+     */
+    public function test_admin_list_promotions_silently_falls_back_for_invalid_sort(): void
+    {
+        $admin = $this->makeAdmin();
+        $token = $this->bearerFor($admin);
+
+        Promotion::factory()->create(['name' => 'Older', 'created_at' => '2026-01-01 08:00:00']);
+        Promotion::factory()->create(['name' => 'Newer', 'created_at' => '2026-03-01 08:00:00']);
+
+        $response = $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?sort=__proto__&order=desc');
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.name', 'Newer')
+            ->assertJsonPath('data.1.name', 'Older');
+    }
+
+    /**
+     * GWT: Given non-scalar (array) sort/order/cursor params, When GET
+     * /api/admin/promotions, Then HTTP 200 with defaults (never 500).
+     */
+    public function test_admin_list_promotions_handles_non_scalar_params_without_error(): void
+    {
+        $admin = $this->makeAdmin();
+        $token = $this->bearerFor($admin);
+
+        Promotion::factory()->create(['name' => 'Older', 'created_at' => '2026-01-01 08:00:00']);
+        Promotion::factory()->create(['name' => 'Newer', 'created_at' => '2026-03-01 08:00:00']);
+
+        $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?sort[]=x')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Newer')
+            ->assertJsonPath('data.1.name', 'Older');
+
+        $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?order[]=x')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Newer')
+            ->assertJsonPath('data.1.name', 'Older');
+
+        $this->withHeader('Authorization', $token)
+            ->getJson('/api/admin/promotions?cursor[]=x')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Newer')
+            ->assertJsonPath('data.1.name', 'Older');
+    }
+
     public function test_admin_can_view_promotion(): void
     {
         $admin = $this->makeAdmin();

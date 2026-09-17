@@ -16,6 +16,11 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PromotionController extends Controller
 {
+    /**
+     * Sortable columns allowlist (invalid values silently fall back to default).
+     */
+    private const SORT_ALLOWLIST = ['created_at', 'updated_at', 'start_date', 'end_date', 'id'];
+
     public function __construct(
         private readonly PromotionService $promotionService,
         private readonly FinanceAuthorizationService $authz,
@@ -43,7 +48,7 @@ class PromotionController extends Controller
         );
 
         $rows = Promotion::query()
-            ->orderByRaw(ListQuery::rawOrder('created_at', 'desc'))
+            ->orderByRaw(ListQuery::rawOrder(...$this->resolveSort($request)))
             ->offset($cursor)
             ->limit($limit + 1)
             ->get();
@@ -59,6 +64,23 @@ class PromotionController extends Controller
     }
 
     /**
+     * Resolve [column, order] against the allowlist, silently falling back to
+     * created_at DESC for invalid/unsafe input.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function resolveSort(Request $request): array
+    {
+        return ListQuery::resolveSort(
+            self::SORT_ALLOWLIST,
+            $this->scalarQueryString($request, 'sort', ''),
+            $this->scalarQueryString($request, 'order', 'desc'),
+            'created_at',
+            'desc',
+        );
+    }
+
+    /**
      * Build the aggregate meta payload from the SAME base builder (never counts
      * the paginated rows). Promotions have no owner scoping: both admin and
      * owner see every promotion, so the base query is unscoped.
@@ -67,10 +89,14 @@ class PromotionController extends Controller
      */
     private function buildListMeta(Builder $query, Carbon $now): array
     {
+        // start_date/end_date are DATE columns; compare at date granularity so a
+        // promo ending today counts as active (matches Promotion::isCurrentlyValid).
+        $today = $now->toDateString();
+
         $total = (clone $query)->count();
-        $active = (clone $query)->where('start_date', '<=', $now)->where('end_date', '>=', $now)->count();
-        $scheduled = (clone $query)->where('start_date', '>', $now)->count();
-        $ended = (clone $query)->where('end_date', '<', $now)->count();
+        $active = (clone $query)->where('start_date', '<=', $today)->where('end_date', '>=', $today)->count();
+        $scheduled = (clone $query)->where('start_date', '>', $today)->count();
+        $ended = (clone $query)->where('end_date', '<', $today)->count();
 
         return ListQuery::meta($total, [
             'total' => $total,

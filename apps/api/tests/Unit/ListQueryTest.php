@@ -77,4 +77,20 @@ class ListQueryTest extends TestCase
         $this->assertSame(12, $meta['total']);
         $this->assertArrayNotHasKey('summary', $meta);
     }
+
+    public function test_resolve_sort_uses_caller_default_for_invalid_column(): void
+    {
+        $this->assertSame(
+            ['id', 'asc'],
+            ListQuery::resolveSort(['created_at', 'name', 'id'], '__proto__', 'desc', 'id', 'asc')
+        );
+    }
+
+    public function test_resolve_sort_uses_global_default_when_no_caller_default(): void
+    {
+        $this->assertSame(
+            ['created_at', 'desc'],
+            ListQuery::resolveSort(['created_at', 'name', 'id'], '__proto__', 'desc')
+        );
+    }
 }

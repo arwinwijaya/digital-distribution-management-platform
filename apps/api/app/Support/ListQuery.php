@@ -10,14 +10,29 @@ class ListQuery
      * @param  array<int, string>  $allowlist
      * @return array{0: string, 1: string}
      */
-    public static function resolveSort(array $allowlist, string $sort, string $order = 'desc'): array
+    public static function resolveSort(
+        array $allowlist,
+        string $sort,
+        string $order = 'desc',
+        ?string $defaultSort = null,
+        string $defaultOrder = 'desc',
+    ): array {
+        if (in_array($sort, $allowlist, true)) {
+            return [$sort, self::normalizeOrder($order) ?? 'desc'];
+        }
+
+        return [$defaultSort ?? 'created_at', self::normalizeOrder($defaultOrder) ?? 'desc'];
+    }
+
+    /**
+     * Normalize an order direction to `asc`/`desc` (case-insensitive), or null
+     * when invalid.
+     */
+    private static function normalizeOrder(string $order): ?string
     {
-        $column = in_array($sort, $allowlist, true) ? $sort : 'created_at';
-
         $order = strtolower($order);
-        $order = in_array($order, ['asc', 'desc'], true) ? $order : 'desc';
 
-        return [$column, $order];
+        return in_array($order, ['asc', 'desc'], true) ? $order : null;
     }
 
     /**

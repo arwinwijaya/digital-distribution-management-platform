@@ -4,7 +4,10 @@
  */
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
+
+import { useDummyStore } from '@/dummy/store';
+import { installDummy } from '@/dummy/install';
 
 const mockGetStoredToken = jest.fn(() => 'test-token');
 jest.mock('@/lib/api', () => ({
@@ -144,6 +147,8 @@ describe('admin page consumes shared API contract', () => {
 
   beforeEach(() => {
     mockGetStoredToken.mockReturnValue('test-token');
+    useDummyStore.getState().reset();
+    installDummy();
     originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
     (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (...args: unknown[]) => {
       const url = String(args[0]);
@@ -243,5 +248,32 @@ describe('admin page consumes shared API contract', () => {
     expect(sentBodies[0].event_uuid).toBe(stableKey);
     expect(sentBodies[1].event_uuid).toBe(stableKey);
     expect(sentBodies[0].event_type).toBe('clicked');
+  });
+
+  it('re-fetches and shows dummy data when Mode Dummy is toggled on', async () => {
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+
+    // Dummy is OFF: real (mocked) territories render first.
+    await waitFor(() => {
+      expect(screen.getByText(/Jakarta Selatan/)).toBeInTheDocument();
+    });
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    const geographicCalls = () =>
+      fetchMock.mock.calls.filter((call) => String(call[0]).includes('/admin/analytics/geographic')).length;
+    const callsBefore = geographicCalls();
+
+    // Flip Mode Dummy ON — the page must reload from the dummy store.
+    act(() => {
+      useDummyStore.getState().toggle();
+    });
+
+    // Dummy-only territory (from JABODETABEK_TERRITORIES) renders, and no
+    // extra network round-trip happens (dummy short-circuit in the API layer).
+    await waitFor(() => {
+      const table = screen.getByTestId('territory-table');
+      expect(within(table).getByText('Bogor')).toBeInTheDocument();
+    });
+    expect(geographicCalls()).toBe(callsBefore);
   });
 });

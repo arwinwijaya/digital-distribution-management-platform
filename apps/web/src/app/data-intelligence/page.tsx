@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Card, PageHeader } from '@/components/ui';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
+import { useDummyRefresh } from '@/dummy/guards';
 import {
   fetchForecastMeasurementData,
   fetchGeographicData,
@@ -86,6 +87,16 @@ export default function DataIntelligencePage() {
   useEffect(() => {
     if (token) void loadAll();
   }, [token, loadAll]);
+
+  // Mode Dummy is toggled from the Topbar while this page stays mounted, so the
+  // effect above never re-runs (its deps are `token` and a stable `loadAll`).
+  // Reload whenever the flag flips: ON short-circuits to dummyEntities inside
+  // the API layer, OFF re-fetches the real snapshot.
+  // NOTE: must stay ABOVE the early returns below — a hook after them would
+  // change the hook count between the `!ready` and ready renders.
+  useDummyRefresh(() => {
+    if (token) void loadAll();
+  });
 
   if (!ready) return <p className="text-sm text-gray-500">Memuat…</p>;
   if (!token) {

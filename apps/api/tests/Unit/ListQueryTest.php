@@ -46,4 +46,35 @@ class ListQueryTest extends TestCase
             ListQuery::rawOrder('created_at', 'asc')
         );
     }
+
+    public function test_offset_clamps_null_to_zero(): void
+    {
+        $this->assertSame(0, ListQuery::offset(null, 15));
+    }
+
+    public function test_offset_passes_through_positive_value(): void
+    {
+        $this->assertSame(45, ListQuery::offset(45, 15));
+    }
+
+    public function test_offset_clamps_negative_to_zero(): void
+    {
+        $this->assertSame(0, ListQuery::offset(-5, 15));
+    }
+
+    public function test_meta_includes_total_and_summary(): void
+    {
+        $this->assertSame(
+            ['total' => 48, 'summary' => ['active' => 32, 'inactive' => 16]],
+            ListQuery::meta(48, ['active' => 32, 'inactive' => 16])
+        );
+    }
+
+    public function test_meta_omits_summary_when_empty(): void
+    {
+        $meta = ListQuery::meta(12, []);
+
+        $this->assertSame(12, $meta['total']);
+        $this->assertArrayNotHasKey('summary', $meta);
+    }
 }

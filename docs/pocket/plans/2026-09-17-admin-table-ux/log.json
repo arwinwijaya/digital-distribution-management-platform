@@ -1,0 +1,159 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-17-admin-table-ux",
+    "plan_type": "phased",
+    "status": "IN_PROGRESS",
+    "date_started": "2026-09-17",
+    "date_completed": null,
+    "baseline_sha": "cb54e099350f5a0937cabcf239d3659e4b9abcbf",
+    "pipeline": 4,
+    "plan_file": "execution-plan/index.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/phase-1.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Backend `ListQuery` sort/total helper",
+          "status": "WAITING",
+          "file": "execution-plan/tasks/T1-backend-listquery-sort-total-helper.md"
+        },
+        {
+          "id": "T2",
+          "name": "Frontend `admin-table.ts` helper",
+          "status": "WAITING",
+          "file": "execution-plan/tasks/T2-frontend-admin-table-ts-helper.md"
+        },
+        {
+          "id": "T3",
+          "name": "`Table.tsx` — density + sortable header",
+          "status": "WAITING",
+          "depends": "T2",
+          "file": "execution-plan/tasks/T3-table-tsx-density-sortable-header.md"
+        },
+        {
+          "id": "T5",
+          "name": "`AdminOutletController@index` — sort + total + summary + normalisasi meta",
+          "status": "WAITING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md"
+        },
+        {
+          "id": "T6",
+          "name": "`UserRoleController@index` — offset cursor + sort + total",
+          "status": "WAITING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T6-userrolecontroller-index-offset-cursor-sort-total.md"
+        },
+        {
+          "id": "T7",
+          "name": "`PromotionController@index` — id-cursor → offset + sort + total + summary",
+          "status": "WAITING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "file": "execution-plan/phase-2.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T8",
+          "name": "`OrderController@index` — offset cursor + sort + total",
+          "status": "WAITING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T8-ordercontroller-index-offset-cursor-sort-total.md"
+        },
+        {
+          "id": "T9",
+          "name": "`ProductController@index` — additive sort/cursor/total (public endpoint)",
+          "status": "WAITING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md"
+        },
+        {
+          "id": "T10",
+          "name": "`SalesPerformanceController@adminPerformance` — id-cursor → offset + sort + total",
+          "status": "WAITING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "file": "execution-plan/phase-3.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T4",
+          "name": "Table controls (Pagination/Summary/Density toggle + hook)",
+          "status": "WAITING",
+          "depends": "T2, T3",
+          "file": "execution-plan/tasks/T4-table-controls-pagination-summary-density-toggle-hook.md"
+        },
+        {
+          "id": "T11",
+          "name": "Outlets page — sort/paging/summary/timestamps/density",
+          "status": "WAITING",
+          "depends": "T4, T5",
+          "file": "execution-plan/tasks/T11-outlets-page-sort-paging-summary-timestamps-density.md"
+        },
+        {
+          "id": "T12",
+          "name": "Products page — sort/paging/summary/timestamps/density",
+          "status": "WAITING",
+          "depends": "T4, T9",
+          "file": "execution-plan/tasks/T12-products-page-sort-paging-summary-timestamps-density.md"
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "file": "execution-plan/phase-4.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T13",
+          "name": "Users page — sort/paging/summary/timestamps/density",
+          "status": "WAITING",
+          "depends": "T4, T6",
+          "file": "execution-plan/tasks/T13-users-page-sort-paging-summary-timestamps-density.md"
+        },
+        {
+          "id": "T14",
+          "name": "Promotions page — sort/paging/summary/timestamps/density",
+          "status": "WAITING",
+          "depends": "T4, T7",
+          "file": "execution-plan/tasks/T14-promotions-page-sort-paging-summary-timestamps-density.md"
+        },
+        {
+          "id": "T15",
+          "name": "Sales-performance page — sort/paging/summary/density",
+          "status": "WAITING",
+          "depends": "T4, T10",
+          "file": "execution-plan/tasks/T15-sales-performance-page-sort-paging-summary-density.md"
+        },
+        {
+          "id": "T16",
+          "name": "Orders page — sort/paging/summary/timestamps/density",
+          "status": "WAITING",
+          "depends": "T4, T8",
+          "file": "execution-plan/tasks/T16-orders-page-sort-paging-summary-timestamps-density.md"
+        },
+        {
+          "id": "T17",
+          "name": "Integration — admin table contract across pages + dummy parity",
+          "status": "WAITING",
+          "depends": "T11, T12, T13, T14, T15, T16",
+          "file": "execution-plan/tasks/T17-integration-admin-table-contract-across-pages-dummy-parity.md"
+        }
+      ]
+    }
+  ]
+}

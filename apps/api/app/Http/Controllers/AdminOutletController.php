@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Outlet;
 use App\Services\FinanceAuthorizationService;
 use App\Support\ListQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,8 +33,56 @@ class AdminOutletController extends Controller
     {
         $this->authorization->assertAdmin($request->user());
 
-        $query = Outlet::query()->with('territory');
+        $query = $this->applyListFilters(Outlet::query()->with('territory'), $request);
 
+        // Cursor-limit pagination
+        $limit = min(max((int) $request->query('limit', 15), 1), 100);
+        $cursor = max((int) $request->query('cursor', 0), 0);
+
+        // Sort allowlist with silent fallback to created_at DESC for invalid input.
+        // Reads must be scalar-safe: array params (e.g. ?sort[]=x) fall back to
+        // the default instead of raising an "Array to string conversion" 500.
+        [$sortColumn, $sortOrder] = ListQuery::resolveSort(
+            self::SORT_ALLOWLIST,
+            $this->scalarQueryString($request, 'sort', ''),
+            $this->scalarQueryString($request, 'order', 'desc'),
+            'created_at',
+            'desc',
+        );
+
+        // Aggregate queries derived from the SAME filtered builder (never count the limited rows).
+        $meta = array_merge(
+            [
+                'limit' => $limit,
+                'cursor' => $cursor,
+            ],
+            $this->buildListMeta(clone $query),
+        );
+
+        $rows = $query
+            ->orderByRaw(ListQuery::rawOrder($sortColumn, $sortOrder))
+            ->limit($limit + 1)
+            ->offset($cursor)
+            ->get();
+
+        $hasMore = $rows->count() > $limit;
+        $data = $hasMore ? $rows->take($limit)->values() : $rows->values();
+
+        $meta = array_merge(['has_more' => $hasMore], $meta);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+            'meta' => $meta,
+        ]);
+    }
+
+    /**
+     * Apply the list filters (category / territory_id / is_active / search) to
+     * the given outlet query and return it.
+     */
+    private function applyListFilters(Builder $query, Request $request): Builder
+    {
         // Category filter
         if ($category = $request->query('category')) {
             $query->ofCategory($category);
@@ -57,50 +106,37 @@ class AdminOutletController extends Controller
             $query->search($search);
         }
 
-        // Cursor-limit pagination
-        $limit = min(max((int) $request->query('limit', 15), 1), 100);
-        $cursor = max((int) $request->query('cursor', 0), 0);
+        return $query;
+    }
 
-        // Aggregate queries derived from the SAME filtered builder (never count the limited rows).
+    /**
+     * Read a query param only when it is a scalar string, otherwise return the
+     * default. Guards against array input (`?sort[]=x`) which would otherwise
+     * raise an "Array to string conversion" error and yield HTTP 500.
+     */
+    private function scalarQueryString(Request $request, string $key, string $default): string
+    {
+        $value = $request->query($key, $default);
+
+        return is_string($value) ? $value : $default;
+    }
+
+    /**
+     * Build the aggregate meta payload from the SAME filtered builder (never
+     * counts the limited rows).
+     *
+     * @return array<string, mixed>
+     */
+    private function buildListMeta(Builder $query): array
+    {
         $total = (clone $query)->count();
 
         $active = (clone $query)->where('is_active', true)->count();
         $inactive = (clone $query)->where('is_active', false)->count();
 
-        // Sort allowlist with silent fallback to created_at DESC for invalid input.
-        [$sortColumn, $sortOrder] = ListQuery::resolveSort(
-            self::SORT_ALLOWLIST,
-            (string) $request->query('sort', ''),
-            (string) $request->query('order', 'desc'),
-            'created_at',
-            'desc',
-        );
-
-        $rows = $query
-            ->orderByRaw(ListQuery::rawOrder($sortColumn, $sortOrder))
-            ->limit($limit + 1)
-            ->offset($cursor)
-            ->get();
-
-        $hasMore = $rows->count() > $limit;
-        $data = $hasMore ? $rows->take($limit)->values() : $rows->values();
-
-        $meta = array_merge(
-            [
-                'has_more' => $hasMore,
-                'limit' => $limit,
-                'cursor' => $cursor,
-            ],
-            ListQuery::meta($total, [
-                'active' => $active,
-                'inactive' => $inactive,
-            ]),
-        );
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $data,
-            'meta' => $meta,
+        return ListQuery::meta($total, [
+            'active' => $active,
+            'inactive' => $inactive,
         ]);
     }
 

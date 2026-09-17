@@ -214,6 +214,44 @@ class AdminOutletTest extends TestCase
     }
 
     /**
+     * GWT: Given a non-scalar (array) sort param, When GET /admin/outlets,
+     * Then HTTP 200 with the default newest-first order (never 500).
+     */
+    public function test_admin_list_handles_non_scalar_sort_param_without_error(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        Outlet::factory()->create(['name' => 'Older', 'created_at' => '2026-01-01 08:00:00']);
+        Outlet::factory()->create(['name' => 'Newer', 'created_at' => '2026-03-01 08:00:00']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?sort[]=x');
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.name', 'Newer')
+            ->assertJsonPath('data.1.name', 'Older');
+    }
+
+    /**
+     * GWT: Given a non-scalar (array) order param, When GET /admin/outlets,
+     * Then HTTP 200 with the default newest-first order (never 500).
+     */
+    public function test_admin_list_handles_non_scalar_order_param_without_error(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        Outlet::factory()->create(['name' => 'Older', 'created_at' => '2026-01-01 08:00:00']);
+        Outlet::factory()->create(['name' => 'Newer', 'created_at' => '2026-03-01 08:00:00']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/outlets?order[]=x');
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.name', 'Newer')
+            ->assertJsonPath('data.1.name', 'Older');
+    }
+
+    /**
      * GWT: Given sort=name&order=asc, When GET /admin/outlets, Then outlets sorted by name asc.
      */
     public function test_admin_list_sorts_by_name_ascending(): void

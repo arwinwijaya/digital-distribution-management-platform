@@ -3,6 +3,7 @@ import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { JABODETABEK_TERRITORIES } from '@/dummy/seed';
 import { updateDummyOutlet } from '@/dummy/mutations';
+import { compareRows, paginate } from '@/lib/admin-table';
 
 // ── Dummy-mode entity shapes (subset of the T5/T6 relational graph) ─────────
 interface DummyOutletEntity {
@@ -69,6 +70,8 @@ function toAdminOutlet(entity: DummyOutletEntity, index: number): AdminOutlet {
     latitude: entity.lat,
     longitude: entity.lon,
     phone: `+62 8${String(10000000 + index).padStart(9, '0')}`,
+    created_at: new Date(Date.UTC(2026, 0, 31) - index * 86_400_000).toISOString(),
+    updated_at: new Date(Date.UTC(2026, 1, 10) - index * 43_200_000).toISOString(),
   };
 }
 
@@ -88,13 +91,27 @@ function listDummyOutlets(filters: OutletFilters): OutletsListResult {
     outlets = outlets.filter((o) => Boolean(o.is_active) === want);
   }
 
+  // Sort using compareRows (default: created_at DESC, fallback to id DESC)
+  const sortCol = filters.sort || 'created_at';
+  const sortOrder = filters.order === 'asc' ? 'asc' : 'desc';
+  outlets = [...outlets].sort((a, b) =>
+    compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, sortCol, sortOrder),
+  );
+
+  // Compute summary
+  const active = outlets.filter((o) => o.is_active).length;
+  const inactive = outlets.filter((o) => !o.is_active).length;
+
   const limit = filters.limit ?? 15;
   const cursor = filters.cursor ?? 0;
+  const paginated = paginate(outlets, cursor, limit);
   return {
-    outlets: outlets.slice(cursor, cursor + limit),
-    hasMore: cursor + limit < outlets.length,
+    outlets: paginated.page,
+    hasMore: paginated.hasMore,
     limit,
     cursor,
+    total: paginated.total,
+    summary: { active, inactive },
   };
 }
 
@@ -161,6 +178,8 @@ export interface AdminOutlet {
   latitude?: number | null;
   longitude?: number | null;
   phone?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface OutletFilters {
@@ -170,6 +189,8 @@ export interface OutletFilters {
   is_active?: string;
   limit?: number;
   cursor?: number;
+  sort?: string;
+  order?: string;
 }
 
 export interface OutletsListResult {
@@ -177,6 +198,8 @@ export interface OutletsListResult {
   hasMore: boolean;
   limit: number;
   cursor: number;
+  total?: number;
+  summary?: { active: number; inactive: number };
 }
 
 export interface OutletOrder {
@@ -220,6 +243,9 @@ async function fetchAdminOutletsReal(token: string, filters: OutletFilters): Pro
   if (filters.is_active) query.set('is_active', filters.is_active);
   query.set('limit', String(filters.limit ?? 15));
   if (filters.cursor) query.set('cursor', String(filters.cursor));
+  // Sort defaults: created_at DESC
+  query.set('sort', filters.sort || 'created_at');
+  query.set('order', filters.order || 'desc');
   const response = await fetch(apiUrl(`/admin/outlets?${query.toString()}`), { headers: authHeaders(token) });
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Daftar outlet tidak dapat dimuat.'));
@@ -228,7 +254,9 @@ async function fetchAdminOutletsReal(token: string, filters: OutletFilters): Pro
   const hasMore = Array.isArray(inner) ? Boolean(data.has_more ?? data.meta?.has_more) : Boolean(inner.has_more);
   const limit = Array.isArray(inner) ? Number(data.meta?.limit ?? 15) : Number(inner.limit ?? 15);
   const cursor = Array.isArray(inner) ? Number(data.meta?.cursor ?? 0) : Number(inner.cursor ?? 0);
-  return { outlets, hasMore, limit, cursor };
+  const total = data.meta?.total !== undefined ? Number(data.meta.total) : undefined;
+  const summary = data.meta?.summary as { active: number; inactive: number } | undefined;
+  return { outlets, hasMore, limit, cursor, total, summary };
 }
 
 export async function updateOutlet(token: string, outletId: number, payload: Partial<AdminOutlet> & { name?: string; category?: string; address?: string; city?: string; district?: string; is_active?: boolean }): Promise<AdminOutlet> {

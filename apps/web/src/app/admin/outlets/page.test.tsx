@@ -15,12 +15,16 @@ const outletsResponse = {
   status: 'success',
   data: {
     data: [
-      { id: 1, name: 'Warung Asri', category: 'warung', score: 12, is_active: true, territory_id: 1, address: 'Jl Merdeka' },
-      { id: 2, name: 'Toko Sejahtera', category: 'grosir', score: 5, is_active: false, territory_id: 2 },
+      { id: 1, name: 'Warung Asri', category: 'warung', score: 12, is_active: true, territory_id: 1, address: 'Jl Merdeka', created_at: '2026-09-01T08:00:00Z', updated_at: '2026-09-10T10:00:00Z' },
+      { id: 2, name: 'Toko Sejahtera', category: 'grosir', score: 5, is_active: false, territory_id: 2, created_at: '2026-09-02T08:00:00Z', updated_at: '2026-09-11T10:00:00Z' },
     ],
     has_more: false,
     limit: 15,
     cursor: 0,
+  },
+  meta: {
+    total: 2,
+    summary: { active: 1, inactive: 1 },
   },
 };
 
@@ -42,13 +46,14 @@ const updateResponse = {
 
 describe('admin outlets page', () => {
   let originalFetch: typeof fetch | undefined;
+  let fetchMock: jest.Mock;
 
   beforeEach(() => {
     useDummyStore.getState().reset();
     installDummy();
     mockGetStoredToken.mockReturnValue('test-token');
     originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
-    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (url: unknown, options?: { method?: string }) => {
+    fetchMock = jest.fn(async (url: unknown, options?: { method?: string }) => {
       const urlString = String(url);
       if (urlString.includes('/admin/outlets/') && urlString.includes('/summary')) return { ok: true, status: 200, json: async () => summaryResponse } as Response;
       if (urlString.includes('/admin/outlets/') && urlString.includes('/orders')) return { ok: true, status: 200, json: async () => ordersResponse } as Response;
@@ -56,6 +61,7 @@ describe('admin outlets page', () => {
       if (urlString.includes('/admin/outlets')) return { ok: true, status: 200, json: async () => outletsResponse } as Response;
       return { ok: true, status: 200, json: async () => ({}) } as Response;
     });
+    (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
   });
 
   afterEach(() => {
@@ -88,6 +94,39 @@ describe('admin outlets page', () => {
     expect(screen.getByText('Toko Sejahtera')).toBeInTheDocument();
     expect(screen.getByText('Kelola outlet')).toBeInTheDocument();
     expect(screen.getByText('Terapkan filter')).toBeInTheDocument();
+  });
+
+  it('renders summary strip with total, aktif and nonaktif counts', async () => {
+    const { default: Page } = await import('@/app/admin/outlets/page');
+    render(<Page />);
+
+    await waitFor(() => {
+      const summary = screen.getByTestId('table-summary').textContent ?? '';
+      expect(summary).toContain('2 outlet');
+    });
+    const summary = screen.getByTestId('table-summary').textContent ?? '';
+    expect(summary).toContain('1 aktif');
+    expect(summary).toContain('1 nonaktif');
+    expect(summary).toContain('\u00b7');
+  });
+
+  it('renders created_at and updated_at columns as formatted dates (not raw ISO)', async () => {
+    const { default: Page } = await import('@/app/admin/outlets/page');
+    render(<Page />);
+
+    await waitFor(() => expect(screen.getByText('Warung Asri')).toBeInTheDocument());
+
+    // Headers must include 'Dibuat' and 'Diperbarui'
+    expect(screen.getByText('Dibuat')).toBeInTheDocument();
+    expect(screen.getByText('Diperbarui')).toBeInTheDocument();
+
+    // The raw ISO should not appear anywhere in the rendered document.
+    expect(screen.queryByText('2026-09-01T08:00:00Z')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-09-02T08:00:00Z')).not.toBeInTheDocument();
+    // formatDateTime('id-ID', medium date + short time) produces a string like
+    // "1 Sep 2026 15.00" or similar; the date year token must be present.
+    const body = document.body.textContent ?? '';
+    expect(body).toMatch(/2026/);
   });
 
   it('opens edit and shows summary on outlet click', async () => {

@@ -5,7 +5,9 @@ import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminOutlets, fetchOutletOrders, fetchOutletSummary, updateOutlet, type AdminOutlet, type OutletOrder, type OutletSummary } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Select, Table } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Select, Table, TableSummary } from '@/components/ui';
+import { useTableDensity } from '@/hooks/useTableDensity';
+import { formatDateTime, type ColumnSort } from '@/lib/admin-table';
 
 const CATEGORY_OPTIONS = ['', 'warung', 'minimarket', 'supermarket', 'grosir', 'restoran', 'kafe', 'toko_kelontong', 'lainnya'] as const;
 
@@ -33,14 +35,31 @@ export default function AdminOutletsPage() {
   const [summary, setSummary] = useState<OutletSummary | null>(null);
   const [orders, setOrders] = useState<OutletOrder[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  // Table state
+  const [sort, setSort] = useState<ColumnSort>({ column: 'created_at', order: 'desc' });
+  const [total, setTotal] = useState<number>();
+  const [tableSummary, setTableSummary] = useState<{ active: number; inactive: number }>();
+  const { density } = useTableDensity();
 
   const loadOutlets = useCallback(async (authToken: string) => {
     setLoading(true); setError(null);
     try {
-      const result = await fetchAdminOutlets(authToken, { search: search || undefined, category: category || undefined, territory_id: territoryId || undefined, is_active: isActive || undefined, limit: 15, cursor: 0 });
-      setOutlets(result.outlets); setHasMore(result.hasMore);
+      const result = await fetchAdminOutlets(authToken, {
+        search: search || undefined,
+        category: category || undefined,
+        territory_id: territoryId || undefined,
+        is_active: isActive || undefined,
+        limit: 15,
+        cursor: 0,
+        sort: sort.column,
+        order: sort.order,
+      });
+      setOutlets(result.outlets);
+      setHasMore(result.hasMore);
+      if (result.total !== undefined) setTotal(result.total);
+      if (result.summary) setTableSummary(result.summary);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Daftar outlet tidak dapat dimuat.'); } finally { setLoading(false); }
-  }, [search, category, territoryId, isActive]);
+  }, [search, category, territoryId, isActive, sort]);
 
   const loadOutletDetail = useCallback(async (authToken: string, outletId: number) => {
     setDetailLoading(true); setActionError(null);
@@ -105,6 +124,16 @@ export default function AdminOutletsPage() {
       ),
     },
     {
+      key: 'created_at',
+      header: 'Dibuat',
+      render: (o: AdminOutlet) => <span className="text-xs text-gray-600">{formatDateTime(o.created_at ?? null)}</span>,
+    },
+    {
+      key: 'updated_at',
+      header: 'Diperbarui',
+      render: (o: AdminOutlet) => <span className="text-xs text-gray-600">{formatDateTime(o.updated_at ?? null)}</span>,
+    },
+    {
       key: 'action',
       header: 'Aksi',
       render: (o: AdminOutlet) => <Button size="sm" variant="secondary" onClick={() => startEdit(o)}>Ubah</Button>,
@@ -136,7 +165,27 @@ export default function AdminOutletsPage() {
       </Card>
       <div className="grid gap-5 lg:grid-cols-[1.7fr_1fr]">
         <Card className="overflow-hidden">
-          {loading ? <p className="p-8 text-sm text-gray-500">Memuat outlet...</p> : <Table columns={columns} rows={outlets} rowKey={(o) => o.id} empty={<EmptyState icon={<span>🏪</span>} title="Belum ada outlet" description="Outlet akan muncul di sini." />} />}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+            <TableSummary
+              total={total ?? outlets.length}
+              breakdown={tableSummary ? [{ label: 'aktif', value: tableSummary.active }, { label: 'nonaktif', value: tableSummary.inactive }] : undefined}
+              noun="outlet"
+            />
+          </div>
+          {loading ? (
+            <p className="p-8 text-sm text-gray-500">Memuat outlet...</p>
+          ) : (
+            <Table
+              columns={columns}
+              rows={outlets}
+              rowKey={(o) => o.id}
+              density={density}
+              sortableColumns={['name', 'category', 'score', 'is_active']}
+              sort={sort}
+              onSort={(column) => setSort({ column, order: 'desc' })}
+              empty={<EmptyState icon={<span>🏪</span>} title="Belum ada outlet" description="Outlet akan muncul di sini." />}
+            />
+          )}
         </Card>
         <div className="space-y-5">
           {editingOutlet && (

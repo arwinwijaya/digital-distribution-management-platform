@@ -1,4 +1,5 @@
-import { ReactNode } from 'react';
+import { KeyboardEvent, ReactNode } from 'react';
+import type { ColumnSort } from '@/lib/admin-table';
 
 type Column<T> = {
   key: string;
@@ -12,16 +13,61 @@ type Props<T> = {
   rows: T[];
   rowKey: (row: T) => string | number;
   empty?: ReactNode;
+  /** Column keys whose headers toggle sorting. Anything absent stays INERT. */
+  sortableColumns?: string[];
+  /** Canonical sort state (`{ column, order }`) owned by the parent page. */
+  sort?: ColumnSort;
+  /** Called with the clicked column key; ignored for non-sortable columns. */
+  onSort?: (column: string) => void;
 };
 
-export default function Table<T>({ columns, rows, rowKey, empty }: Props<T>) {
+/** Map the canonical `SortOrder` to the exact `aria-sort` token. */
+function ariaSortValue(sort: ColumnSort | undefined, columnKey: string): 'ascending' | 'descending' | 'none' {
+  if (sort?.column !== columnKey) return 'none';
+  return sort.order === 'asc' ? 'ascending' : 'descending';
+}
+
+/** Direction glyph shown next to a sortable header label. */
+function SortIndicator({ ariaSort }: { ariaSort: 'ascending' | 'descending' | 'none' }) {
+  const glyph = ariaSort === 'ascending' ? '↑' : ariaSort === 'descending' ? '↓' : '↕';
+  return (
+    <span aria-hidden="true" className={`ml-1 ${ariaSort === 'none' ? 'text-gray-300' : 'text-gray-700'}`}>
+      {glyph}
+    </span>
+  );
+}
+
+export default function Table<T>({ columns, rows, rowKey, empty, sortableColumns, sort, onSort }: Props<T>) {
   if (rows.length === 0) return <>{empty ?? <div className="p-8 text-center text-sm text-gray-500">Belum ada data.</div>}</>;
+
+  const handleHeaderKeyDown = (event: KeyboardEvent<HTMLTableCellElement>, columnKey: string) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    onSort?.(columnKey);
+  };
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-100 text-left text-sm">
         <thead className="bg-gray-50/80">
           <tr>
-            {columns.map((column) => <th key={column.key} className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 ${column.className ?? ''}`}>{column.header}</th>)}
+            {columns.map((column) => {
+              const sortable = sortableColumns?.includes(column.key) ?? false;
+              const headerSort = sortable ? ariaSortValue(sort, column.key) : undefined;
+              return (
+                <th
+                  key={column.key}
+                  aria-sort={headerSort}
+                  tabIndex={sortable ? 0 : undefined}
+                  onClick={sortable ? () => onSort?.(column.key) : undefined}
+                  onKeyDown={sortable ? (event) => handleHeaderKeyDown(event, column.key) : undefined}
+                  className={`px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 ${sortable ? 'cursor-pointer select-none hover:text-gray-700' : ''} ${column.className ?? ''}`}
+                >
+                  {column.header}
+                  {headerSort ? <SortIndicator ariaSort={headerSort} /> : null}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 bg-white">

@@ -15,6 +15,28 @@ const DEFAULT_ZOOM = 10;
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
+/* Branded map pin: a teardrop filled with the brand blue (#2563eb) carrying the
+   white "D" monogram, so map markers match the favicon/sidebar instead of the
+   default Leaflet blue pin. Rendered as an inline SVG through `divIcon` rather
+   than `L.icon`, because an SVG data URL would need `#2563eb` percent-encoded
+   (a bare `#` starts a URL fragment and truncates the image). `className: ''`
+   drops Leaflet's default `.leaflet-div-icon` white box/border.
+   Tip sits at (16,42); iconAnchor aligns that tip with the outlet coordinate.
+   The "D" path reuses the exact monogram geometry from `src/app/icon.svg`,
+   scaled to fit the pin head (circle centred at (16,16), radius 16). */
+const MARKER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+  <path d="M16 0C7.163 0 0 7.163 0 16c0 11.5 16 26 16 26s16-14.5 16-26C32 7.163 24.837 0 16 0Z" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <path fill="#ffffff" fill-rule="evenodd" transform="translate(16 16) scale(0.5) translate(-32 -32)" d="M20 48 V16 H28 A16 16 0 0 1 28 48 Z M27 41 V23 A9 9 0 0 1 27 41 Z"/>
+</svg>`;
+
+const MARKER_ICON = L.divIcon({
+  className: '',
+  html: MARKER_SVG,
+  iconSize: [32, 42],
+  iconAnchor: [16, 42],
+  popupAnchor: [0, -40],
+});
+
 export function isValidPoint(point: GeographicMapPoint): boolean {
   const { latitude, longitude } = point;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return false;
@@ -51,7 +73,7 @@ export default function GeoMap({ points }: Props) {
     L.tileLayer(TILE_URL, { attribution: OSM_ATTRIBUTION }).addTo(map);
 
     validPoints.forEach((p) => {
-      L.marker([p.latitude, p.longitude])
+      L.marker([p.latitude, p.longitude], { icon: MARKER_ICON })
         .addTo(map)
         .bindPopup(
           `${p.outlet_name} — ${p.territory} — ${p.orders} pesanan — ${p.sales}`,

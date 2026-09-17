@@ -7,10 +7,11 @@ import type { GeographicMapPoint } from '@/lib/data-intelligence-api';
 /* Leaflet mock with a faithful _leaflet_id guard.                     */
 /* ------------------------------------------------------------------ */
 
-const mockLeafletMarkers: Array<{ latlng: unknown; popup: string | null }> = [];
+const mockLeafletMarkers: Array<{ latlng: unknown; popup: string | null; icon: any }> = [];
 const mockMapFn = jest.fn<void, [HTMLElement]>();
 const mockTileLayerFn = jest.fn(() => ({ addTo: jest.fn() }));
 const mockLatLngBoundsFn = jest.fn((xs: unknown) => ({ latlngs: xs }));
+const mockDivIconFn = jest.fn((opts: unknown) => ({ options: opts }));
 
 jest.mock('leaflet', () => {
   function map(container: HTMLElement) {
@@ -31,8 +32,8 @@ jest.mock('leaflet', () => {
     return self;
   }
 
-  function marker(latlng: unknown) {
-    const entry = { latlng, popup: null as string | null };
+  function marker(latlng: unknown, opts?: { icon?: unknown }) {
+    const entry = { latlng, popup: null as string | null, icon: opts?.icon };
     mockLeafletMarkers.push(entry);
     let self: any;
     self = {
@@ -51,6 +52,7 @@ jest.mock('leaflet', () => {
       map,
       tileLayer: mockTileLayerFn,
       marker,
+      divIcon: mockDivIconFn,
       latLngBounds: mockLatLngBoundsFn,
     },
   };
@@ -63,6 +65,7 @@ beforeEach(() => {
   mockMapFn.mockClear();
   mockTileLayerFn.mockClear();
   mockLatLngBoundsFn.mockClear();
+  mockDivIconFn.mockClear();
 });
 
 const VALID_POINTS: GeographicMapPoint[] = [
@@ -111,6 +114,27 @@ describe('leaflet_map_renders_client_only_with_attribution_and_stable_height', (
       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       expect.objectContaining({ attribution: expect.stringContaining('OpenStreetMap') }),
     );
+  });
+
+  it('renders every marker with the branded pin icon (not the Leaflet default)', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    render(<GeoMap points={VALID_POINTS} />);
+
+    expect(mockLeafletMarkers).toHaveLength(2);
+    for (const marker of mockLeafletMarkers) {
+      const opts = marker.icon.options as {
+        html: string;
+        iconAnchor: [number, number];
+        className: string;
+      };
+      // Brand blue + the monogram "D" path prove it is our custom pin.
+      expect(opts.html).toContain('#2563eb');
+      expect(opts.html).toContain('M20 48');
+      // Anchor at the pin tip so it points at the outlet coordinate.
+      expect(opts.iconAnchor).toEqual([16, 42]);
+      // Default Leaflet div-icon box/border styling must be stripped.
+      expect(opts.className).toBe('');
+    }
   });
 
   it('shows empty state when no points are provided', async () => {

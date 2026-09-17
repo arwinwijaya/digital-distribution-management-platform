@@ -13,6 +13,14 @@ use Illuminate\Http\Request;
 
 class SalesPerformanceController extends Controller
 {
+    /**
+     * Server-side sortable columns allowlist. `achievement` is deliberately NOT
+     * listed: it is computed per row by the performance service and is not a DB
+     * column, so it must be sorted client-side. Invalid values fall back to the
+     * default (name ASC) silently.
+     */
+    private const SORT_ALLOWLIST = ['name', 'id'];
+
     public function __construct(
         private readonly SalesPerformanceService $performanceService,
         private readonly FinanceAuthorizationService $authz,
@@ -84,29 +92,58 @@ class SalesPerformanceController extends Controller
         );
 
         // Default order: name ASC (id DESC as a deterministic tiebreaker).
+        // Sort reads are scalar-safe and fall back silently to the default.
         $rows = $query
-            ->orderByRaw(ListQuery::rawOrder('name', 'asc'))
+            ->orderByRaw(ListQuery::rawOrder(...$this->resolveSort($request)))
             ->offset($cursor)
             ->limit($limit + 1)
             ->get();
 
         $hasMore = $rows->count() > $limit;
-        $data = $rows->take($limit)->values()->map(function (User $salesUser) use ($period) {
-            $perf = $this->performanceService->calculatePerformance((int) $salesUser->id, $period);
-
-            return array_merge([
-                'user_id' => $salesUser->id,
-                'name'    => $salesUser->name,
-                'email'   => $salesUser->email,
-                'period'  => $period,
-            ], $this->formatAmounts($perf));
-        });
+        $data = $rows->take($limit)->values()
+            ->map(fn (User $salesUser) => $this->formatRow($salesUser, $period));
 
         return response()->json([
             'status' => 'success',
             'data'   => $data,
             'meta'   => array_merge(['has_more' => $hasMore], $meta),
         ]);
+    }
+
+    /**
+     * Shape a single sales user's performance row, preserving the existing
+     * per-row contract (user_id, name, email, period + formatted amounts).
+     *
+     * @return array<string, mixed>
+     */
+    private function formatRow(User $salesUser, string $period): array
+    {
+        $perf = $this->performanceService->calculatePerformance((int) $salesUser->id, $period);
+
+        return array_merge([
+            'user_id' => $salesUser->id,
+            'name'    => $salesUser->name,
+            'email'   => $salesUser->email,
+            'period'  => $period,
+        ], $this->formatAmounts($perf));
+    }
+
+    /**
+     * Resolve [column, order] against the allowlist, silently falling back to
+     * name ASC for invalid/unsafe input (including `achievement`, which is not
+     * a DB column).
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function resolveSort(Request $request): array
+    {
+        return ListQuery::resolveSort(
+            self::SORT_ALLOWLIST,
+            $this->scalarQueryString($request, 'sort', ''),
+            $this->scalarQueryString($request, 'order', 'asc'),
+            'name',
+            'asc',
+        );
     }
 
     /**

@@ -610,4 +610,112 @@ class SalesPerformanceTest extends TestCase
         $this->assertSame(array_slice($allNames, 2, 2), $secondNameList);
         $this->assertSame([], array_values(array_intersect($firstNameList, $secondNameList)));
     }
+
+    /**
+     * GWT: Given sales users, When GET /admin/sales/performance?sort=name&order=desc,
+     * Then rows are ordered by name DESCENDING (proves the sort is applied, not the
+     * default name ASC).
+     */
+    public function test_admin_performance_sort_by_name_descending(): void
+    {
+        $admin = $this->makeAdmin();
+        $period = $this->currentPeriod();
+
+        User::factory()->sales()->create(['name' => 'Charlie Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Alpha Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Bravo Sales', 'is_active' => true]);
+
+        $response = $this->withHeader('Authorization', $this->bearerFor($admin))
+            ->getJson("/api/admin/sales/performance?period={$period}&sort=name&order=desc");
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success');
+
+        $this->assertSame(
+            ['Charlie Sales', 'Bravo Sales', 'Alpha Sales'],
+            collect($response->json('data'))->pluck('name')->all(),
+        );
+    }
+
+    /**
+     * GWT: `id` is on the server allowlist, When ?sort=id&order=desc, Then rows
+     * are ordered by id descending.
+     */
+    public function test_admin_performance_sort_by_id_descending(): void
+    {
+        $admin = $this->makeAdmin();
+        $period = $this->currentPeriod();
+
+        $first = User::factory()->sales()->create(['name' => 'First Sales', 'is_active' => true]);
+        $second = User::factory()->sales()->create(['name' => 'Second Sales', 'is_active' => true]);
+        $third = User::factory()->sales()->create(['name' => 'Third Sales', 'is_active' => true]);
+
+        $response = $this->withHeader('Authorization', $this->bearerFor($admin))
+            ->getJson("/api/admin/sales/performance?period={$period}&sort=id&order=desc");
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success');
+
+        $this->assertSame(
+            [$third->id, $second->id, $first->id],
+            collect($response->json('data'))->pluck('user_id')->all(),
+        );
+    }
+
+    /**
+     * GWT: `achievement` is computed by the performance service, NOT a DB column,
+     * When ?sort=achievement is requested, Then it silently falls back to the
+     * default order with HTTP 200 (never 422/500).
+     */
+    public function test_admin_performance_sort_achievement_falls_back_to_default(): void
+    {
+        $admin = $this->makeAdmin();
+        $period = $this->currentPeriod();
+
+        User::factory()->sales()->create(['name' => 'Charlie Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Alpha Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Bravo Sales', 'is_active' => true]);
+
+        $response = $this->withHeader('Authorization', $this->bearerFor($admin))
+            ->getJson("/api/admin/sales/performance?period={$period}&sort=achievement");
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success');
+
+        // Default order is name ASC.
+        $this->assertSame(
+            ['Alpha Sales', 'Bravo Sales', 'Charlie Sales'],
+            collect($response->json('data'))->pluck('name')->all(),
+        );
+    }
+
+    /**
+     * GWT: Unsafe/unknown sort values and array input fall back silently to the
+     * default with HTTP 200 (no 422, no "Array to string conversion" 500).
+     */
+    public function test_admin_performance_invalid_sort_falls_back_to_default(): void
+    {
+        $admin = $this->makeAdmin();
+        $period = $this->currentPeriod();
+
+        User::factory()->sales()->create(['name' => 'Bravo Sales', 'is_active' => true]);
+        User::factory()->sales()->create(['name' => 'Alpha Sales', 'is_active' => true]);
+
+        foreach (['sort=__proto__', 'sort[]=x', 'order[]=x', 'cursor[]=x', 'sort=achievement&order=nonsense'] as $qs) {
+            $response = $this->withHeader('Authorization', $this->bearerFor($admin))
+                ->getJson("/api/admin/sales/performance?period={$period}&{$qs}");
+
+            $response->assertOk()
+                ->assertJsonPath('status', 'success');
+        }
+
+        // Default order remains name ASC after all invalid input.
+        $response = $this->withHeader('Authorization', $this->bearerFor($admin))
+            ->getJson("/api/admin/sales/performance?period={$period}&sort=__proto__");
+
+        $this->assertSame(
+            ['Alpha Sales', 'Bravo Sales'],
+            collect($response->json('data'))->pluck('name')->all(),
+        );
+    }
 }

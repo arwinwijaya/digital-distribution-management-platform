@@ -3,7 +3,7 @@
  *
  * Cycle 1: sort allowlist mirror + normalizeSort.
  */
-import { SORT_ALLOWLISTS, normalizeSort, compareRows } from '@/lib/admin-table';
+import { SORT_ALLOWLISTS, normalizeSort, compareRows, paginate, formatDateTime, buildCountLabel } from '@/lib/admin-table';
 
 describe('SORT_ALLOWLISTS (mirror of backend controller allowlists)', () => {
   it('exposes an allowlist for all 6 admin pages', () => {
@@ -117,5 +117,45 @@ describe('compareRows (nulls-last both directions + id DESC tiebreak)', () => {
       .sort((a, b) => compareRows(a, b, 'created_at', 'asc'))
       .map((r) => r.id);
     expect(sorted).toEqual([9, 7, 5]);
+  });
+});
+
+describe('paginate', () => {
+  const items = Array.from({ length: 48 }, (_, i) => ({ id: i + 1 }));
+
+  it('slices the page and computes total/hasMore/nextCursor', () => {
+    expect(paginate(items, 30, 15)).toEqual({
+      page: items.slice(30, 45),
+      total: 48,
+      hasMore: true,
+      nextCursor: 45,
+    });
+  });
+});
+
+describe('formatDateTime', () => {
+  it('formats a timestamp locally (contains year, not the raw ISO string)', () => {
+    const raw = '2026-09-17T10:00:00+07:00';
+    const out = formatDateTime(raw);
+    expect(out).toContain('2026');
+    expect(out).not.toContain('T10:00:00');
+  });
+
+  it('returns an em dash for null', () => {
+    expect(formatDateTime(null)).toBe('—');
+  });
+});
+
+describe('buildCountLabel', () => {
+  it('shows page/total/data when total is known', () => {
+    expect(buildCountLabel({ total: 48, cursor: 0, limit: 15 })).toBe(
+      'Halaman 1 dari 4 · 48 data',
+    );
+  });
+
+  it('shows an estimate without claiming a total when total is absent', () => {
+    const label = buildCountLabel({ total: undefined, cursor: 15, limit: 15, hasMore: true });
+    expect(label).toBe('Halaman 2 · ada data lain');
+    expect(label).not.toContain('dari');
   });
 });

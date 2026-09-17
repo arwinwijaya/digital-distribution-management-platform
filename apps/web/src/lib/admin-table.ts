@@ -99,3 +99,77 @@ export function compareRows<T extends Record<string, unknown>>(
   if (order === 'desc') cmp = -cmp;
   return cmp !== 0 ? cmp : idDesc(a.id, b.id);
 }
+
+/** Offset-paginated page + metadata (cursor = offset, mirrors the backend contract). */
+export interface PaginateResult<T> {
+  page: T[];
+  total: number;
+  hasMore: boolean;
+  nextCursor: number;
+}
+
+/**
+ * Slice a page out of a fully-loaded list using an offset `cursor` + `limit`,
+ * matching the backend's offset pagination (cursor 0, limit, 2*limit, ...).
+ */
+export function paginate<T>(items: readonly T[], cursor: number, limit: number): PaginateResult<T> {
+  const size = limit > 0 ? limit : 1;
+  const start = Math.max(0, cursor);
+  const page = items.slice(start, start + size);
+  const nextCursor = start + size;
+  return {
+    page,
+    total: items.length,
+    hasMore: nextCursor < items.length,
+    nextCursor,
+  };
+}
+
+const EM_DASH = '\u2014';
+
+const dateTimeFormatter = new Intl.DateTimeFormat('id-ID', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+/**
+ * Format a timestamp as a local `id-ID` date+time. Null/undefined/empty and
+ * malformed values render as an em dash so cells never show "Invalid Date".
+ */
+export function formatDateTime(
+  value: string | number | Date | null | undefined,
+): string {
+  if (value === null || value === undefined || value === '') return EM_DASH;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return EM_DASH;
+  return dateTimeFormatter.format(date);
+}
+
+/** Inputs for the paging position label. */
+export interface CountLabelInput {
+  total?: number | null;
+  cursor: number;
+  limit: number;
+  hasMore?: boolean;
+}
+
+/**
+ * Build the paging position label. When `total` is known the label claims a
+ * page count and total; when it is absent we fall back to an ESTIMATE that
+ * never invents a total ("Halaman 2 · ada data lain").
+ */
+export function buildCountLabel({ total, cursor, limit, hasMore }: CountLabelInput): string {
+  const size = limit > 0 ? limit : 1;
+  const page = Math.floor(Math.max(0, cursor) / size) + 1;
+
+  if (typeof total === 'number' && Number.isFinite(total)) {
+    const totalPages = Math.max(1, Math.ceil(total / size));
+    return `Halaman ${page} dari ${totalPages} · ${total} data`;
+  }
+
+  if (hasMore) {
+    return `Halaman ${page} · ada data lain`;
+  }
+
+  return `Halaman ${page}`;
+}

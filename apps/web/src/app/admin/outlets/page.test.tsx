@@ -237,6 +237,98 @@ describe('admin outlets page', () => {
     });
   });
 
+  describe('sortable wiring + edge cases', () => {
+    it('wires aria-sort on the default created_at column and leaves non-sortable headers inert', async () => {
+      const { default: Page } = await import('@/app/admin/outlets/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Warung Asri')).toBeInTheDocument());
+
+      // Default sort is created_at desc → the "Dibuat" header is the active column.
+      const createdHeader = () => screen.getByText('Dibuat').closest('th') as HTMLTableCellElement;
+      expect(createdHeader()).toHaveAttribute('aria-sort', 'descending');
+
+      fireEvent.click(createdHeader());
+      await waitFor(() => {
+        const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+        const url = String(lastCall[0]);
+        expect(url).toContain('sort=created_at');
+        expect(url).toContain('order=asc');
+        expect(url).toContain('cursor=0');
+      });
+      await waitFor(() => expect(createdHeader()).toHaveAttribute('aria-sort', 'ascending'));
+
+      // "Aksi" is not server-sortable: no aria-sort and clicking is inert.
+      const actionHeader = screen.getByText('Aksi').closest('th') as HTMLTableCellElement;
+      expect(actionHeader).not.toHaveAttribute('aria-sort');
+      const callsBefore = fetchMock.mock.calls.length;
+      fireEvent.click(actionHeader);
+      await act(async () => { await Promise.resolve(); });
+      expect(fetchMock.mock.calls.length).toBe(callsBefore);
+    });
+
+    it('renders the empty state + beyond-total pagination guard without crashing', async () => {
+      fetchMock.mockImplementation(async (url: unknown, options?: { method?: string }) => {
+        const urlString = String(url);
+        if (urlString.includes('/admin/outlets/') && urlString.includes('/summary')) return { ok: true, status: 200, json: async () => summaryResponse } as Response;
+        if (urlString.includes('/admin/outlets/') && urlString.includes('/orders')) return { ok: true, status: 200, json: async () => ordersResponse } as Response;
+        if (urlString.includes('/admin/outlets') && (options?.method === 'PATCH' || options?.method === 'patch')) return { ok: true, status: 200, json: async () => updateResponse } as Response;
+        if (urlString.includes('/admin/outlets')) {
+          const cursor = Number(new URL(urlString).searchParams.get('cursor') ?? '0');
+          if (cursor >= 60) {
+            return { ok: true, status: 200, json: async () => ({ status: 'success', data: { data: [], has_more: false, limit: 15, cursor: 60 }, meta: { total: 48, summary: { active: 0, inactive: 0 } } }) } as Response;
+          }
+          return { ok: true, status: 200, json: async () => ({ status: 'success', data: { data: [{ id: cursor + 1, name: `Outlet ${cursor}`, category: 'warung', score: 1, is_active: true, territory_id: 1, created_at: '2026-09-01T08:00:00Z', updated_at: '2026-09-10T10:00:00Z' }], has_more: true, limit: 15, cursor }, meta: { summary: { active: 1, inactive: 0 } } }) } as Response;
+        }
+        return { ok: true, status: 200, json: async () => ({}) } as Response;
+      });
+
+      const { default: Page } = await import('@/app/admin/outlets/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Outlet 0')).toBeInTheDocument());
+
+      // total is intentionally absent on intermediate pages so "Berikutnya" stays
+      // enabled; the final page (cursor=60) reports total=48 → beyond-total state.
+      const clickNextTo = async (expectedCursor: number) => {
+        fireEvent.click(screen.getByText('Berikutnya'));
+        await waitFor(() => {
+          const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+          expect(String(lastCall[0])).toContain(`cursor=${expectedCursor}`);
+        });
+      };
+      await clickNextTo(15);
+      await clickNextTo(30);
+      await clickNextTo(45);
+      await clickNextTo(60);
+
+      await waitFor(() => expect(screen.getByText('tidak ada data lanjutan')).toBeInTheDocument());
+      expect(screen.getByText('Belum ada outlet')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /berikutnya/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /sebelumnya/i })).not.toBeDisabled();
+    });
+
+    it('renders an em dash for null/absent timestamps instead of "Invalid Date"', async () => {
+      fetchMock.mockImplementation(async (url: unknown, options?: { method?: string }) => {
+        const urlString = String(url);
+        if (urlString.includes('/admin/outlets/') && urlString.includes('/summary')) return { ok: true, status: 200, json: async () => summaryResponse } as Response;
+        if (urlString.includes('/admin/outlets/') && urlString.includes('/orders')) return { ok: true, status: 200, json: async () => ordersResponse } as Response;
+        if (urlString.includes('/admin/outlets') && (options?.method === 'PATCH' || options?.method === 'patch')) return { ok: true, status: 200, json: async () => updateResponse } as Response;
+        if (urlString.includes('/admin/outlets')) return { ok: true, status: 200, json: async () => ({ status: 'success', data: { data: [{ id: 99, name: 'Outlet Tanpa Tanggal', category: 'warung', score: 3, is_active: true, territory_id: 1, created_at: null, updated_at: null }], has_more: false, limit: 15, cursor: 0 }, meta: { total: 1, summary: { active: 1, inactive: 0 } } }) } as Response;
+        return { ok: true, status: 200, json: async () => ({}) } as Response;
+      });
+
+      const { default: Page } = await import('@/app/admin/outlets/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Outlet Tanpa Tanggal')).toBeInTheDocument());
+
+      const row = screen.getByText('Outlet Tanpa Tanggal').closest('tr') as HTMLTableRowElement;
+      const cells = Array.from(row.querySelectorAll('td'));
+      // Columns: name, category, score, territory, status, created_at, updated_at, action
+      expect(cells[5]).toHaveTextContent('\u2014');
+      expect(cells[6]).toHaveTextContent('\u2014');
+      expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
+    });
+  });
+
   describe('density toggle + dummy parity', () => {
     it('density toggle changes the table padding class and persists to localStorage', async () => {
       const { default: Page } = await import('@/app/admin/outlets/page');

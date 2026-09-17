@@ -193,7 +193,7 @@ export default function AdminOutletsPage() {
               rows={outlets}
               rowKey={(o) => o.id}
               density={density}
-              sortableColumns={['name', 'category', 'score', 'is_active']}
+              sortableColumns={['name', 'category', 'score', 'created_at', 'updated_at']}
               sort={sort}
               onSort={(column) => {
                 const next = toggleSort(sortRef.current, column);

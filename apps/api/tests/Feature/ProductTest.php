@@ -153,6 +153,56 @@ class ProductTest extends TestCase
         $this->assertSame(4, $response->json('meta.total'));
     }
 
+    public function test_invalid_sort_falls_back_to_products_default_id_asc(): void
+    {
+        // id order deliberately diverges from created_at order so we can prove
+        // the fallback is id ASC (products default) and NOT created_at DESC.
+        $first = Product::factory()->create(['name' => 'First', 'created_at' => now()->subDays(3)]);
+        $second = Product::factory()->create(['name' => 'Second', 'created_at' => now()->subDays(2)]);
+        $third = Product::factory()->create(['name' => 'Third', 'created_at' => now()->subDay()]);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->getJson('/api/products?sort=__proto__&order=desc');
+
+        $response->assertStatus(200);
+
+        $this->assertSame(
+            [$first->id, $second->id, $third->id],
+            collect($response->json('data'))->pluck('id')->all()
+        );
+    }
+
+    public function test_array_sort_param_falls_back_without_server_error(): void
+    {
+        Product::factory()->create(['name' => 'Alpha']);
+        Product::factory()->create(['name' => 'Bravo']);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->getJson('/api/products?sort[]=name&order[]=asc&cursor[]=5');
+
+        $response->assertStatus(200)
+            ->assertJson(['status' => 'success']);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertSame(collect($ids)->sort()->values()->all(), $ids);
+        $this->assertSame(2, $response->json('meta.total'));
+    }
+
+    public function test_meta_total_reflects_the_search_filter(): void
+    {
+        Product::factory()->create(['name' => 'Indomie Goreng']);
+        Product::factory()->create(['name' => 'Indomie Kuah']);
+        Product::factory()->create(['name' => 'Teh Pucuk']);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->getJson('/api/products?search=Indomie');
+
+        $response->assertStatus(200);
+
+        $this->assertSame(2, $response->json('meta.total'));
+        $this->assertCount(2, $response->json('data'));
+    }
+
     public function test_empty_catalog_returns_empty_array(): void
     {
         $response = $this->withHeaders($this->authHeaders())->getJson('/api/products');

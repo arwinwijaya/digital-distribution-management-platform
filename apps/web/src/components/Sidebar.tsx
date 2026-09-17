@@ -7,7 +7,7 @@ import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { useDummyStore } from '@/dummy/store';
 
 type NavItem = { href: string; label: string; icon: string; finance?: boolean; adminOnly?: boolean };
-type SidebarAuth = { role: string | null; authResolved: boolean };
+type SidebarAuth = { role: string | null; authResolved: boolean; authenticated: boolean };
 type AuthChangeDetail = { token?: string | null; role?: string | null };
 
 const NAV_ITEMS: NavItem[] = [
@@ -77,32 +77,35 @@ function createRoleSynchronizer(
 function useSidebarAuth(): SidebarAuth {
   const [role, setRole] = useState<string | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
     let active = true;
 
-    // When dummy mode is ON, read role from localStorage and skip /auth/me
+    // Dummy ON resolves the role offline (from localStorage); dummy OFF asks /auth/me.
     const isDummy = useDummyStore.getState().isDummy;
-    if (isDummy) {
-      const storedRole = localStorage.getItem('ddp_role');
-      if (active) {
-        setRole(storedRole);
-        setAuthResolved(true);
-      }
-      return () => { active = false; };
-    }
-
-    // Dummy OFF — existing flow: resolve role via /auth/me
     const syncRole = createRoleSynchronizer(setRole, setAuthResolved, () => active);
-    const handleAuthChange = (event: Event) => {
-      const { token, hintedRole } = authChangeDetail(event);
+
+    const handleToken = (token: string | null, hintedRole?: string | null) => {
+      if (!active) return;
+      setAuthenticated(Boolean(token));
+      if (isDummy) {
+        setRole(hintedRole ?? localStorage.getItem('ddp_role'));
+        setAuthResolved(true);
+        return;
+      }
       syncRole(token, hintedRole);
     };
+
+    const handleAuthChange = (event: Event) => {
+      const { token, hintedRole } = authChangeDetail(event);
+      handleToken(token, hintedRole);
+    };
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'ddp_token') syncRole(event.newValue);
+      if (event.key === 'ddp_token') handleToken(event.newValue);
     };
 
-    syncRole(getStoredToken());
+    handleToken(getStoredToken());
     window.addEventListener('ddp-auth-change', handleAuthChange);
     window.addEventListener('storage', handleStorageChange);
     return () => {
@@ -112,11 +115,13 @@ function useSidebarAuth(): SidebarAuth {
     };
   }, []);
 
-  return { role, authResolved };
+  // Note: logout in Topbar does a full page reload, so no in-tab event is needed
+  // to clear the menus — remounting with no token empties them.
+  return { role, authResolved, authenticated };
 }
 
-function SidebarNavigation({ pathname, role, authResolved, onClose }: { pathname: string; role: string | null; authResolved: boolean; onClose?: () => void }) {
-  const visibleItems = !authResolved
+function SidebarNavigation({ pathname, role, authResolved, authenticated, onClose }: { pathname: string; role: string | null; authResolved: boolean; authenticated: boolean; onClose?: () => void }) {
+  const visibleItems = !authResolved || !authenticated
     ? []
     : role === 'finance'
       ? NAV_ITEMS.filter((item) => item.finance)
@@ -149,11 +154,11 @@ function SidebarFooter() {
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
-  const { role, authResolved } = useSidebarAuth();
+  const { role, authResolved, authenticated } = useSidebarAuth();
 
   return <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-white border-r border-gray-200 shadow-sidebar">
     <SidebarBrand />
-    <SidebarNavigation pathname={pathname} role={role} authResolved={authResolved} onClose={onClose} />
+    <SidebarNavigation pathname={pathname} role={role} authResolved={authResolved} authenticated={authenticated} onClose={onClose} />
     <SidebarFooter />
   </aside>;
 }

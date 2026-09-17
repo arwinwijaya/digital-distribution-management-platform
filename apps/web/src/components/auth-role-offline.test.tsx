@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { useDummyStore } from '@/dummy/store';
 import { setDummyGenerator } from '@/dummy/store';
 
@@ -175,5 +175,64 @@ describe('Cycle 3 — Regression guard: Sidebar calls /auth/me when dummy OFF', 
     } finally {
       global.fetch = originalFetch;
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Cycle 4 — Sidebar menu is empty until login                        */
+/* ------------------------------------------------------------------ */
+describe('Cycle 4 — Sidebar menu empty until login', () => {
+  it('shows no nav items when dummy OFF and no token is stored', async () => {
+    expect(useDummyStore.getState().isDummy).toBe(false);
+
+    const { default: Sidebar } = await import('@/components/Sidebar');
+    render(<Sidebar />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Dasbor')).not.toBeInTheDocument();
+      expect(screen.queryByText('Data Intelligence')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pesanan')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows no nav items when dummy ON and no token/role is stored', async () => {
+    setDummyGenerator(() => ({ stub: true }));
+    useDummyStore.getState().toggle();
+    expect(useDummyStore.getState().isDummy).toBe(true);
+
+    const { default: Sidebar } = await import('@/components/Sidebar');
+    render(<Sidebar />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Dasbor')).not.toBeInTheDocument();
+      expect(screen.queryByText('Data Intelligence')).not.toBeInTheDocument();
+    });
+  });
+
+  it('reveals admin nav items after an in-page login event when dummy ON', async () => {
+    setDummyGenerator(() => ({ stub: true }));
+    useDummyStore.getState().toggle();
+    expect(useDummyStore.getState().isDummy).toBe(true);
+
+    const { default: Sidebar } = await import('@/components/Sidebar');
+    render(<Sidebar />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Dasbor')).not.toBeInTheDocument();
+    });
+
+    // Simulate LoginForm.submit: persist token/role, then broadcast the event.
+    localStorage.setItem('ddp_token', 'tok-inline');
+    localStorage.setItem('ddp_role', 'admin');
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('ddp-auth-change', { detail: { token: 'tok-inline', role: 'admin' } }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Data Intelligence')).toBeInTheDocument();
+      expect(screen.getByText('Dasbor')).toBeInTheDocument();
+    });
   });
 });

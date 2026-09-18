@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Concurrency;
 
 use Tests\Feature\Support\InvoiceReminderPostgresScenarios;
 use Tests\Feature\Support\PostgresConcurrencyFeatureCase;

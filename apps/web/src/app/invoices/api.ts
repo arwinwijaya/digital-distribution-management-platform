@@ -6,6 +6,7 @@
 import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
+import { compareRows, paginate } from '@/lib/admin-table';
 import type { FullDummy } from '@/dummy';
 
 export type Invoice = {
@@ -32,7 +33,43 @@ export type InvoicesListResult = {
   meta: InvoicePageMeta;
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
+
+/**
+ * Dummy parity for the invoice history table: same offset-page contract as the
+ * real `GET /invoices` list. Newest first (`id DESC`, mirroring the backend
+ * `orderByDesc('id')`), `total = filtered.length`, offset slice identical.
+ * Zero network.
+ */
+function buildDummyInvoicesList(dummy: FullDummy, page: number): InvoicesListResult {
+  const all: Invoice[] = dummy.invoices.map((inv) => ({
+    id: inv.id,
+    order_id: inv.order_id,
+    invoice_number: inv.invoice_number,
+    issue_date: inv.issue_date,
+    due_date: inv.due_date,
+    total_amount: inv.total_amount,
+    paid_amount: inv.paid_amount,
+    balance_amount: inv.balance_amount,
+    status: inv.status,
+  }));
+
+  const sorted = [...all].sort((a, b) =>
+    compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'id', 'desc'),
+  );
+
+  const cursor = Math.max(0, (page - 1) * PAGE_SIZE);
+  const paginated = paginate(sorted, cursor, PAGE_SIZE);
+  return {
+    invoices: paginated.page,
+    meta: {
+      page,
+      limit: PAGE_SIZE,
+      total: sorted.length,
+      has_more: paginated.hasMore,
+    },
+  };
+}
 
 /**
  * Load invoices list for a token & page.
@@ -46,25 +83,7 @@ export async function loadInvoices(
   const dummy = dummyEntities as FullDummy | null;
 
   const dummyValue: InvoicesListResult | null = isDummy && dummy
-    ? {
-        invoices: dummy.invoices.map((inv) => ({
-          id: inv.id,
-          order_id: inv.order_id,
-          invoice_number: inv.invoice_number,
-          issue_date: inv.issue_date,
-          due_date: inv.due_date,
-          total_amount: inv.total_amount,
-          paid_amount: inv.paid_amount,
-          balance_amount: inv.balance_amount,
-          status: inv.status,
-        })),
-        meta: {
-          page,
-          limit: PAGE_SIZE,
-          total: dummy.invoices.length,
-          has_more: false,
-        },
-      }
+    ? buildDummyInvoicesList(dummy, page)
     : null;
 
   return withDummyRead(

@@ -14,4 +14,7 @@ export { default as TablePagination } from './TablePagination';
 export { default as TableSummary } from './TableSummary';
 export { default as TableDensityToggle } from './TableDensityToggle';
 export { useTableDensity } from '@/hooks/useTableDensity';
+export { default as ViewModeToggle } from './ViewModeToggle';
+export { useViewMode } from '@/hooks/useViewMode';
 export type { ColumnSort, TableDensity } from '@/lib/admin-table';
+export type { ViewMode } from '@/lib/product-filter';

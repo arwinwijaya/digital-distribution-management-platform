@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\Payment;
@@ -16,8 +15,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Testing\TestResponse;
-use Tests\Support\PaymentConcurrencyHarness;
-use Tests\Support\PostgresRaceProbe;
 use Tests\TestCase;
 
 class PaymentTest extends TestCase
@@ -28,7 +25,6 @@ class PaymentTest extends TestCase
     protected Outlet $outlet;
     protected string $outletToken;
     protected string $adminToken;
-    protected ?PaymentConcurrencyHarness $raceHarness = null;
 
     protected function setUp(): void
     {
@@ -39,12 +35,6 @@ class PaymentTest extends TestCase
         $this->outletToken = $this->postJson('/api/auth/login', ['email' => 'payment-outlet@ddp.test', 'password' => 'password123'])->json('data.token');
         $admin = User::factory()->admin()->create(['email' => 'payment-admin@ddp.test', 'password' => Hash::make('password123')]);
         $this->adminToken = $this->postJson('/api/auth/login', ['email' => $admin->email, 'password' => 'password123'])->json('data.token');
-    }
-
-    protected function tearDown(): void
-    {
-        $this->raceHarness?->close();
-        parent::tearDown();
     }
 
     protected function outletHeaders(): array { return ['Authorization' => "Bearer {$this->outletToken}"]; }
@@ -264,34 +254,4 @@ class PaymentTest extends TestCase
         $this->recordPayment($newOrder, 1, 'invalid-status')->assertStatus(422)->assertJsonValidationErrors(['order_id']);
         $this->recordPayment($order, 0, 'zero-payment')->assertStatus(422)->assertJsonValidationErrors(['amount']);
     }
-
-    /** Legacy Step 9 alias: same pgsql race as PaymentConcurrencyTest, kept green on the old path. */
-    public function test_concurrent_same_identity_payment_posts_replay_one_payment(): void
-    {
-        if (! PostgresRaceProbe::isAvailable()) {
-            $this->markTestSkipped('PostgreSQL race database is unreachable; skipping payment concurrency coverage.');
-        }
-
-        $this->raceHarness = new PaymentConcurrencyHarness();
-        $this->raceHarness->prepare();
-        $order = $this->raceHarness->createPaymentFixture();
-        $this->raceHarness->startServers();
-        $responses = $this->raceHarness->runConcurrentPayment($order->id, ['amount' => 40000, 'payment_method' => 'cash', 'idempotency_key' => 'concurrent-payment-key']);
-        $statuses = array_column($responses, 'status');
-        sort($statuses);
-        $this->assertSame([200, 201], $statuses);
-        $this->assertSame(['success', 'success'], array_column(array_column($responses, 'json'), 'status'));
-        $this->assertSame($responses[0]['json']['data']['id'], $responses[1]['json']['data']['id']);
-        $this->assertSame(1, Payment::on(PaymentConcurrencyHarness::CONNECTION)->count());
-        $payment = Payment::on(PaymentConcurrencyHarness::CONNECTION)->sole();
-        $this->assertSame('completed', $payment->status);
-        $this->assertSame('40000.00', (string) $payment->amount);
-        $this->assertSame('40000.00', (string) Order::on(PaymentConcurrencyHarness::CONNECTION)->findOrFail($order->id)->paid_amount);
-        $this->assertSame('Partially Paid', Order::on(PaymentConcurrencyHarness::CONNECTION)->findOrFail($order->id)->status);
-        $this->assertSame(1, Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->count());
-        $this->assertSame('40000.00', (string) Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('paid_amount'));
-        $this->assertSame('60000.00', (string) Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('balance_amount'));
-        $this->assertSame(Invoice::PARTIALLY_PAID, Invoice::on(PaymentConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->value('status'));
-    }
-
 }

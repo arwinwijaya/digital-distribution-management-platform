@@ -8,7 +8,7 @@ namespace Tests\Feature;
 require_once __DIR__.'/InvoiceReminderTimingTest.php';
 require_once __DIR__.'/InvoiceReminderRetryTest.php';
 require_once __DIR__.'/InvoiceReminderHistoryTest.php';
-require_once __DIR__.'/InvoiceReminderPostgresConcurrencyTest.php';
+require_once __DIR__.'/Concurrency/InvoiceReminderPostgresConcurrencyTest.php';
 
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Tests\Feature\Support\InvoiceReminderFeatureSetup;

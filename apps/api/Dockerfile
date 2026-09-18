@@ -1,38 +1,43 @@
 FROM php:8.3-fpm
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies + PHP extensions.
+# phpredis is REQUIRED: config/database.php defaults REDIS_CLIENT=phpredis, but
+# the base image ships neither phpredis nor predis — without it every Redis
+# cache/session/queue call throws "Class Redis not found".
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
-    zip \
-    unzip \
     libpq-dev \
     libicu-dev \
     libonig-dev \
-    nodejs \
-    npm \
+    libzip-dev \
+    zip \
+    unzip \
+    $PHPIZE_DEPS \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd intl \
+    && docker-php-ext-install -j"$(nproc)" pdo_pgsql mbstring exif pcntl bcmath gd intl zip \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apt-get purge -y --auto-remove $PHPIZE_DEPS \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /tmp/pear
 
 # Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy composer files first for better caching
-COPY apps/api/composer.json composer.json
-COPY apps/api/composer.lock composer.lock* ./
+# Copy composer files first for better layer caching
+COPY apps/api/composer.json apps/api/composer.lock ./
 
-# Install dependencies
-RUN composer install --no-scripts --no-autoloader --prefer-dist
+# Install dependencies (no scripts yet — the app code isn't copied)
+RUN composer install --no-scripts --no-autoloader --prefer-dist --no-interaction
 
-# Copy application code
+# Copy application code (.dockerignore keeps vendor/ out of the context)
 COPY apps/api .
 
 # Generate autoload

@@ -272,6 +272,58 @@ describe('TablePagination', () => {
     });
   });
 
+  describe('Windowed page buttons (many pages)', () => {
+    it('shows first/last + ellipsis instead of every page when total pages > 7', () => {
+      render(
+        <TablePagination
+          cursor={0}
+          limit={15}
+          total={900}
+          hasMore={true}
+          onPageChange={mockOnPageChange}
+        />
+      );
+      // 900 / 15 = 60 pages — must NOT render 60 buttons.
+      expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '60' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '30' })).not.toBeInTheDocument();
+      expect(screen.getAllByText('…').length).toBeGreaterThan(0);
+    });
+
+    it('keeps the current page and its neighbours visible mid-list', () => {
+      render(
+        <TablePagination
+          cursor={30 * 15}
+          limit={15}
+          total={900}
+          hasMore={true}
+          onPageChange={mockOnPageChange}
+        />
+      );
+      // currentPage = 30 → page 31 shown, with ±1 neighbours.
+      expect(screen.getByRole('button', { name: '31' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '30' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '32' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '60' })).toBeInTheDocument();
+    });
+
+    it('jumps to the correct offset from a windowed page button', () => {
+      render(
+        <TablePagination
+          cursor={0}
+          limit={15}
+          total={900}
+          hasMore={true}
+          onPageChange={mockOnPageChange}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: '60' }));
+      expect(mockOnPageChange).toHaveBeenCalledWith(885);
+    });
+  });
+
   describe('Prev/Next click handlers', () => {
     it('clicking prev calls onPageChange with cursor - limit', () => {
       render(

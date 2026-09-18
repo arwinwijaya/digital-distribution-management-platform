@@ -12,6 +12,10 @@
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+            <exclude>tests/Feature/Concurrency</exclude>
+        </testsuite>
+        <testsuite name="Concurrency">
+            <directory>tests/Feature/Concurrency</directory>
         </testsuite>
         <testsuite name="Performance">
             <directory>tests/Performance</directory>

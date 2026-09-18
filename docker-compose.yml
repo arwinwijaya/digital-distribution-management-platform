@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   db:
@@ -36,6 +34,25 @@ services:
       timeout: 5s
       retries: 5
 
+  # Mail catcher (dev only) — MAIL_HOST=mailpit in apps/api/.env points here.
+  # Web UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ddp_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Laravel API
   api:
     build:
@@ -57,11 +74,12 @@ services:
       DB_DATABASE: ddp_database
       DB_USERNAME: ddp_user
       DB_PASSWORD: ddp_password
+      REDIS_CLIENT: phpredis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CACHE_STORE: file
-      SESSION_DRIVER: file
-      SESSION_STORE: file
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: database
       APP_KEY: "base64:IW7FET2cdWfbubYon2CM8vcWw9coOh6imBe0qWuNp3w="
       JWT_SECRET: "jwt-secret-for-local"
       JWT_ALGO: HS256
@@ -75,6 +93,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      # Full HTTP check (proves the app boots and serves, not just that the port
+      # is bound). Bootstrap is slow over a bind-mounted source tree on Windows
+      # (~7s), so the timeout must be generous or the check flaps locally.
+      test: ["CMD-SHELL", "curl -fsS --max-time 15 http://localhost:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
 
   # Next.js Web Application
   web:
@@ -87,12 +116,22 @@ services:
       - "3000:3000"
     volumes:
       - ./apps/web:/app/apps/web
+      - ./packages/shared:/app/packages/shared
       - /app/apps/web/node_modules
       - /app/apps/web/.next
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000/api
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      # node:20-alpine ships wget (no curl). The Next dev server compiles on
+      # first request, so allow a long start_period before it is judged.
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
 volumes:
   postgres_data:

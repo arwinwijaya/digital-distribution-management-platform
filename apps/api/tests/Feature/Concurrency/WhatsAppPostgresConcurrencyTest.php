@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Concurrency;
 
 use App\Models\Order;
 use App\Models\WhatsAppMessage;

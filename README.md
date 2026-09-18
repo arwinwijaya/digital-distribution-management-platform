@@ -47,13 +47,29 @@ This is a monorepo containing:
 
 2. Start all services:
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 3. Access the applications:
    - Web: http://localhost:3000
-   - API: http://localhost:8000
+   - API: http://localhost:8000 (health: `/api/health`)
    - Database: localhost:5432
+   - Redis: localhost:6379
+   - Mail catcher (Mailpit): http://localhost:8025 (SMTP on 1025)
+
+4. Common commands:
+   ```bash
+   docker compose ps            # service status + health
+   docker compose logs -f web   # follow a service
+   docker compose down          # stop the stack (add -v to wipe data volumes)
+   docker compose up -d --build # rebuild images after Dockerfile changes
+   ```
+
+> **Note:** `api` and `web` bind-mount their source directories for live reload, so
+> `vendor/` and `node_modules/` come from the mounted tree, not the image. The
+> image supplies the runtime (PHP extensions incl. `phpredis`, Node runtime).
+> Health checks use a generous timeout because Laravel/Next boot is slow over a
+> Windows bind mount.
 
 ### Manual Setup
 

@@ -12,8 +12,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
-use Tests\Support\InvoiceConcurrencyHarness;
-use Tests\Support\PostgresRaceProbe;
 use Tests\TestCase;
 
 class InvoiceTest extends TestCase
@@ -24,7 +22,6 @@ class InvoiceTest extends TestCase
     protected Outlet $outlet;
     protected string $outletToken;
     protected string $adminToken;
-    protected ?InvoiceConcurrencyHarness $raceHarness = null;
 
     protected function setUp(): void
     {
@@ -40,12 +37,6 @@ class InvoiceTest extends TestCase
             'password' => Hash::make('password123'),
         ]);
         $this->adminToken = $this->login($admin);
-    }
-
-    protected function tearDown(): void
-    {
-        $this->raceHarness?->close();
-        parent::tearDown();
     }
 
     public function test_approved_order_creates_invoice_with_configured_term(): void
@@ -95,23 +86,6 @@ class InvoiceTest extends TestCase
 
         $this->assertDatabaseCount('invoices', 1);
         $this->assertSame(1, OrderStatusHistory::where('order_id', $order->id)->where('status', 'Confirmed')->count());
-    }
-
-    public function test_concurrent_approvals_create_one_invoice(): void
-    {
-        if (! PostgresRaceProbe::isAvailable()) {
-            $this->markTestSkipped('PostgreSQL race database is unreachable; skipping approval concurrency coverage.');
-        }
-
-        $this->raceHarness = new InvoiceConcurrencyHarness();
-        $this->raceHarness->prepare();
-        $order = $this->raceHarness->createOrderFixture();
-        $this->raceHarness->startServers();
-
-        $responses = $this->raceHarness->runConcurrentApprovals($order->id);
-        $this->assertSame([200, 200], array_values(array_column($responses, 'status')));
-        $this->assertSame(1, Invoice::on(InvoiceConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->count());
-        $this->assertSame(1, OrderStatusHistory::on(InvoiceConcurrencyHarness::CONNECTION)->where('order_id', $order->id)->where('status', 'Confirmed')->count());
     }
 
     public function test_invoice_history_is_bounded_and_scoped(): void

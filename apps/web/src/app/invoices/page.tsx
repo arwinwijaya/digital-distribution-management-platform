@@ -5,7 +5,7 @@ import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { loadInvoices } from '@/app/invoices/api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, PageHeader, StatCard, StatusBadge, Table } from '@/components/ui';
+import { Card, EmptyState, PageHeader, StatCard, StatusBadge, Table, TablePagination } from '@/components/ui';
 
 type Invoice = {
   id: number;
@@ -30,7 +30,7 @@ type InvoiceState = {
   load: (nextToken: string, page?: number) => Promise<void>;
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
 const money = (value: string | number | null | undefined) => `Rp ${Number(value ?? 0).toLocaleString('id-ID')}`;
 const date = (value: string | null) => value ? new Date(value).toLocaleDateString('id-ID') : '-';
 
@@ -83,10 +83,20 @@ const invoiceColumns = [
 ];
 
 function InvoiceHistory({ invoices, meta, loading, token, load }: Pick<InvoiceState, 'invoices' | 'meta' | 'loading' | 'token' | 'load'>) {
+  const cursor = Math.max(0, (meta.page - 1) * meta.limit);
   return <Card className="overflow-hidden">
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4"><h2 className="font-semibold text-gray-900">Riwayat invoice</h2><p className="text-xs text-gray-500">Halaman {meta.page} · {meta.total.toLocaleString('id-ID')} total</p></div>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4"><h2 className="font-semibold text-gray-900">Riwayat invoice</h2><p className="text-xs text-gray-500">{meta.total.toLocaleString('id-ID')} invoice</p></div>
     {loading ? <p className="p-8 text-sm text-gray-500">Memuat invoice...</p> : <Table columns={invoiceColumns} rows={invoices} rowKey={(invoice) => invoice.id} empty={<EmptyState icon={<span>🧾</span>} title="Belum ada invoice" description="Invoice yang tersedia akan tampil di sini." />} />}
-    <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4"><Button size="sm" variant="secondary" disabled={loading || meta.page <= 1} onClick={() => token && void load(token, meta.page - 1)}>Sebelumnya</Button><Button size="sm" variant="secondary" disabled={loading || !meta.has_more} onClick={() => token && void load(token, meta.page + 1)}>Berikutnya</Button></div>
+    <TablePagination
+      cursor={cursor}
+      limit={meta.limit}
+      total={meta.total}
+      hasMore={meta.has_more}
+      onPageChange={(nextCursor) => {
+        const nextPage = Math.floor(nextCursor / meta.limit) + 1;
+        if (token) void load(token, nextPage);
+      }}
+    />
   </Card>;
 }
 

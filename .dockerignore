@@ -1,0 +1,37 @@
+# ── Dependencies (installed inside the image, never copied from the host) ────
+# Critical: without these, `COPY apps/api .` / `COPY apps/web ./apps/web`
+# overwrite the image's own vendor/ and node_modules/ with Windows-built ones.
+**/node_modules
+**/vendor
+
+# ── VCS ─────────────────────────────────────────────────────────────────────
+.git
+.gitignore
+.github
+
+# ── Build outputs ───────────────────────────────────────────────────────────
+**/.next
+**/dist
+**/build
+**/out
+**/coverage
+
+# ── Environment / secrets (never bake into an image) ────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+
+# ── Tooling, generated artefacts, local state ───────────────────────────────
+graphify-out
+.pi
+.worktree
+.todo
+**/*.log
+**/.phpunit.result.cache
+**/.DS_Store
+**/Thumbs.db
+
+# ── Docs & editor config (not needed at build time) ─────────────────────────
+*.md
+.vscode
+.idea

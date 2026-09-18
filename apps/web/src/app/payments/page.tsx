@@ -7,7 +7,7 @@ import { loadPaymentsList } from '@/app/payments/api';
 import { useDummyRefresh } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { createDummyPayment } from '@/dummy/mutations';
-import { Button, Card, EmptyState, Input, PageHeader, StatCard, Table } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, StatCard, Table, TablePagination } from '@/components/ui';
 
 type Payment = { id: number; order_id: number; amount: string; payment_method: string; receipt_reference: string | null; created_at: string };
 type CreditSummary = { credit_limit: string | null; outstanding_balance: string; available_credit: string | null };
@@ -30,7 +30,7 @@ type PaymentSession = {
   setRole: (role: string | null) => void;
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
 const money = (value: string | number | null | undefined) => value === null ? 'Tidak terbatas' : `Rp ${Number(value ?? 0).toLocaleString('id-ID')}`;
 
 function usePaymentData(): PaymentState {
@@ -124,10 +124,20 @@ function PaymentEntry({ orderId, amount, loading, setOrderId, setAmount, onSubmi
 
 function PaymentHistory({ data, token, role }: { data: PaymentState; token: string; role: string | null }) {
   const { payments, paymentMeta, loading, load } = data;
+  const cursor = Math.max(0, (paymentMeta.page - 1) * paymentMeta.limit);
   return <Card className="overflow-hidden">
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4"><h2 className="font-semibold text-gray-900">Riwayat pembayaran</h2><p className="text-xs text-gray-500">Halaman {paymentMeta.page} · {paymentMeta.total.toLocaleString('id-ID')} total</p></div>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4"><h2 className="font-semibold text-gray-900">Riwayat pembayaran</h2><p className="text-xs text-gray-500">{paymentMeta.total.toLocaleString('id-ID')} pembayaran</p></div>
     {loading ? <p className="p-8 text-sm text-gray-500">Memuat pembayaran...</p> : <Table columns={paymentColumns} rows={payments} rowKey={(payment) => payment.id} empty={<EmptyState icon={<span>💳</span>} title="Belum ada pembayaran" description="Pembayaran yang Anda catat akan tampil di sini." />} />}
-    <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4"><Button size="sm" variant="secondary" disabled={loading || paymentMeta.page <= 1} onClick={() => void load(token, role ?? 'finance', paymentMeta.page - 1)}>Sebelumnya</Button><Button size="sm" variant="secondary" disabled={loading || !paymentMeta.has_more} onClick={() => void load(token, role ?? 'finance', paymentMeta.page + 1)}>Berikutnya</Button></div>
+    <TablePagination
+      cursor={cursor}
+      limit={paymentMeta.limit}
+      total={paymentMeta.total}
+      hasMore={paymentMeta.has_more}
+      onPageChange={(nextCursor) => {
+        const nextPage = Math.floor(nextCursor / paymentMeta.limit) + 1;
+        void load(token, role ?? 'finance', nextPage);
+      }}
+    />
   </Card>;
 }
 

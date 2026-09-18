@@ -151,6 +151,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Owner analytics routes
     Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
+    Route::get('/analytics/insight', [AnalyticsController::class, 'insight']);
 
     // Deterministic, bounded AI-assisted analytics for outlet and admin contexts.
     Route::prefix('ai')->middleware('deny.finance')->group(function () {

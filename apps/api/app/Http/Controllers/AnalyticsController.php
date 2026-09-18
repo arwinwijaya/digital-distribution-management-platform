@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AnalyticsService;
+use App\Services\FinanceAuthorizationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,10 +17,7 @@ class AnalyticsController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         if (!$request->user()->isAdmin()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized. Only admins can view analytics.',
-            ], 403);
+            return $this->deniedAnalyticsResponse();
         }
 
         $validated = $request->validate([
@@ -63,5 +61,31 @@ class AnalyticsController extends Controller
             'status' => 'success',
             'data' => $data,
         ]);
+    }
+
+    /**
+     * Fixed-window strategic insight for the Analitik home. The comparison
+     * window is always the last 30 days ending today — request date params are
+     * intentionally ignored so the endpoint cannot be used to probe arbitrary
+     * ranges.
+     */
+    public function insight(Request $request, FinanceAuthorizationService $auth): JsonResponse
+    {
+        if (!$auth->isAdminOrOwner($request->user())) {
+            return $this->deniedAnalyticsResponse();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $this->analyticsService->insight(now()),
+        ]);
+    }
+
+    private function deniedAnalyticsResponse(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Unauthorized. Only admins can view analytics.',
+        ], 403);
     }
 }

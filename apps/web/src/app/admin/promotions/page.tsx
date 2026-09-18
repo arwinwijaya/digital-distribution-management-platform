@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchPromotions, createPromotion, updatePromotion, deletePromotion, broadcastPromotion, type AdminPromotion } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatusBadge, Table } from '@/components/ui';
+import { Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatusBadge, Table, TableSummary, TablePagination, TableDensityToggle } from '@/components/ui';
+import { useTableDensity } from '@/hooks/useTableDensity';
+import { toggleSort, formatDateTime, type ColumnSort } from '@/lib/admin-table';
 
 interface PromoForm {
   name: string;
@@ -47,21 +49,41 @@ export default function AdminPromotionsPage() {
   const [form, setForm] = useState<PromoForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<AdminPromotion | null>(null);
+  // Table state
+  const [sort, setSort] = useState<ColumnSort>({ column: 'created_at', order: 'desc' });
+  const [cursor, setCursor] = useState(0);
+  const [total, setTotal] = useState<number>();
+  const [tableSummary, setTableSummary] = useState<{ total: number; active: number; scheduled: number; ended: number }>();
+  const { density, setDensity } = useTableDensity();
 
-  const loadPromotions = useCallback(async (authToken: string) => {
+  // Latest sort/cursor readable inside `loadPromotions` WITHOUT adding them to
+  // its dependency list (which would otherwise re-run the mount effect and
+  // reset the page on every sort/page change).
+  const sortRef = useRef(sort);
+  sortRef.current = sort;
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
+
+  const loadPromotions = useCallback(async (authToken: string, opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort }) => {
     setLoading(true); setError(null);
     try {
-      const result = await fetchPromotions(authToken, { limit: 15 });
-      setPromotions(result.promotions); setHasMore(result.hasMore);
+      const nextSort = opts?.sort ?? sortRef.current;
+      const nextCursor = opts?.cursor ?? (opts?.resetCursor ? 0 : cursorRef.current);
+      const result = await fetchPromotions(authToken, { limit: 15, cursor: nextCursor, sort: nextSort.column, order: nextSort.order });
+      setPromotions(result.promotions);
+      setHasMore(result.hasMore);
+      setCursor(nextCursor);
+      if (result.total !== undefined) setTotal(result.total);
+      if (result.summary) setTableSummary(result.summary);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Daftar promosi tidak dapat dimuat.'); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
     const stored = getStoredToken(); setToken(stored); setReady(true);
-    if (stored) loadPromotions(stored);
+    if (stored) loadPromotions(stored, { resetCursor: true });
   }, [loadPromotions]);
 
-  useDummyRefresh(() => { if (token) void loadPromotions(token); });
+  useDummyRefresh(() => { if (token) void loadPromotions(token, { resetCursor: true }); });
 
   function openCreateForm() {
     setEditing(null); setForm(EMPTY_FORM); setFormOpen(true); setActionError(null); setActionSuccess(null);
@@ -143,7 +165,7 @@ export default function AdminPromotionsPage() {
   }
 
   if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
-  if (!token) return <div className="mx-auto max-w-6xl"><PageHeader title="Kelola promosi" description="Buat, ubah, hapus, dan siarkan promosi." /><div className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-700">Masuk sebagai administrator untuk mengelola promosi.</div><LoginForm expectedRole="admin" onLogin={(nextToken) => { setToken(nextToken); loadPromotions(nextToken); }} /></div>;
+  if (!token) return <div className="mx-auto max-w-6xl"><PageHeader title="Kelola promosi" description="Buat, ubah, hapus, dan siarkan promosi." /><div className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-700">Masuk sebagai administrator untuk mengelola promosi.</div><LoginForm expectedRole="admin" onLogin={(nextToken) => { setToken(nextToken); loadPromotions(nextToken, { resetCursor: true }); }} /></div>;
 
   const columns = [
     {
@@ -164,18 +186,33 @@ export default function AdminPromotionsPage() {
       ),
     },
     {
-      key: 'period',
-      header: 'Periode',
+      key: 'start_date',
+      header: 'Mulai',
       render: (p: AdminPromotion) => (
-        <span className="text-xs text-gray-600">
-          {typeof p.start_date === 'string' ? p.start_date.slice(0, 10) : p.start_date} s/d {typeof p.end_date === 'string' ? p.end_date.slice(0, 10) : p.end_date}
-        </span>
+        <span className="text-xs text-gray-600">{typeof p.start_date === 'string' ? p.start_date.slice(0, 10) : p.start_date}</span>
+      ),
+    },
+    {
+      key: 'end_date',
+      header: 'Selesai',
+      render: (p: AdminPromotion) => (
+        <span className="text-xs text-gray-600">{typeof p.end_date === 'string' ? p.end_date.slice(0, 10) : p.end_date}</span>
       ),
     },
     {
       key: 'status',
       header: 'Status',
       render: (p: AdminPromotion) => <StatusBadge status={p.broadcast_at ? 'completed' : p.is_active ? 'active' : 'inactive'} />,
+    },
+    {
+      key: 'created_at',
+      header: 'Dibuat',
+      render: (p: AdminPromotion) => <span className="text-xs text-gray-600">{formatDateTime(p.created_at ?? null)}</span>,
+    },
+    {
+      key: 'updated_at',
+      header: 'Diperbarui',
+      render: (p: AdminPromotion) => <span className="text-xs text-gray-600">{formatDateTime(p.updated_at ?? null)}</span>,
     },
     {
       key: 'action',
@@ -197,9 +234,45 @@ export default function AdminPromotionsPage() {
       {actionError && <p role="alert" className="mb-3 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{actionError}</p>}
       {actionSuccess && <p className="mb-3 rounded-lg border border-success-200 bg-success-50 p-3 text-sm text-success-700">{actionSuccess}</p>}
       <Card className="overflow-hidden">
-        {loading ? <p className="p-8 text-sm text-gray-500">Memuat promosi...</p> : <Table columns={columns} rows={promotions} rowKey={(p) => p.id} empty={<EmptyState icon={<span>🏷️</span>} title="Belum ada promosi" description="Buat promosi pertama Anda dengan tombol di atas." />} />}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+          <TableSummary
+            total={total ?? promotions.length}
+            breakdown={tableSummary ? [
+              { label: 'aktif', value: tableSummary.active },
+              { label: 'terjadwal', value: tableSummary.scheduled },
+              { label: 'berakhir', value: tableSummary.ended },
+            ] : undefined}
+            noun="promosi"
+          />
+          <TableDensityToggle value={density} onChange={setDensity} />
+        </div>
+        {loading ? <p className="p-8 text-sm text-gray-500">Memuat promosi...</p> : (
+          <Table
+            columns={columns}
+            rows={promotions}
+            rowKey={(p) => p.id}
+            density={density}
+            sortableColumns={['start_date', 'end_date', 'created_at', 'updated_at']}
+            sort={sort}
+            onSort={(column) => {
+              const next = toggleSort(sortRef.current, column);
+              setSort(next);
+              if (token) void loadPromotions(token, { resetCursor: true, sort: next });
+            }}
+            empty={<EmptyState icon={<span>🏷️</span>} title="Belum ada promosi" description="Buat promosi pertama Anda dengan tombol di atas." />}
+          />
+        )}
+        <TablePagination
+          cursor={cursor}
+          limit={15}
+          total={total}
+          hasMore={hasMore}
+          onPageChange={(nextCursor) => {
+            setCursor(nextCursor);
+            if (token) void loadPromotions(token, { cursor: nextCursor });
+          }}
+        />
       </Card>
-      {hasMore && <p className="mt-3 text-xs text-gray-500">Ada promosi lebih lanjut.</p>}
       <Modal open={formOpen} onClose={() => setFormOpen(false)} title={editing ? 'Ubah promosi' : 'Buat promosi'} footer={<><Button variant="ghost" onClick={() => setFormOpen(false)}>Batal</Button><Button onClick={handleSubmit} disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan'}</Button></>}>
         <div className="space-y-3">
           <Input label="Nama" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />

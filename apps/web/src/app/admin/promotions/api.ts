@@ -7,20 +7,30 @@ import {
   deleteDummyPromotion,
   updateDummyPromotion,
 } from '@/dummy/mutations';
+import { compareRows, paginate } from '@/lib/admin-table';
 
 // ── Dummy helpers ───────────────────────────────────────────────────────────
 interface DummyProductEntity { sku: string; name: string; category: string; price: number }
+
+/** Local (not UTC) `YYYY-MM-DD` — mirrors the backend's date-granularity buckets. */
+function localDateOnly(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 /**
  * Derive a deterministic promotion catalogue from the dummy product list.
  * Promotions are 1:1 with the first N products so the list is relational
  * (each `product_id` resolves to a real dummy product).
+ *
+ * Dummy parity for the admin promotions table: same offset-cursor /
+ * sort / summary contract as the real `GET /admin/promotions` list. Default
+ * `created_at DESC` with the shared `compareRows` comparator (id DESC fallback),
+ * `total = filtered.length` and a 4-state `{ total, active, scheduled, ended }`
+ * breakdown computed from the filtered full list (zero network).
  */
-function listDummyPromotions(opts?: { limit?: number; cursor?: number }): { promotions: AdminPromotion[]; hasMore: boolean; nextCursor: number | null } {
+function listDummyPromotions(filters: PromotionFilters = {}): PromotionsListResult {
   const entities = useDummyStore.getState().dummyEntities as Partial<{ products: DummyProductEntity[] }> | null;
   const products = entities?.products ?? [];
-  const limit = opts?.limit ?? 15;
-  const cursor = opts?.cursor ?? 0;
   const count = Math.min(10, Math.max(6, Math.floor(products.length / 3)));
   const all: AdminPromotion[] = Array.from({ length: count }, (_, i) => {
     const product = products[i % Math.max(1, products.length)];
@@ -47,11 +57,33 @@ function listDummyPromotions(opts?: { limit?: number; cursor?: number }): { prom
       updated_at: '2026-02-01T09:00:00+07:00',
     };
   });
-  const page = all.slice(cursor, cursor + limit);
+
+  const total = all.length;
+
+  // 4-state buckets at DATE granularity (backend compares `toDateString()`).
+  const today = localDateOnly(new Date());
+  const day = (value: string) => (typeof value === 'string' ? value.slice(0, 10) : value);
+  const active = all.filter((p) => day(p.start_date) <= today && day(p.end_date) >= today).length;
+  const scheduled = all.filter((p) => day(p.start_date) > today).length;
+  const ended = all.filter((p) => day(p.end_date) < today).length;
+
+  const sortCol = filters.sort || 'created_at';
+  const sortOrder = filters.order === 'asc' ? 'asc' : 'desc';
+  const sorted = [...all].sort((a, b) =>
+    compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, sortCol, sortOrder),
+  );
+
+  const limit = filters.limit ?? 15;
+  const cursor = filters.cursor ?? 0;
+  const paginated = paginate(sorted, cursor, limit);
   return {
-    promotions: page,
-    hasMore: cursor + limit < all.length,
-    nextCursor: cursor + limit < all.length ? cursor + limit : null,
+    promotions: paginated.page,
+    hasMore: paginated.hasMore,
+    limit,
+    cursor,
+    total,
+    summary: { total, active, scheduled, ended },
+    nextCursor: paginated.nextCursor,
   };
 }
 
@@ -70,8 +102,26 @@ export interface AdminPromotion {
   is_active: boolean;
   broadcast_at?: string | null;
   created_by?: number | null;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface PromotionFilters {
+  limit?: number;
+  cursor?: number;
+  sort?: string;
+  order?: string;
+}
+
+export interface PromotionsListResult {
+  promotions: AdminPromotion[];
+  hasMore: boolean;
+  limit: number;
+  cursor: number;
+  total?: number;
+  summary?: { total: number; active: number; scheduled: number; ended: number };
+  /** Offset-derived next cursor (cursor + limit) — NEVER an id. */
+  nextCursor: number;
 }
 
 /** Payload shape accepted by POST /admin/promotions and PATCH /admin/promotions/{id}. */
@@ -96,22 +146,44 @@ function parseError(data: unknown, fallback: string): string {
   return fallback;
 }
 
-export async function fetchPromotions(token: string, opts?: { limit?: number; cursor?: number }): Promise<{ promotions: AdminPromotion[]; hasMore: boolean; nextCursor: number | null }> {
+export async function fetchPromotions(token: string, filters: PromotionFilters = {}): Promise<PromotionsListResult> {
   return withDummyRead(
     useDummyStore.getState().isDummy,
-    listDummyPromotions(opts),
-    () => fetchPromotionsReal(token, opts),
+    listDummyPromotions(filters),
+    () => fetchPromotionsReal(token, filters),
   );
 }
 
-async function fetchPromotionsReal(token: string, opts?: { limit?: number; cursor?: number }): Promise<{ promotions: AdminPromotion[]; hasMore: boolean; nextCursor: number | null }> {
+async function fetchPromotionsReal(token: string, filters: PromotionFilters): Promise<PromotionsListResult> {
   const query = new URLSearchParams();
-  query.set('limit', String(opts?.limit ?? 15));
-  if (opts?.cursor) query.set('cursor', String(opts.cursor));
+  query.set('limit', String(filters.limit ?? 15));
+  query.set('cursor', String(filters.cursor ?? 0));
+  // Sort defaults: created_at DESC (always sent, matching the backend allowlist).
+  query.set('sort', filters.sort || 'created_at');
+  query.set('order', filters.order || 'desc');
   const response = await fetch(apiUrl(`/admin/promotions?${query.toString()}`), { headers: authHeaders(token) });
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Daftar promosi tidak dapat dimuat.'));
-  return { promotions: Array.isArray(data.data) ? (data.data as AdminPromotion[]) : [], hasMore: Boolean(data.has_more), nextCursor: data.next_cursor ?? null };
+  const promotions = Array.isArray(data.data) ? (data.data as AdminPromotion[]) : [];
+  const meta = (data.meta ?? {}) as {
+    has_more?: boolean;
+    limit?: number;
+    cursor?: number;
+    total?: number;
+    summary?: { total: number; active: number; scheduled: number; ended: number };
+  };
+  const limit = Number(meta.limit ?? filters.limit ?? 15);
+  const cursor = Number(meta.cursor ?? filters.cursor ?? 0);
+  return {
+    promotions,
+    hasMore: Boolean(meta.has_more),
+    limit,
+    cursor,
+    total: meta.total !== undefined ? Number(meta.total) : undefined,
+    summary: meta.summary,
+    // Offset-derived — never the backend's (removed) id-based next_cursor.
+    nextCursor: cursor + limit,
+  };
 }
 
 export async function createPromotion(token: string, payload: PromotionInput): Promise<AdminPromotion> {

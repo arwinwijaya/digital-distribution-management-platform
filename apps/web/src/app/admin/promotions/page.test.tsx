@@ -367,4 +367,120 @@ describe('admin promotions page', () => {
       });
     });
   });
+  // ── Cycle 3: density toggle + dummy parity ───────────────────────────────
+  describe('density toggle + dummy parity', () => {
+    let fetchMock: jest.Mock;
+
+    /** T7 offset-cursor contract: rows in `data`, meta + 4-state summary. */
+    function t7Response() {
+      const data = [
+        { id: 2, name: 'Promo Baru', discount_type: 'percentage', discount_value: '10.00', start_date: '2026-09-10', end_date: '2026-09-20', is_active: true, broadcast_at: null, created_at: '2026-09-05T08:00:00Z', updated_at: '2026-09-10T10:00:00Z' },
+        { id: 1, name: 'Promo Lama', discount_type: 'fixed', discount_value: '5000.00', start_date: '2026-09-01', end_date: '2026-09-08', is_active: true, broadcast_at: null, created_at: '2026-09-01T08:00:00Z', updated_at: '2026-09-11T10:00:00Z' },
+      ];
+      return {
+        status: 'success',
+        data,
+        meta: { has_more: false, limit: 15, cursor: 0, total: data.length, summary: { total: 2, active: 2, scheduled: 0, ended: 0 } },
+      };
+    }
+
+    beforeEach(() => {
+      // Density + dummy state must not leak across tests.
+      localStorage.clear();
+      useDummyStore.getState().reset();
+      fetchMock = jest.fn(async (url: unknown) => {
+        const urlString = String(url);
+        if (urlString.includes('/admin/promotions')) return { ok: true, status: 200, json: async () => t7Response() } as Response;
+        return { ok: true, status: 200, json: async () => ({}) } as Response;
+      });
+      (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+    });
+
+    it('density toggle changes the table header padding class and persists to localStorage', async () => {
+      const { default: Page } = await import('@/app/admin/promotions/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Promo Baru')).toBeInTheDocument());
+
+      // Default density → header <th> keeps the legacy `py-3`.
+      let headerCell = screen.getByText('Nama').closest('th') as HTMLTableCellElement;
+      expect(headerCell).toHaveClass('py-3');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Nama').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-2');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('compact');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Nama').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-4');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('comfortable');
+    });
+
+    it('dummy listDummyPromotions mirrors sort + offset slice + total + summary (zero network)', async () => {
+      // Pin `new Date()` so the 4-state split is deterministic (dummy dates are 2026-01-* / 2026-02-*).
+      jest.useFakeTimers();
+      try {
+        jest.setSystemTime(new Date('2026-02-14T10:00:00+07:00'));
+
+        const { fetchPromotions } = await import('@/app/admin/promotions/api');
+        const { compareRows } = await import('@/lib/admin-table');
+
+        useDummyStore.getState().toggle();
+        expect(useDummyStore.getState().isDummy).toBe(true);
+
+        // Default order equals compareRows(..., 'created_at', 'desc') over the returned set.
+        const all = await fetchPromotions('t-token', { limit: 200 });
+        const expected = [...all.promotions].sort((a, b) =>
+          compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'created_at', 'desc'),
+        );
+        expect(all.promotions.map((p) => p.id)).toEqual(expected.map((p) => p.id));
+        expect(all.total).toBe(all.promotions.length);
+
+        // 4-state summary, pinned to the fake clock: every dummy promo has ended.
+        expect(all.summary).toEqual({ total: all.total, active: 0, scheduled: 0, ended: all.total });
+        const { active = 0, scheduled = 0, ended = 0 } = all.summary ?? {};
+        expect(active + scheduled + ended).toBe(all.total);
+
+        // Offset slice: cursor 3, limit 3 → rows 4..6 of the sorted list; nextCursor = cursor + limit.
+        const page = await fetchPromotions('t-token', { limit: 3, cursor: 3 });
+        expect(page.promotions.map((p) => p.id)).toEqual(all.promotions.slice(3, 6).map((p) => p.id));
+        expect(page.nextCursor).toBe(6);
+
+        // Explicit start_date ASC equals compareRows('start_date', 'asc').
+        const byStart = await fetchPromotions('t-token', { limit: 200, sort: 'start_date', order: 'asc' });
+        const expectedByStart = [...byStart.promotions].sort((a, b) =>
+          compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'start_date', 'asc'),
+        );
+        expect(byStart.promotions.map((p) => p.id)).toEqual(expectedByStart.map((p) => p.id));
+
+        // Invalid sort falls back without throwing and stays deterministic across two calls.
+        const bogusA = await fetchPromotions('t-token', { limit: 200, sort: 'bogus' });
+        const bogusB = await fetchPromotions('t-token', { limit: 200, sort: 'bogus' });
+        expect(bogusA.promotions.map((p) => p.id)).toEqual(bogusB.promotions.map((p) => p.id));
+        expect(bogusA.promotions).toHaveLength(all.promotions.length);
+
+        // Zero network while dummy mode is ON.
+        expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/promotions')).length).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('dummy mode renders the summary strip with zero network', async () => {
+      useDummyStore.getState().toggle();
+      const { default: Page } = await import('@/app/admin/promotions/page');
+      render(<Page />);
+
+      await waitFor(() => {
+        const summary = screen.getByTestId('table-summary').textContent ?? '';
+        expect(summary).toMatch(/\d+ promosi/);
+      });
+      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/promotions')).length).toBe(0);
+    });
+  });
+
 });

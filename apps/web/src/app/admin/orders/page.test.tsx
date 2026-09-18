@@ -311,3 +311,69 @@ describe('sort header + offset paging', () => {
     expect(screen.getByText('Dibuat').closest('th')).toHaveAttribute('aria-sort', 'none');
   });
 });
+
+// ── Cycle 3: density toggle ────────────────────────────────────────────────
+describe('density toggle', () => {
+  let fetchMock: jest.Mock;
+
+  function pesananHeader(): HTMLTableCellElement {
+    return screen.getByText('Pesanan').closest('th') as HTMLTableCellElement;
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    useDummyStore.getState().reset();
+    installDummy();
+    mockGetStoredToken.mockReturnValue('test-token');
+    fetchMock = jest.fn(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/admin/orders?')) return { ok: true, status: 200, json: async () => ordersListResponse } as Response;
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+    (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    jest.restoreAllMocks();
+  });
+
+  it('changes the table header padding class and persists to localStorage', async () => {
+    const { default: Page } = await import('@/app/admin/orders/page');
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText('ORD-002')).toBeInTheDocument());
+
+    expect(pesananHeader()).toHaveClass('py-3');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
+    await waitFor(() => expect(pesananHeader()).toHaveClass('py-2'));
+    expect(localStorage.getItem('admin:table-density')).toBe('compact');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
+    await waitFor(() => expect(pesananHeader()).toHaveClass('py-4'));
+    expect(localStorage.getItem('admin:table-density')).toBe('comfortable');
+  });
+
+  it('rehydrates the persisted density on mount', async () => {
+    localStorage.setItem('admin:table-density', 'compact');
+
+    const { default: Page } = await import('@/app/admin/orders/page');
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText('ORD-002')).toBeInTheDocument());
+
+    await waitFor(() => expect(pesananHeader()).toHaveClass('py-2'));
+  });
+
+  it('ignores an invalid stored density', async () => {
+    localStorage.setItem('admin:table-density', 'bogus');
+
+    const { default: Page } = await import('@/app/admin/orders/page');
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText('ORD-002')).toBeInTheDocument());
+
+    // Falls back to the default density (padding class AND pressed toggle).
+    expect(pesananHeader()).toHaveClass('py-3');
+    expect(screen.getByRole('button', { name: 'Default' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Compact' })).toHaveAttribute('aria-pressed', 'false');
+  });
+});

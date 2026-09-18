@@ -363,4 +363,71 @@ describe('admin sales performance page', () => {
       }
     });
   });
+
+  // ── Cycle 3: density toggle + dummy parity ───────────────────────────────
+  describe('density toggle + dummy parity', () => {
+    let fetchMock: jest.Mock;
+
+    beforeEach(() => {
+      localStorage.clear();
+      useDummyStore.getState().reset();
+      installDummy();
+      fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    });
+
+    it('density toggle changes the table header padding class and persists to localStorage', async () => {
+      const { default: Page } = await import('@/app/admin/sales-performance/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Sales A')).toBeInTheDocument());
+
+      let headerCell = screen.getByText('Sales').closest('th') as HTMLTableCellElement;
+      expect(headerCell).toHaveClass('py-3');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Sales').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-2');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('compact');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Sales').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-4');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('comfortable');
+    });
+
+    it('dummy fetchAdminSalesPerformance mirrors achievement DESC + offset slice + total + summary (zero network)', async () => {
+      const { fetchAdminSalesPerformance } = await import('@/app/admin/sales-performance/api');
+      useDummyStore.getState().toggle();
+      expect(useDummyStore.getState().isDummy).toBe(true);
+
+      const all = await fetchAdminSalesPerformance('t-token', { limit: 200 });
+      expect(all.rows.length).toBeGreaterThanOrEqual(4);
+      expect(all.rows.map((r) => Number(r.achievement))).toEqual(
+        [...all.rows.map((r) => Number(r.achievement))].sort((a, b) => b - a),
+      );
+      expect(all.total).toBe(all.rows.length);
+      expect(all.summary).toEqual({ total: all.total });
+
+      const page = await fetchAdminSalesPerformance('t-token', { limit: 2, cursor: 2 });
+      expect(page.rows.map((r) => r.user_id)).toEqual(all.rows.slice(2, 4).map((r) => r.user_id));
+      expect(page.nextCursor).toBe(4);
+
+      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/sales/performance')).length).toBe(0);
+    });
+
+    it('dummy mode renders the summary strip with zero network', async () => {
+      useDummyStore.getState().toggle();
+      const { default: Page } = await import('@/app/admin/sales-performance/page');
+      render(<Page />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('table-summary').textContent ?? '').toMatch(/\d+ sales/);
+      });
+      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/sales/performance')).length).toBe(0);
+    });
+  });
+
 });

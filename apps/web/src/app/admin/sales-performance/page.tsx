@@ -5,7 +5,8 @@ import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminSalesPerformance, formatPercentage, formatRupiah, parseMoney, type SalesPerformanceRow } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Table, TablePagination, TableSummary } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Table, TablePagination, TableSummary, TableDensityToggle } from '@/components/ui';
+import { useTableDensity } from '@/hooks/useTableDensity';
 import { toggleSort, type ColumnSort } from '@/lib/admin-table';
 
 /** Rows fetched per page (offset pagination). */
@@ -32,6 +33,7 @@ export default function AdminSalesPerformancePage() {
   // never a server-sortable column (server allowlist is only `['name','id']`).
   const [sort, setSort] = useState<ColumnSort>({ column: 'achievement', order: 'desc' });
   const [cursor, setCursor] = useState(0);
+  const { density, setDensity } = useTableDensity();
 
   // Latest sort/cursor readable inside `load` WITHOUT adding them to its
   // dependency list (which would otherwise re-run the mount effect and reset the
@@ -193,6 +195,7 @@ export default function AdminSalesPerformancePage() {
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
           <TableSummary total={total ?? rows.length} noun="sales" />
+          <TableDensityToggle value={density} onChange={setDensity} />
         </div>
         {loading && rows.length === 0 ? (
           <p className="p-8 text-sm text-gray-500">Memuat kinerja...</p>
@@ -201,6 +204,7 @@ export default function AdminSalesPerformancePage() {
             columns={columns}
             rows={displayRows}
             rowKey={(r) => r.user_id}
+            density={density}
             sortableColumns={['name']}
             sort={sort}
             onSort={(column) => {

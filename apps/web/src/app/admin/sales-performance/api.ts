@@ -13,6 +13,26 @@ export interface SalesPerformanceRow {
   order_count: number;
 }
 
+/** Params accepted by `fetchAdminSalesPerformance` (sort/order passed by Cycle 2). */
+export interface SalesPerformanceParams {
+  period?: string;
+  limit?: number;
+  cursor?: number;
+  sort?: string;
+  order?: string;
+}
+
+/** Normalized list result: offset cursor + optional count summary. */
+export interface SalesPerformanceListResult {
+  rows: SalesPerformanceRow[];
+  hasMore: boolean;
+  limit: number;
+  cursor: number;
+  total?: number;
+  summary?: { total: number };
+  nextCursor: number | null;
+}
+
 // ── Dummy-mode helpers ──────────────────────────────────────────────────────
 
 interface DummyOrderEntity {
@@ -46,11 +66,7 @@ function derivePeriod(orders: DummyOrderEntity[]): string {
   return latest ?? '2026-02';
 }
 
-function dummySalesPerformance(opts?: { period?: string; limit?: number; cursor?: number }): {
-  rows: SalesPerformanceRow[];
-  hasMore: boolean;
-  nextCursor: number | null;
-} {
+function dummySalesPerformance(opts?: SalesPerformanceParams): SalesPerformanceListResult {
   const orders = dummyOrders();
   const period = opts?.period ?? derivePeriod(orders);
   const active = orders.filter((o) => o.status !== 'cancelled');
@@ -79,13 +95,19 @@ function dummySalesPerformance(opts?: { period?: string; limit?: number; cursor?
     };
   }).sort((a, b) => Number(b.achievement) - Number(a.achievement));
 
-  const limit = opts?.limit ?? 100;
+  const limit = opts?.limit ?? 15;
   const cursor = opts?.cursor ?? 0;
   const page = rows.slice(cursor, cursor + limit);
+  const hasMore = cursor + limit < rows.length;
+  const total = rows.length;
   return {
     rows: page,
-    hasMore: cursor + limit < rows.length,
-    nextCursor: cursor + limit < rows.length ? cursor + limit : null,
+    hasMore,
+    limit,
+    cursor,
+    total,
+    summary: { total },
+    nextCursor: hasMore ? cursor + limit : null,
   };
 }
 
@@ -100,8 +122,8 @@ function parseError(data: unknown, fallback: string): string {
 /** GET /admin/sales/performance?period=YYYY-MM — all sales performance (admin only). */
 export async function fetchAdminSalesPerformance(
   token: string,
-  opts?: { period?: string; limit?: number; cursor?: number },
-): Promise<{ rows: SalesPerformanceRow[]; hasMore: boolean; nextCursor: number | null }> {
+  opts?: SalesPerformanceParams,
+): Promise<SalesPerformanceListResult> {
   return withDummyRead(
     useDummyStore.getState().isDummy,
     dummySalesPerformance(opts),
@@ -111,21 +133,37 @@ export async function fetchAdminSalesPerformance(
 
 async function fetchAdminSalesPerformanceReal(
   token: string,
-  opts?: { period?: string; limit?: number; cursor?: number },
-): Promise<{ rows: SalesPerformanceRow[]; hasMore: boolean; nextCursor: number | null }> {
+  opts?: SalesPerformanceParams,
+): Promise<SalesPerformanceListResult> {
   const query = new URLSearchParams();
   if (opts?.period) query.set('period', opts.period);
-  query.set('limit', String(opts?.limit ?? 100));
+  query.set('limit', String(opts?.limit ?? 15));
   if (opts?.cursor) query.set('cursor', String(opts.cursor));
+  if (opts?.sort) query.set('sort', opts.sort);
+  if (opts?.order) query.set('order', opts.order);
   const response = await fetch(apiUrl(`/admin/sales/performance?${query.toString()}`), {
     headers: authHeaders(token),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Kinerja sales tidak dapat dimuat.'));
+  const meta = (data?.meta ?? {}) as {
+    has_more?: unknown;
+    limit?: unknown;
+    cursor?: unknown;
+    total?: unknown;
+  };
+  const hasMore = Boolean(meta.has_more);
+  const limit = Number(meta.limit ?? opts?.limit ?? 15);
+  const cursor = Number(meta.cursor ?? opts?.cursor ?? 0);
+  const total = meta.total !== undefined ? Number(meta.total) : undefined;
   return {
     rows: Array.isArray(data.data) ? (data.data as SalesPerformanceRow[]) : [],
-    hasMore: Boolean(data.has_more),
-    nextCursor: data.next_cursor ?? null,
+    hasMore,
+    limit,
+    cursor,
+    total,
+    summary: total !== undefined ? { total } : undefined,
+    nextCursor: hasMore ? cursor + limit : null,
   };
 }
 

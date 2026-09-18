@@ -35,9 +35,11 @@ const adminResponse = {
       order_count: 5,
     },
   ],
-  has_more: false,
-  next_cursor: null,
+  meta: { has_more: false, limit: 15, cursor: 0, total: 2 },
 };
+
+// Mutable response so individual tests can swap in a different payload.
+let currentAdminResponse: unknown = adminResponse;
 
 describe('admin sales performance page', () => {
   let originalFetch: typeof fetch | undefined;
@@ -46,11 +48,12 @@ describe('admin sales performance page', () => {
     useDummyStore.getState().reset();
     installDummy();
     mockGetStoredToken.mockReturnValue('test-token');
+    currentAdminResponse = adminResponse;
     originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
     (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (url: unknown) => {
       const urlString = String(url);
       if (urlString.includes('/admin/sales/performance')) {
-        return { ok: true, status: 200, json: async () => adminResponse } as Response;
+        return { ok: true, status: 200, json: async () => currentAdminResponse } as Response;
       }
       return { ok: false, status: 404, json: async () => ({ status: 'error', message: 'not found' }) } as Response;
     });
@@ -114,4 +117,94 @@ describe('admin sales performance page', () => {
       expect(urls.some((u) => u.includes('period=2026-08'))).toBe(true);
     });
   });
+
+  describe('default achievement sort + summary', () => {
+  // Server returns name ASC; achievements chosen so STRING compare !== NUMERIC
+  // compare (string-desc would wrongly put '9000000.00' first).
+  const orderResponse = {
+    status: 'success',
+    data: [
+      {
+        user_id: 1,
+        name: 'Sales 12M',
+        email: 'sales12@example.com',
+        period: '2026-09',
+        target: '20000000.00',
+        achievement: '12000000.00',
+        percentage: '60.00',
+        order_count: 4,
+      },
+      {
+        user_id: 2,
+        name: 'Sales 3M',
+        email: 'sales3@example.com',
+        period: '2026-09',
+        target: '20000000.00',
+        achievement: '3000000.00',
+        percentage: '15.00',
+        order_count: 1,
+      },
+      {
+        user_id: 3,
+        name: 'Sales 9M',
+        email: 'sales9@example.com',
+        period: '2026-09',
+        target: '20000000.00',
+        achievement: '9000000.00',
+        percentage: '45.00',
+        order_count: 3,
+      },
+    ],
+    meta: { has_more: false, limit: 15, cursor: 0, total: 3 },
+  };
+
+  it('renders rows in achievement DESC order by default (numeric via parseMoney)', async () => {
+    currentAdminResponse = orderResponse;
+    const { default: Page } = await import('@/app/admin/sales-performance/page');
+    render(<Page />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sales 12M')).toBeInTheDocument();
+    });
+
+    const names = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.querySelector('td')?.textContent ?? '');
+
+    expect(names).toEqual(['Sales 12M', 'Sales 9M', 'Sales 3M']);
+  });
+
+  it('renders the summary strip with the server total', async () => {
+    currentAdminResponse = { ...adminResponse, meta: { ...adminResponse.meta, total: 42 } };
+    const { default: Page } = await import('@/app/admin/sales-performance/page');
+    render(<Page />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('table-summary')).toHaveTextContent('42 sales');
+    });
+  });
+
+  it('never renders timestamp columns and never sends sort=achievement', async () => {
+    const { default: Page } = await import('@/app/admin/sales-performance/page');
+    render(<Page />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sales A')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Dibuat')).toBeNull();
+    expect(screen.queryByText('Diperbarui')).toBeNull();
+
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    const urls = fetchMock.mock.calls
+      .map((c) => String(c[0]))
+      .filter((u) => u.includes('/admin/sales/performance'));
+    expect(urls.length).toBeGreaterThan(0);
+    for (const url of urls) {
+      expect(url).not.toContain('sort=achievement');
+      expect(url).not.toContain('next_cursor');
+    }
+  });
+});
 });

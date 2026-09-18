@@ -5,7 +5,10 @@ import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminSalesPerformance, formatPercentage, formatRupiah, parseMoney, type SalesPerformanceRow } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Table } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Table, TableSummary } from '@/components/ui';
+
+/** Rows fetched per page (offset pagination). */
+const PAGE_LIMIT = 15;
 
 /** Current YYYY-MM in Asia/Jakarta timezone (indonesia). */
 function currentPeriod(): string {
@@ -24,6 +27,7 @@ export default function AdminSalesPerformancePage() {
   const [rows, setRows] = useState<SalesPerformanceRow[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [total, setTotal] = useState<number>();
 
   const load = useCallback(async (authToken: string, targetPeriod: string, cursor?: number) => {
     setLoading(true);
@@ -31,12 +35,13 @@ export default function AdminSalesPerformancePage() {
     try {
       const result = await fetchAdminSalesPerformance(authToken, {
         period: targetPeriod,
-        limit: 100,
+        limit: PAGE_LIMIT,
         cursor,
       });
       setRows((prev) => (cursor ? [...prev, ...result.rows] : result.rows));
       setHasMore(result.hasMore);
       setNextCursor(result.nextCursor);
+      if (result.total !== undefined) setTotal(result.total);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Kinerja sales tidak dapat dimuat.');
     } finally {
@@ -75,6 +80,13 @@ export default function AdminSalesPerformancePage() {
   function handleLoadMore() {
     if (token && nextCursor) load(token, period, nextCursor);
   }
+
+  // Default DISPLAY order is `achievement DESC` — a DERIVED value compared
+  // NUMERICALLY via `parseMoney` (never string compare, never sent to server).
+  const sortedRows = useMemo(
+    () => [...rows].sort((a, b) => parseMoney(b.achievement) - parseMoney(a.achievement)),
+    [rows],
+  );
 
   if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
   if (!token)
@@ -149,12 +161,15 @@ export default function AdminSalesPerformancePage() {
       </Card>
 
       <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+          <TableSummary total={total ?? rows.length} noun="sales" />
+        </div>
         {loading && rows.length === 0 ? (
           <p className="p-8 text-sm text-gray-500">Memuat kinerja...</p>
         ) : (
           <Table
             columns={columns}
-            rows={rows}
+            rows={sortedRows}
             rowKey={(r) => r.user_id}
             empty={<EmptyState icon={<span>📊</span>} title="Belum ada data kinerja" description="Kinerja sales akan tampil di sini." />}
           />

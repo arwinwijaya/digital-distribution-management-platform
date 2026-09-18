@@ -230,4 +230,141 @@ describe('admin promotions page', () => {
       expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
     });
   });
+
+  // ── Cycle 2: sort header click + offset paging ───────────────────────────
+  describe('sort header click + offset paging', () => {
+    let fetchMock: jest.Mock;
+
+    /** T7 offset-cursor contract: rows in `data`, paging + 4-state summary in `meta`. */
+    function t7Response(overrides?: { data?: unknown[]; total?: number; hasMore?: boolean; cursor?: number }) {
+      const data = overrides?.data ?? [
+        { id: 2, name: 'Promo Baru', discount_type: 'percentage', discount_value: '10.00', start_date: '2026-09-10', end_date: '2026-09-20', is_active: true, broadcast_at: null, created_at: '2026-09-05T08:00:00Z', updated_at: '2026-09-10T10:00:00Z' },
+        { id: 1, name: 'Promo Lama', discount_type: 'fixed', discount_value: '5000.00', start_date: '2026-09-01', end_date: '2026-09-08', is_active: true, broadcast_at: null, created_at: '2026-09-01T08:00:00Z', updated_at: '2026-09-11T10:00:00Z' },
+      ];
+      const total = overrides?.total ?? data.length;
+      return {
+        status: 'success',
+        data,
+        meta: {
+          has_more: overrides?.hasMore ?? false,
+          limit: 15,
+          cursor: overrides?.cursor ?? 0,
+          total,
+          summary: { total, active: 2, scheduled: 0, ended: 0 },
+        },
+      };
+    }
+
+    function lastPromotionsUrl(): string {
+      const calls = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/promotions'));
+      return String(calls[calls.length - 1][0]);
+    }
+
+    function promotionsCallCount(): number {
+      return fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/promotions')).length;
+    }
+
+    beforeEach(() => {
+      fetchMock = jest.fn(async (url: unknown) => {
+        const urlString = String(url);
+        if (urlString.includes('/admin/promotions')) {
+          return { ok: true, status: 200, json: async () => t7Response({ total: 100, hasMore: true, cursor: 0 }) } as Response;
+        }
+        return { ok: true, status: 200, json: async () => ({}) } as Response;
+      });
+      (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+    });
+
+    it('toggles "Mulai" desc→asc and always sends an offset cursor (never next_cursor)', async () => {
+      const { default: Page } = await import('@/app/admin/promotions/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Promo Baru')).toBeInTheDocument());
+
+      // First click on a new column starts at desc.
+      fireEvent.click(screen.getByText('Mulai'));
+      await waitFor(() => {
+        const url = lastPromotionsUrl();
+        expect(url).toContain('sort=start_date');
+        expect(url).toContain('order=desc');
+        expect(url).toContain('cursor=0');
+      });
+      expect(lastPromotionsUrl()).not.toContain('next_cursor');
+
+      // The table swaps to a loading state while fetching — wait for it to return.
+      await screen.findByText('Mulai');
+
+      // Second click flips to asc, still page 1.
+      fireEvent.click(screen.getByText('Mulai'));
+      await waitFor(() => {
+        const url = lastPromotionsUrl();
+        expect(url).toContain('sort=start_date');
+        expect(url).toContain('order=asc');
+        expect(url).toContain('cursor=0');
+      });
+      expect(lastPromotionsUrl()).not.toContain('next_cursor');
+    });
+
+    it('pages with an OFFSET cursor (15) and preserves the active sort', async () => {
+      const { default: Page } = await import('@/app/admin/promotions/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Promo Baru')).toBeInTheDocument());
+
+      // Activate sort=start_date first.
+      fireEvent.click(screen.getByText('Mulai'));
+      await waitFor(() => expect(lastPromotionsUrl()).toContain('sort=start_date'));
+      await screen.findByText('Mulai');
+
+      // Page 2 must move to offset 15, NOT an id cursor, and keep the sort.
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => {
+        const url = lastPromotionsUrl();
+        expect(url).toContain('cursor=15');
+        expect(url).toContain('sort=start_date');
+      });
+      expect(lastPromotionsUrl()).not.toContain('next_cursor');
+    });
+
+    it('reflects aria-sort on the sortable headers and keeps "Aksi" inert', async () => {
+      const { default: Page } = await import('@/app/admin/promotions/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Promo Baru')).toBeInTheDocument());
+
+      // Default sort column is created_at (desc) → "Dibuat" descending, "Mulai" none.
+      expect(screen.getByText('Dibuat').closest('th')).toHaveAttribute('aria-sort', 'descending');
+      expect(screen.getByText('Mulai').closest('th')).toHaveAttribute('aria-sort', 'none');
+
+      fireEvent.click(screen.getByText('Mulai'));
+      await waitFor(() => {
+        expect(screen.getByText('Mulai').closest('th')).toHaveAttribute('aria-sort', 'descending');
+      });
+      await screen.findByText('Mulai');
+      expect(screen.getByText('Dibuat').closest('th')).toHaveAttribute('aria-sort', 'none');
+
+      // "Aksi" is not sortable: no aria-sort and clicking it must not fetch.
+      const aksi = screen.getByText('Aksi').closest('th') as HTMLElement;
+      expect(aksi).not.toHaveAttribute('aria-sort');
+      const before = promotionsCallCount();
+      fireEvent.click(aksi);
+      expect(promotionsCallCount()).toBe(before);
+    });
+
+    it('resets to cursor=0 when sorting while on a later page', async () => {
+      const { default: Page } = await import('@/app/admin/promotions/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Promo Baru')).toBeInTheDocument());
+
+      // Move to page 2 (offset 15).
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => expect(lastPromotionsUrl()).toContain('cursor=15'));
+      await screen.findByText('Mulai');
+
+      // Sorting must jump back to page 1 while carrying the new sort.
+      fireEvent.click(screen.getByText('Mulai'));
+      await waitFor(() => {
+        const url = lastPromotionsUrl();
+        expect(url).toContain('cursor=0');
+        expect(url).toContain('sort=start_date');
+      });
+    });
+  });
 });

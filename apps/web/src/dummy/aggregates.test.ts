@@ -119,4 +119,55 @@ describe('buildAggregates', () => {
       expect(agg.operations.issues.length).toBeGreaterThan(0);
     });
   });
+
+  describe('analyticsInsight (fixed split comparison window)', () => {
+    const insight = agg.analyticsInsight;
+
+    it('current period is the last 30 days ending on the dummy window end', () => {
+      expect(insight.comparison.period).toEqual({
+        start_date: '2026-01-16',
+        end_date: '2026-02-14',
+      });
+    });
+
+    it('previous period is the equal-length block immediately before', () => {
+      expect(insight.comparison.previous_period).toEqual({
+        start_date: '2025-12-17',
+        end_date: '2026-01-15',
+      });
+    });
+
+    it('sales_trends is zero-filled to exactly 30 buckets', () => {
+      expect(insight.sales_trends).toHaveLength(30);
+      expect(insight.sales_trends[0].period).toBe('2026-01-16');
+      expect(insight.sales_trends[29].period).toBe('2026-02-14');
+    });
+
+    it('metrics_delta covers the four deltable metrics and no point-in-time counts', () => {
+      expect(Object.keys(insight.metrics_delta).sort()).toEqual([
+        'orders_total',
+        'outstanding_total',
+        'payments_total',
+        'sales_total',
+      ]);
+    });
+
+    it('exposes an outlet performance total covering at least the ranked rows', () => {
+      expect(typeof insight.outlet_performance_total).toBe('number');
+      expect(insight.outlet_performance_total).toBeGreaterThanOrEqual(
+        insight.outlet_performance.length,
+      );
+    });
+
+    it('needs_attention has valid reasons and respects the cap', () => {
+      expect(insight.needs_attention.length).toBeLessThanOrEqual(5);
+      for (const item of insight.needs_attention) {
+        expect(['sales_decline', 'outstanding_risk']).toContain(item.reason);
+      }
+    });
+
+    it('deterministically surfaces at least one needs_attention row for the pinned today', () => {
+      expect(insight.needs_attention.length).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

@@ -94,6 +94,38 @@ interface AdminDashboardData {
   outlet_performance: OutletPoint[];
 }
 
+interface InsightDelta {
+  delta_percent: number | null;
+  direction: 'up' | 'down' | 'neutral';
+}
+
+interface NeedsAttentionItem {
+  outlet_id: number;
+  outlet_name: string;
+  reason: 'sales_decline' | 'outstanding_risk';
+  delta_percent: number | null;
+  outstanding_total: string;
+}
+
+interface AnalyticsInsightData {
+  comparison: {
+    period: { start_date: string; end_date: string };
+    previous_period: { start_date: string; end_date: string };
+  };
+  metrics: DashboardMetrics;
+  metrics_delta: {
+    orders_total: InsightDelta;
+    sales_total: InsightDelta;
+    payments_total: InsightDelta;
+    outstanding_total: InsightDelta;
+  };
+  needs_attention: NeedsAttentionItem[];
+  sales_trends: TrendPoint[];
+  outlet_performance: OutletPoint[];
+  outlet_performance_total: number;
+  outlet_performance_has_more: boolean;
+}
+
 interface FinanceMetrics {
   issued_invoices: { count: number };
   outstanding_balance: { amount: string | number };
@@ -173,6 +205,7 @@ interface OperationsData {
 
 export interface Aggregates {
   analytics: AnalyticsData;
+  analyticsInsight: AnalyticsInsightData;
   geographic: {
     table: GeographicTableRow[];
     map_points: GeographicMapPoint[];
@@ -205,6 +238,25 @@ function pickOutletNumericId(outlet: DummyOutlet): number {
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
+
+/** Parse a money value into integer cents (mirrors the backend cents path). */
+function toCents(value: number | string): number {
+  return Math.round(Number(String(value).replace(/[^0-9.-]/g, '')) * 100);
+}
+
+/** Render integer cents back into the Laravel decimal-string convention. */
+function fromCents(cents: number): string {
+  return money(cents / 100);
+}
+
+/** Order statuses that never count toward sales/outstanding aggregates. */
+const INSIGHT_EXCLUDED_STATUSES = ['cancelled'];
+
+/** How many daily buckets the fixed insight window always renders. */
+const INSIGHT_WINDOW_DAYS = 30;
+const NEEDS_ATTENTION_LIMIT = 5;
+const SALES_DECLINE_THRESHOLD_PERCENT = 20;
+const OUTLET_PERFORMANCE_LIMIT = 10;
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
@@ -917,6 +969,222 @@ function buildOperations(
   return { readiness, issues };
 }
 
+// ─── Analytics insight (fixed split comparison window) ───────────────────────
+
+/**
+ * Derive the strategic insight payload from the SAME 61-date dummy window,
+ * sliced into a current 30-day block (`end−29..end`) and the equal-length
+ * previous block (`end−59..end−30`). `dummyWindow()` itself is never touched.
+ *
+ * Mirrors the backend `/analytics/insight` contract so dummy mode is a true
+ * parity surface (zero network, deterministic, pinned by seed).
+ */
+function buildAnalyticsInsight(
+  master: MasterData,
+  tx: Transactions,
+  window: DateWindow,
+): AnalyticsInsightData {
+  const days = daysBetween(window.start, window.end); // 61 dates: end−60 .. end
+  const currentDays = new Set(days.slice(-INSIGHT_WINDOW_DAYS)); // end−29 .. end
+  const previousDays = new Set(
+    days.slice(days.length - INSIGHT_WINDOW_DAYS * 2, days.length - INSIGHT_WINDOW_DAYS),
+  ); // end−59 .. end−30
+
+  const dayOf = (order: DummyOrder): string => String(order.created_at).slice(0, 10);
+  const isExcluded = (order: DummyOrder): boolean =>
+    INSIGHT_EXCLUDED_STATUSES.includes(order.status);
+  const paidCents = (order: DummyOrder): number => toCents(order.paid_amount);
+  const totalCents = (order: DummyOrder): number => toCents(order.total_amount);
+
+  // ── Window metrics (current vs previous) ────────────────────────────────
+  const windowedOrders = (set: Set<string>): DummyOrder[] =>
+    tx.orders.filter((o) => !isExcluded(o) && set.has(dayOf(o)));
+
+  const currentOrders = windowedOrders(currentDays);
+  const previousOrders = windowedOrders(previousDays);
+
+  const sum = (orders: DummyOrder[], pick: (o: DummyOrder) => number): number =>
+    orders.reduce((acc, o) => acc + pick(o), 0);
+
+  const currentMetrics: DashboardMetrics = {
+    orders_total: currentOrders.length,
+    sales_total: fromCents(sum(currentOrders, totalCents)),
+    outlets_total: master.outlets.length,
+    products_total: master.products.length,
+    payments_total: fromCents(sum(currentOrders, paidCents)),
+    outstanding_total: fromCents(
+      sum(currentOrders, (o) => Math.max(0, totalCents(o) - paidCents(o))),
+    ),
+  };
+  const previousMetrics = {
+    orders_total: previousOrders.length,
+    sales_total: sum(previousOrders, totalCents),
+    payments_total: sum(previousOrders, paidCents),
+    outstanding_total: sum(previousOrders, (o) =>
+      Math.max(0, totalCents(o) - paidCents(o)),
+    ),
+  };
+
+  const deltaFor = (currentCents: number, previousCents: number): InsightDelta => {
+    if (previousCents === 0) return { delta_percent: null, direction: 'neutral' };
+    const unrounded = ((currentCents - previousCents) / previousCents) * 100;
+    const direction: InsightDelta['direction'] =
+      unrounded > 0 ? 'up' : unrounded < 0 ? 'down' : 'neutral';
+    return { delta_percent: Math.round(unrounded * 10) / 10, direction };
+  };
+
+  const metrics_delta = {
+    orders_total: deltaFor(currentMetrics.orders_total, previousMetrics.orders_total),
+    sales_total: deltaFor(toCents(currentMetrics.sales_total), previousMetrics.sales_total),
+    payments_total: deltaFor(
+      toCents(currentMetrics.payments_total),
+      previousMetrics.payments_total,
+    ),
+    outstanding_total: deltaFor(
+      toCents(currentMetrics.outstanding_total),
+      previousMetrics.outstanding_total,
+    ),
+  };
+
+  // ── Zero-filled daily trends (exactly 30 buckets) ───────────────────────
+  const sales_trends: TrendPoint[] = days.slice(-INSIGHT_WINDOW_DAYS).map((iso) => {
+    const dayOrders = currentOrders.filter((o) => dayOf(o) === iso);
+    return {
+      period: iso,
+      orders_total: dayOrders.length,
+      sales_total: fromCents(sum(dayOrders, totalCents)),
+      payments_total: fromCents(sum(dayOrders, paidCents)),
+    };
+  });
+
+  // ── Outlet ranking (top 10) + total distinct outlets in the window ──────
+  const outletStats = new Map<number, { name: string; orders: number; sales: number }>();
+  for (const order of currentOrders) {
+    const existing = outletStats.get(order.outlet_id) ?? {
+      name: master.outlets[order.outlet_id - 1].name,
+      orders: 0,
+      sales: 0,
+    };
+    existing.orders += 1;
+    existing.sales += totalCents(order);
+    outletStats.set(order.outlet_id, existing);
+  }
+
+  const ranked = Array.from(outletStats.entries()).sort((a, b) => {
+    if (b[1].sales !== a[1].sales) return b[1].sales - a[1].sales;
+    const byName = a[1].name.localeCompare(b[1].name);
+    return byName !== 0 ? byName : a[0] - b[0];
+  });
+
+  const outlet_performance: OutletPoint[] = ranked
+    .slice(0, OUTLET_PERFORMANCE_LIMIT)
+    .map(([id, data], index) => ({
+      rank: index + 1,
+      outlet_id: id,
+      outlet_name: data.name,
+      orders_total: data.orders,
+      sales_total: fromCents(data.sales),
+    }));
+
+  const outlet_performance_total = ranked.length;
+  const outlet_performance_has_more = outlet_performance_total > OUTLET_PERFORMANCE_LIMIT;
+
+  // ── Needs attention (decline ≥ 20% OR point-in-time outstanding > 0) ─────
+  const salesCentsByOutlet = (orders: DummyOrder[]): Map<number, number> => {
+    const map = new Map<number, number>();
+    for (const order of orders) {
+      map.set(order.outlet_id, (map.get(order.outlet_id) ?? 0) + totalCents(order));
+    }
+    return map;
+  };
+
+  const currentByOutlet = salesCentsByOutlet(currentOrders);
+  const previousByOutlet = salesCentsByOutlet(previousOrders);
+
+  // Point-in-time outstanding: every order still carrying a balance, regardless
+  // of when it was created (mirrors the backend allow-list semantics).
+  const outstandingByOutlet = new Map<number, number>();
+  for (const order of tx.orders) {
+    if (isExcluded(order)) continue;
+    const balance = Math.max(0, totalCents(order) - paidCents(order));
+    if (balance > 0) {
+      outstandingByOutlet.set(
+        order.outlet_id,
+        (outstandingByOutlet.get(order.outlet_id) ?? 0) + balance,
+      );
+    }
+  }
+
+  const outletIds = Array.from(
+    new Set<number>([
+      ...Array.from(currentByOutlet.keys()),
+      ...Array.from(previousByOutlet.keys()),
+      ...Array.from(outstandingByOutlet.keys()),
+    ]),
+  );
+
+  const scored = outletIds
+    .map((outletId) => {
+      const currentCents = currentByOutlet.get(outletId) ?? 0;
+      const previousCents = previousByOutlet.get(outletId) ?? 0;
+      const outstandingCents = outstandingByOutlet.get(outletId) ?? 0;
+      const declineDelta =
+        previousCents === 0
+          ? null
+          : ((currentCents - previousCents) / previousCents) * 100;
+      const declines =
+        declineDelta !== null && declineDelta <= -SALES_DECLINE_THRESHOLD_PERCENT;
+      const hasOutstanding = outstandingCents > 0;
+      if (!declines && !hasOutstanding) return null;
+
+      return {
+        outlet_id: outletId,
+        outlet_name: master.outlets[outletId - 1].name,
+        reason: (declines ? 'sales_decline' : 'outstanding_risk') as NeedsAttentionItem['reason'],
+        delta_percent: declines && declineDelta !== null ? Math.round(declineDelta * 10) / 10 : null,
+        outstanding_total: fromCents(outstandingCents),
+        _severity: declines && declineDelta !== null ? Math.abs(declineDelta) : null,
+        _outstanding_cents: outstandingCents,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  scored.sort((a, b) => {
+    const aDecline = a.reason === 'sales_decline';
+    const bDecline = b.reason === 'sales_decline';
+    if (aDecline !== bDecline) return aDecline ? -1 : 1;
+    if (aDecline && a._severity !== b._severity) {
+      return (b._severity ?? 0) - (a._severity ?? 0);
+    }
+    if (!aDecline && a._outstanding_cents !== b._outstanding_cents) {
+      return b._outstanding_cents - a._outstanding_cents;
+    }
+    const byName = a.outlet_name.localeCompare(b.outlet_name);
+    return byName !== 0 ? byName : a.outlet_id - b.outlet_id;
+  });
+
+  const needs_attention: NeedsAttentionItem[] = scored
+    .slice(0, NEEDS_ATTENTION_LIMIT)
+    .map(({ _severity, _outstanding_cents, ...item }) => item);
+
+  return {
+    comparison: {
+      period: { start_date: days[days.length - INSIGHT_WINDOW_DAYS], end_date: window.end },
+      previous_period: {
+        start_date: days[days.length - INSIGHT_WINDOW_DAYS * 2],
+        end_date: days[days.length - INSIGHT_WINDOW_DAYS - 1],
+      },
+    },
+    metrics: currentMetrics,
+    metrics_delta,
+    needs_attention,
+    sales_trends,
+    outlet_performance,
+    outlet_performance_total,
+    outlet_performance_has_more,
+  };
+}
+
 // ─── Main aggregate builder ──────────────────────────────────────────────────
 
 /**
@@ -936,6 +1204,7 @@ export function buildAggregates(
 
   return {
     analytics: buildAnalytics(master, tx, window),
+    analyticsInsight: buildAnalyticsInsight(master, tx, window),
     geographic: buildGeographic(master, tx, window),
     suppliers: buildSupplierPerformance(master, tx, window),
     stock: buildStockPlanning(master, tx, window),

@@ -6,6 +6,7 @@
 import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
+import { compareRows, paginate } from '@/lib/admin-table';
 import type { FullDummy } from '@/dummy';
 
 export type Payment = {
@@ -37,7 +38,7 @@ export type PaymentsListResult = {
   summary: CreditSummary | null;
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
 
 function money(value: number): string {
   return (Math.round(value * 100) / 100).toFixed(2);
@@ -48,7 +49,7 @@ function buildDummyPaymentsList(
   page: number,
   role: string,
 ): PaymentsListResult {
-  const payments: Payment[] = dummy.payments.map((p) => ({
+  const all: Payment[] = dummy.payments.map((p) => ({
     id: p.id,
     order_id: p.order_id,
     amount: p.amount,
@@ -57,27 +58,38 @@ function buildDummyPaymentsList(
     created_at: p.created_at,
   }));
 
+  // Newest first — mirrors the backend `orderByDesc('created_at')->orderByDesc('id')`.
+  const sorted = [...all].sort((a, b) =>
+    compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'created_at', 'desc'),
+  );
+
+  const cursor = Math.max(0, (page - 1) * PAGE_SIZE);
+  const paginated = paginate(sorted, cursor, PAGE_SIZE);
+
   const outstanding = dummy.invoices
     .filter((inv) => inv.status !== 'cancelled')
     .reduce((sum, inv) => sum + (Number(inv.balance_amount) || 0), 0);
 
   const creditLimit = 1_000_000_000;
+  // The credit summary is outlet-scoped: only an outlet has a meaningful
+  // limit/outstanding/available balance. Admin and finance get no summary
+  // (mirrors the real path, where `/credit-limit` requires an outlet).
   const summary: CreditSummary | null =
-    role === 'finance'
-      ? null
-      : {
+    role === 'outlet'
+      ? {
           credit_limit: money(creditLimit),
           outstanding_balance: money(outstanding),
           available_credit: money(creditLimit - outstanding),
-        };
+        }
+      : null;
 
   return {
-    payments,
+    payments: paginated.page,
     paymentMeta: {
       page,
       limit: PAGE_SIZE,
-      total: payments.length,
-      has_more: false,
+      total: sorted.length,
+      has_more: paginated.hasMore,
     },
     invoiceMeta: {
       page,
@@ -113,7 +125,10 @@ export async function loadPaymentsList(
         fetch(`${apiUrl('/payments')}?${query}`, { headers: authHeaders(token) }),
         fetch(`${apiUrl('/invoices')}?${query}`, { headers: authHeaders(token) }),
       ];
-      if (role !== 'finance')
+      // Only an outlet has an outlet-scoped credit limit. Admin/finance must
+      // NOT call this: `CreditLimitController::show` aborts 422 for admin
+      // without an outlet id, which would reject the whole Promise.all.
+      if (role === 'outlet')
         requests.push(fetch(apiUrl('/credit-limit'), { headers: authHeaders(token) }));
 
       const responses = await Promise.all(requests);

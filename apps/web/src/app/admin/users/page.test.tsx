@@ -202,4 +202,114 @@ describe('admin users page', () => {
       expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
     });
   });
+
+  // ── Cycle 2: sort header click + role filter reset cursor + paging ───────
+  describe('sort header click + reset cursor + paging', () => {
+    const pagedResponse = () => usersListResponse({ total: 100, hasMore: true });
+
+    beforeEach(() => {
+      fetchMock.mockImplementation(async (url: unknown, options?: { method?: string }) => {
+        const urlString = String(url);
+        if (urlString.includes('/admin/users') && (options?.method === 'PATCH' || options?.method === 'patch')) {
+          return jsonResponse(roleResponse);
+        }
+        if (urlString.includes('/admin/users')) return jsonResponse(pagedResponse());
+        return jsonResponse({});
+      });
+    });
+
+    it('clicking "Email" sends sort=email&order=desc&cursor=0 then flips to order=asc', async () => {
+      const { default: Page } = await import('@/app/admin/users/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Budi Terbaru')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Email'));
+      await waitFor(() => {
+        const url = lastUsersUrl(fetchMock);
+        expect(url).toContain('sort=email');
+        expect(url).toContain('order=desc');
+        expect(url).toContain('cursor=0');
+      });
+
+      await waitFor(() => expect(screen.getByText('Email')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Email'));
+      await waitFor(() => {
+        const url = lastUsersUrl(fetchMock);
+        expect(url).toContain('sort=email');
+        expect(url).toContain('order=asc');
+        expect(url).toContain('cursor=0');
+      });
+    });
+
+    it('changing the role filter while on page >1 resets cursor to 0 and preserves sort', async () => {
+      const { default: Page } = await import('@/app/admin/users/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Budi Terbaru')).toBeInTheDocument());
+
+      // Activate the email sort first.
+      fireEvent.click(screen.getByText('Email'));
+      await waitFor(() => expect(lastUsersUrl(fetchMock)).toContain('sort=email'));
+
+      // Advance to page 2 (cursor=20).
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => expect(lastUsersUrl(fetchMock)).toContain('cursor=20'));
+
+      fireEvent.change(screen.getByLabelText('Filter peran'), { target: { value: 'sales' } });
+      fireEvent.click(screen.getByText('Terapkan filter'));
+
+      await waitFor(() => {
+        const url = lastUsersUrl(fetchMock);
+        expect(url).toContain('role=sales');
+        expect(url).toContain('cursor=0');
+        expect(url).toContain('sort=email');
+      });
+    });
+
+    it('paging preserves the active sort and role filter', async () => {
+      const { default: Page } = await import('@/app/admin/users/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Budi Terbaru')).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText('Filter peran'), { target: { value: 'sales' } });
+      fireEvent.click(screen.getByText('Terapkan filter'));
+      await waitFor(() => expect(lastUsersUrl(fetchMock)).toContain('role=sales'));
+
+      await waitFor(() => expect(screen.getByText('Email')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Email'));
+      await waitFor(() => expect(lastUsersUrl(fetchMock)).toContain('sort=email'));
+
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => {
+        const url = lastUsersUrl(fetchMock);
+        expect(url).toContain('cursor=20');
+        expect(url).toContain('sort=email');
+        expect(url).toContain('role=sales');
+      });
+    });
+
+    it('marks the default created_at header aria-sort="descending" and leaves Aksi inert', async () => {
+      const { default: Page } = await import('@/app/admin/users/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Budi Terbaru')).toBeInTheDocument());
+
+      const createdHeader = () => screen.getByText('Dibuat').closest('th') as HTMLTableCellElement;
+      expect(createdHeader()).toHaveAttribute('aria-sort', 'descending');
+
+      fireEvent.click(createdHeader());
+      await waitFor(() => {
+        const url = lastUsersUrl(fetchMock);
+        expect(url).toContain('sort=created_at');
+        expect(url).toContain('order=asc');
+        expect(url).toContain('cursor=0');
+      });
+      await waitFor(() => expect(createdHeader()).toHaveAttribute('aria-sort', 'ascending'));
+
+      const actionHeader = screen.getByText('Aksi').closest('th') as HTMLTableCellElement;
+      expect(actionHeader).not.toHaveAttribute('aria-sort');
+      const callsBefore = fetchMock.mock.calls.length;
+      fireEvent.click(actionHeader);
+      await act(async () => { await Promise.resolve(); });
+      expect(fetchMock.mock.calls.length).toBe(callsBefore);
+    });
+  });
 });

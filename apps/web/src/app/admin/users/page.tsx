@@ -186,6 +186,13 @@ export default function AdminUsersPage() {
             rows={users}
             rowKey={(u) => u.id}
             density={density}
+            sortableColumns={['name', 'email', 'role', 'created_at', 'updated_at']}
+            sort={sort}
+            onSort={(column) => {
+              const next = toggleSort(sortRef.current, column);
+              setSort(next);
+              if (token) void loadUsers(token, { resetCursor: true, sort: next });
+            }}
             empty={<EmptyState icon={<span>👤</span>} title="Belum ada pengguna" description="Pengguna baru akan muncul di sini." />}
           />
         )}

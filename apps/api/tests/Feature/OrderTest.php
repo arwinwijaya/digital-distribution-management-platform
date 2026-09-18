@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Outlet;
 use App\Models\Product;
@@ -274,9 +275,12 @@ class OrderTest extends TestCase
     }
 
     /**
-     * Test: Given order already confirmed, When approving again, Then error
+     * Test: Given order already confirmed, When approving again, Then the
+     * approval is idempotent: it returns 200, reuses the existing invoice, and
+     * does not append another Confirmed history row. See
+     * docs/pilot/pre-pilot-compatibility-baseline.md.
      */
-    public function test_cannot_approve_already_confirmed_order(): void
+    public function test_reapproving_already_confirmed_order_is_idempotent(): void
     {
         // Arrange: Create admin
         $adminUser = User::factory()->admin()->create([
@@ -311,10 +315,13 @@ class OrderTest extends TestCase
         $response = $this->withHeader('Authorization', "Bearer {$adminToken}")
             ->putJson("/api/orders/{$orderId}/approve");
 
-        $response->assertStatus(422)
+        // Assert: idempotent success, exactly one invoice and one Confirmed row
+        $response->assertStatus(200)
             ->assertJson([
-                'status' => 'error',
+                'status' => 'success',
             ]);
+        $this->assertSame(1, Invoice::where('order_id', $orderId)->count());
+        $this->assertSame(1, OrderStatusHistory::where('order_id', $orderId)->where('status', 'Confirmed')->count());
     }
 
     // ============================================================
@@ -585,7 +592,8 @@ class OrderTest extends TestCase
      * Two independent public approval requests are released together inside
      * the approval transaction, immediately before lockForUpdate(). SQLite's
      * file lock serializes the write; one request therefore retries, observes
-     * Confirmed, and returns the documented 422 conflict.
+     * Confirmed, and idempotently reuses the invoice. Both callers receive a
+     * 200 and exactly one Confirmed history row is appended.
      */
     public function test_concurrent_admin_approvals_append_one_confirmed_history(): void
     {
@@ -623,7 +631,7 @@ class OrderTest extends TestCase
         $statuses = array_column($responses, 'status');
         sort($statuses);
 
-        $this->assertSame([200, 422], $statuses);
+        $this->assertSame([200, 200], $statuses);
         $this->assertSame('Confirmed', Order::on('race')->findOrFail($order->id)->status);
         $this->assertSame(1, OrderStatusHistory::on('race')
             ->where('order_id', $order->id)

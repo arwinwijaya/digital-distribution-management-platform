@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Testing\TestResponse;
 use Tests\Support\PaymentConcurrencyHarness;
+use Tests\Support\PostgresRaceProbe;
 use Tests\TestCase;
 
 class PaymentTest extends TestCase
@@ -267,6 +268,10 @@ class PaymentTest extends TestCase
     /** Legacy Step 9 alias: same pgsql race as PaymentConcurrencyTest, kept green on the old path. */
     public function test_concurrent_same_identity_payment_posts_replay_one_payment(): void
     {
+        if (! PostgresRaceProbe::isAvailable()) {
+            $this->markTestSkipped('PostgreSQL race database is unreachable; skipping payment concurrency coverage.');
+        }
+
         $this->raceHarness = new PaymentConcurrencyHarness();
         $this->raceHarness->prepare();
         $order = $this->raceHarness->createPaymentFixture();

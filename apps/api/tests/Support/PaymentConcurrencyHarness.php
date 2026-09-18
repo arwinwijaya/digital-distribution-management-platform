@@ -116,24 +116,36 @@ final class PaymentConcurrencyHarness
         return $this->http->runConcurrentPayment($orderId, $payload);
     }
 
+    /**
+     * Best-effort teardown. This runs from the test's tearDown(), so it must
+     * never throw: an exception here would abort tearDown() before
+     * RefreshDatabase rolls back, leaking the transaction into every later
+     * test. Cleanup failures are therefore swallowed.
+     */
     public function close(): void
     {
-        $this->http?->close();
-        $this->http = null;
+        try {
+            $this->http?->close();
+            $this->http = null;
 
-        if ($this->database === null) {
-            return;
+            if ($this->database === null) {
+                return;
+            }
+
+            DB::purge(self::CONNECTION);
+            $admin = new PDO(
+                $this->dsn('postgres'),
+                $this->connection['username'],
+                $this->connection['password'],
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+            );
+            $admin->exec('DROP DATABASE IF EXISTS '.$this->quoteIdentifier($this->database));
+        } catch (\Throwable) {
+            // Intentionally ignored: teardown safety outweighs cleanup fidelity.
+        } finally {
+            // Always clear so a second close() is a no-op even if DROP failed.
+            $this->database = null;
         }
-
-        DB::purge(self::CONNECTION);
-        $admin = new PDO(
-            $this->dsn('postgres'),
-            $this->connection['username'],
-            $this->connection['password'],
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
-        );
-        $admin->exec('DROP DATABASE IF EXISTS '.$this->quoteIdentifier($this->database));
-        $this->database = null;
     }
 
     private function save(object $model): object

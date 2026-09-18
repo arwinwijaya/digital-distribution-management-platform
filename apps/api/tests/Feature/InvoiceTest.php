@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Tests\Support\InvoiceConcurrencyHarness;
+use Tests\Support\PostgresRaceProbe;
 use Tests\TestCase;
 
 class InvoiceTest extends TestCase
@@ -98,6 +99,10 @@ class InvoiceTest extends TestCase
 
     public function test_concurrent_approvals_create_one_invoice(): void
     {
+        if (! PostgresRaceProbe::isAvailable()) {
+            $this->markTestSkipped('PostgreSQL race database is unreachable; skipping approval concurrency coverage.');
+        }
+
         $this->raceHarness = new InvoiceConcurrencyHarness();
         $this->raceHarness->prepare();
         $order = $this->raceHarness->createOrderFixture();

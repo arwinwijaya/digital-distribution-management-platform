@@ -19,6 +19,7 @@ class PrePilotCompatibilityTest extends TestCase
 
     protected User $outletUser;
     protected Outlet $outlet;
+    protected User $admin;
     protected string $outletToken;
     protected string $adminToken;
 
@@ -42,6 +43,7 @@ class PrePilotCompatibilityTest extends TestCase
             'email' => 'pre-pilot-admin@ddp.test',
             'password' => Hash::make('password123'),
         ]);
+        $this->admin = $admin;
         $this->outletToken = $this->login($this->outletUser);
         $this->adminToken = $this->login($admin);
     }
@@ -253,7 +255,9 @@ class PrePilotCompatibilityTest extends TestCase
         $delivery = \App\Models\Delivery::create([
             'order_id' => $order->id,
             'driver_id' => $driver->id,
-            'assigned_by_id' => $this->adminToken ? 1 : null,
+            // Use the real admin id: PostgreSQL sequences are not rolled back
+            // with the test transaction, so the admin is NOT always id 1.
+            'assigned_by_id' => $this->admin->id,
             'status' => 'in_progress',
             'assigned_at' => now(),
             'started_at' => now(),

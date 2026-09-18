@@ -101,7 +101,7 @@ Correlation IDs are attached to every request via the `X-Correlation-ID` header 
 # API compatibility (idempotency, concurrency, ordering)
 cd apps/api
 php artisan test tests/Feature/PrePilotCompatibilityTest.php
-php artisan test tests/Feature/PrePilotConcurrencyCompatibilityTest.php
+php artisan test tests/Feature/Concurrency/PrePilotConcurrencyCompatibilityTest.php
 
 # Pre-pilot controls (correlation, journal, flag)
 php artisan test tests/Feature/PrePilotControlsTest.php
@@ -109,7 +109,7 @@ php artisan test tests/Feature/PrePilotControlsTest.php
 # Operational diagnostics (readiness, issues)
 php artisan test tests/Feature/OperationalDiagnosticsTest.php
 
-# Existing core suites (only 2 pre-existing failures allowed)
+# Existing core suites (must pass with 0 failures)
 php artisan test tests/Feature/OrderTest.php tests/Feature/InvoiceTest.php tests/Feature/PaymentTest.php
 php artisan test tests/Feature/DeliveryTest.php tests/Feature/WhatsAppTest.php
 
@@ -119,7 +119,7 @@ npm test -- --runInBand src/app/operations/page.test.tsx
 npm run lint
 ```
 
-**Allowed failures:** `OrderTest::test_cannot_approve_already_confirmed_order` and `OrderTest::test_concurrent_admin_approvals_append_one_confirmed_history` are pre-existing baseline mismatches documented in `docs/pilot/pre-pilot-compatibility-baseline.md`.
+**Resolved:** the two `OrderTest` re-approval assertions (`test_cannot_approve_already_confirmed_order`, `test_concurrent_admin_approvals_append_one_confirmed_history`) were stale `422` expectations against the idempotent `200` contract. They have been corrected (see `test_reapproving_already_confirmed_order_is_idempotent`) and documented in `docs/pilot/pre-pilot-compatibility-baseline.md`. All commands above must now pass with 0 failures.
 
 ---
 

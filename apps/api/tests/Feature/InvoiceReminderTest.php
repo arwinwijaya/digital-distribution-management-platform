@@ -11,6 +11,7 @@ require_once __DIR__.'/InvoiceReminderHistoryTest.php';
 require_once __DIR__.'/Concurrency/InvoiceReminderPostgresConcurrencyTest.php';
 
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Tests\Feature\Support\InvoiceReminderFeatureSetup;
 use Tests\Feature\Support\InvoiceReminderHistoryScenarios;
 use Tests\Feature\Support\InvoiceReminderPostgresScenarios;
@@ -40,9 +41,23 @@ class InvoiceReminderTest extends PostgresConcurrencyFeatureCase
      * Reset before each compatibility test without registering the trait's
      * rollback callback, so the following explicit PostgreSQL command sees a
      * migrated schema.
+     *
+     * The trait's rollback callback is intentionally skipped (the concurrency
+     * scenario spawns external workers that must keep seeing a migrated
+     * schema), but that also means this class leaves its committed rows behind
+     * and never clears the shared `RefreshDatabaseState::$migrated` flag. If a
+     * previous RefreshDatabase test had set that flag, every later
+     * RefreshDatabase class would then skip its own `migrate:fresh` and start
+     * from this class' leaked data (surfacing as inflated user totals and
+     * unexpected names in listing assertions). Resetting the flag at teardown
+     * forces the next class to re-migrate, keeping the suite order-independent.
      */
     public function runDatabaseMigrations(): void
     {
         $this->artisan('migrate:fresh', $this->migrateFreshUsing());
+
+        $this->beforeApplicationDestroyed(function (): void {
+            RefreshDatabaseState::$migrated = false;
+        });
     }
 }

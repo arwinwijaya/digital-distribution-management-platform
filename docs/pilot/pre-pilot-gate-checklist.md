@@ -11,13 +11,13 @@
 
 | # | Command | Coverage |
 |---|---------|----------|
-| 1 | `cd apps/api && php artisan test tests/Feature/PrePilotCompatibilityTest.php tests/Feature/PrePilotConcurrencyCompatibilityTest.php tests/Feature/PrePilotControlsTest.php tests/Feature/OperationalDiagnosticsTest.php` | T2–T4 compatibility, controls, diagnostics |
-| 2 | `cd apps/api && php artisan test tests/Feature/OrderTest.php tests/Feature/InvoiceTest.php tests/Feature/PaymentTest.php tests/Feature/DeliveryTest.php tests/Feature/WhatsAppTest.php` | Existing core — only 2 pre-existing failures allowed (see baseline) |
+| 1 | `cd apps/api && php artisan test tests/Feature/PrePilotCompatibilityTest.php tests/Feature/Concurrency/PrePilotConcurrencyCompatibilityTest.php tests/Feature/PrePilotControlsTest.php tests/Feature/OperationalDiagnosticsTest.php` | T2–T4 compatibility, controls, diagnostics |
+| 2 | `cd apps/api && php artisan test tests/Feature/OrderTest.php tests/Feature/InvoiceTest.php tests/Feature/PaymentTest.php tests/Feature/DeliveryTest.php tests/Feature/WhatsAppTest.php` | Existing core — must pass with 0 failures (see baseline) |
 | 3 | `cd apps/web && npm test -- --runInBand src/app/operations/page.test.tsx && npm run lint` | Web `/operations` page typecheck and behavior |
 | 4 | `php artisan migrate:status` shows both `2026_09_15_000001_create_operational_events_table` and `2026_09_15_000002_add_idempotency_payload_hash_to_orders_table` as ran | Migrations applied |
 | 5 | `php artisan route:list \| grep operations` shows `/api/admin/operations/readiness`, `/issues`, `/issues/{id}` | Routes registered |
 
-> Only the 2 documented pre-existing failures in OrderTest are allowed (`test_cannot_approve_already_confirmed_order` and `test_concurrent_admin_approvals_append_one_confirmed_history`). Any other failure blocks.
+> The previously documented 2 pre-existing OrderTest failures (`test_cannot_approve_already_confirmed_order` and `test_concurrent_admin_approvals_append_one_confirmed_history`) have been resolved — the stale `422` assertions were corrected to the idempotent `200` contract (see `test_reapproving_already_confirmed_order_is_idempotent`). Any failure now blocks.
 
 ---
 

@@ -25,11 +25,10 @@ jest.mock('next/link', () => {
   });
 });
 
-/** The six `/admin/*` management menus that must be visible to admin only. */
+/** The five `/admin/*` management menus that must be visible to admin only. */
 const ADMIN_MENUS = [
   'Kelola pesanan',
   'Kelola produk',
-  'Kelola outlet',
   'Kelola pengguna',
   'Kelola promosi',
   'Performa sales',
@@ -65,7 +64,7 @@ async function renderSidebar(): Promise<void> {
 }
 
 describe('Sidebar admin menu visibility', () => {
-  it('shows all six admin management menus for admin', async () => {
+  it('shows all five admin management menus for admin', async () => {
     mockRole('admin');
     await renderSidebar();
 
@@ -86,7 +85,6 @@ describe('Sidebar admin menu visibility', () => {
       screen.getByText(label).closest('a')?.getAttribute('href');
     expect(hrefFor('Kelola pesanan')).toBe('/admin/orders');
     expect(hrefFor('Kelola produk')).toBe('/admin/products');
-    expect(hrefFor('Kelola outlet')).toBe('/admin/outlets');
     expect(hrefFor('Kelola pengguna')).toBe('/admin/users');
     expect(hrefFor('Kelola promosi')).toBe('/admin/promotions');
     expect(hrefFor('Performa sales')).toBe('/admin/sales-performance');

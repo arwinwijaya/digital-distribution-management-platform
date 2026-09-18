@@ -5,15 +5,15 @@ import { assignDummyUserRole } from '@/dummy/mutations';
 import { compareRows, paginate } from '@/lib/admin-table';
 
 // ── Dummy-mode helpers ──────────────────────────────────────────────────────
+// Mirrors apps/api/database/seeders/DatabaseSeeder.php (7 roles, one per email).
 const DUMMY_USERS: AdminUser[] = [
-  { id: 1, name: 'Admin JABODETABEK', email: 'admin@ddp.local', role: 'admin', created_at: '2026-01-01T10:00:00+07:00' },
-  { id: 2, name: 'Budi Sales', email: 'budi.sales@ddp.local', role: 'sales', created_at: '2026-01-05T10:00:00+07:00' },
-  { id: 3, name: 'Citra Finance', email: 'citra.finance@ddp.local', role: 'finance', created_at: '2026-01-05T10:00:00+07:00' },
-  { id: 4, name: 'Agus Driver', email: 'agus.driver@ddp.local', role: 'driver', created_at: '2026-01-06T10:00:00+07:00' },
-  { id: 5, name: 'Siti Supplier', email: 'siti.supplier@ddp.local', role: 'supplier', created_at: '2026-01-07T10:00:00+07:00' },
-  { id: 6, name: 'Hendra Platform', email: 'hendra.platform@ddp.local', role: 'platform_owner', created_at: '2026-01-07T10:00:00+07:00' },
-  { id: 7, name: 'Rina Outlet', email: 'rina.outlet@ddp.local', role: 'outlet', created_at: '2026-01-08T10:00:00+07:00' },
-  { id: 8, name: 'Eko Sales 2', email: 'eko.sales@ddp.local', role: 'sales', created_at: '2026-01-09T10:00:00+07:00' },
+  { id: 1, name: 'Platform Owner', email: 'platform_owner@ddp.test', role: 'platform_owner', created_at: '2026-01-01T10:00:00+07:00' },
+  { id: 2, name: 'Admin', email: 'admin@ddp.test', role: 'admin', created_at: '2026-01-01T10:00:00+07:00' },
+  { id: 3, name: 'Test Outlet', email: 'outlet@ddp.test', role: 'outlet', created_at: '2026-01-02T10:00:00+07:00' },
+  { id: 4, name: 'Test Supplier', email: 'supplier@ddp.test', role: 'supplier', created_at: '2026-01-02T10:00:00+07:00' },
+  { id: 5, name: 'Test Sales', email: 'sales@ddp.test', role: 'sales', created_at: '2026-01-03T10:00:00+07:00' },
+  { id: 6, name: 'Test Driver', email: 'driver@ddp.test', role: 'driver', created_at: '2026-01-03T10:00:00+07:00' },
+  { id: 7, name: 'Test Finance', email: 'finance@ddp.test', role: 'finance', created_at: '2026-01-04T10:00:00+07:00' },
 ];
 
 /**

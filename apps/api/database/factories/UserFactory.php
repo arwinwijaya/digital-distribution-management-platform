@@ -95,4 +95,24 @@ class UserFactory extends Factory
             'role' => 'driver',
         ]);
     }
+
+    /**
+     * Set user as finance
+     */
+    public function finance(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'finance',
+        ]);
+    }
+
+    /**
+     * Set user as platform owner (superset of admin)
+     */
+    public function platformOwner(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'platform_owner',
+        ]);
+    }
 }

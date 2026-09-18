@@ -26,8 +26,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️', adminOnly: true },
   { href: '/operations',        label: 'Operasi',       icon: '🔧', adminOnly: true },
   // Admin Management
-  { href: '/admin/orders',             label: 'Kelola pesanan', icon: '⚙️', adminOnly: true },
-  { href: '/admin/products',           label: 'Kelola produk',  icon: '📦', adminOnly: true },
+  { href: '/admin/orders',             label: 'Approval Pesanan', icon: '⚙️', adminOnly: true },
+  { href: '/admin/products',           label: 'Harga Produk',  icon: '💰', adminOnly: true },
   { href: '/admin/users',              label: 'Kelola pengguna', icon: '👥', adminOnly: true },
   { href: '/admin/promotions',         label: 'Kelola promosi', icon: '🎁', adminOnly: true },
   { href: '/admin/sales-performance',  label: 'Performa sales', icon: '🎯', adminOnly: true },

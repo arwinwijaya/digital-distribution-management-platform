@@ -1,13 +1,9 @@
 /**
  * Sidebar.test.tsx — admin menu visibility.
  *
- * Regression guard for "admin can see all menus": the six `/admin/*`
+ * Regression guard for "admin can see all menus": the five `/admin/*`
  * management pages must be reachable from the sidebar for admin, and must
  * stay hidden from non-admin roles (outlet / sales / driver).
- *
- * The five "Kelola *" / "Performa sales" entries and "Kelola pesanan"
- * previously had NO sidebar entry at all (or were mislabelled "Admin" with
- * no `adminOnly` flag), so they were unreachable / wrongly exposed.
  */
 import React from 'react';
 import '@testing-library/jest-dom';
@@ -27,8 +23,8 @@ jest.mock('next/link', () => {
 
 /** The five `/admin/*` management menus that must be visible to admin only. */
 const ADMIN_MENUS = [
-  'Kelola pesanan',
-  'Kelola produk',
+  'Approval Pesanan',
+  'Harga Produk',
   'Kelola pengguna',
   'Kelola promosi',
   'Performa sales',
@@ -68,7 +64,7 @@ describe('Sidebar admin menu visibility', () => {
     mockRole('admin');
     await renderSidebar();
 
-    await waitFor(() => expect(screen.getByText('Kelola pesanan')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Approval Pesanan')).toBeInTheDocument());
     for (const label of ADMIN_MENUS) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
@@ -80,11 +76,11 @@ describe('Sidebar admin menu visibility', () => {
     mockRole('admin');
     await renderSidebar();
 
-    await waitFor(() => expect(screen.getByText('Kelola produk')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Harga Produk')).toBeInTheDocument());
     const hrefFor = (label: string) =>
       screen.getByText(label).closest('a')?.getAttribute('href');
-    expect(hrefFor('Kelola pesanan')).toBe('/admin/orders');
-    expect(hrefFor('Kelola produk')).toBe('/admin/products');
+    expect(hrefFor('Approval Pesanan')).toBe('/admin/orders');
+    expect(hrefFor('Harga Produk')).toBe('/admin/products');
     expect(hrefFor('Kelola pengguna')).toBe('/admin/users');
     expect(hrefFor('Kelola promosi')).toBe('/admin/promotions');
     expect(hrefFor('Performa sales')).toBe('/admin/sales-performance');

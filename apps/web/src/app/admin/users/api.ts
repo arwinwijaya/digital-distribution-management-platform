@@ -5,15 +5,23 @@ import { assignDummyUserRole } from '@/dummy/mutations';
 import { compareRows, paginate } from '@/lib/admin-table';
 
 // ── Dummy-mode helpers ──────────────────────────────────────────────────────
-// Mirrors apps/api/database/seeders/DatabaseSeeder.php (7 roles, one per email).
+// Mirrors apps/api/database/seeders/DatabaseSeeder.php — 15 seed accounts.
 const DUMMY_USERS: AdminUser[] = [
-  { id: 1, name: 'Platform Owner', email: 'platform_owner@ddp.test', role: 'platform_owner', created_at: '2026-01-01T10:00:00+07:00' },
-  { id: 2, name: 'Admin', email: 'admin@ddp.test', role: 'admin', created_at: '2026-01-01T10:00:00+07:00' },
-  { id: 3, name: 'Test Outlet', email: 'outlet@ddp.test', role: 'outlet', created_at: '2026-01-02T10:00:00+07:00' },
-  { id: 4, name: 'Test Supplier', email: 'supplier@ddp.test', role: 'supplier', created_at: '2026-01-02T10:00:00+07:00' },
-  { id: 5, name: 'Test Sales', email: 'sales@ddp.test', role: 'sales', created_at: '2026-01-03T10:00:00+07:00' },
-  { id: 6, name: 'Test Driver', email: 'driver@ddp.test', role: 'driver', created_at: '2026-01-03T10:00:00+07:00' },
-  { id: 7, name: 'Test Finance', email: 'finance@ddp.test', role: 'finance', created_at: '2026-01-04T10:00:00+07:00' },
+  { id: 1, name: 'Ahmad Wijaya', email: 'ahmad.wijaya@ddp.test', role: 'platform_owner', created_at: '2026-01-01T10:00:00+07:00' },
+  { id: 2, name: 'Ratna Sari', email: 'ratna.sari@ddp.test', role: 'admin', created_at: '2026-01-01T10:00:00+07:00' },
+  { id: 3, name: 'Dimas Pratama', email: 'dimas.pratama@ddp.test', role: 'admin', created_at: '2026-01-01T10:00:00+07:00' },
+  { id: 4, name: 'Siti Nurhaliza', email: 'siti.nurhaliza@ddp.test', role: 'outlet', created_at: '2026-01-02T10:00:00+07:00' },
+  { id: 5, name: 'Budi Santoso', email: 'budi.santoso@ddp.test', role: 'outlet', created_at: '2026-01-02T10:00:00+07:00' },
+  { id: 6, name: 'Hendra Kurniawan', email: 'hendra.kurniawan@ddp.test', role: 'supplier', created_at: '2026-01-03T10:00:00+07:00' },
+  { id: 7, name: 'Maya Indah', email: 'maya.indah@ddp.test', role: 'supplier', created_at: '2026-01-03T10:00:00+07:00' },
+  { id: 8, name: 'Riko Firmansyah', email: 'riko.firmansyah@ddp.test', role: 'sales', created_at: '2026-01-04T10:00:00+07:00' },
+  { id: 9, name: 'Anisa Putri', email: 'anisa.putri@ddp.test', role: 'sales', created_at: '2026-01-04T10:00:00+07:00' },
+  { id: 10, name: 'Ferry Gunawan', email: 'ferry.gunawan@ddp.test', role: 'sales', created_at: '2026-01-04T10:00:00+07:00' },
+  { id: 11, name: 'Joko Widodo', email: 'joko.widodo@ddp.test', role: 'driver', created_at: '2026-01-05T10:00:00+07:00' },
+  { id: 12, name: 'Andi Saputra', email: 'andi.saputra@ddp.test', role: 'driver', created_at: '2026-01-05T10:00:00+07:00' },
+  { id: 13, name: 'Rudi Hermawan', email: 'rudi.hermawan@ddp.test', role: 'driver', created_at: '2026-01-05T10:00:00+07:00' },
+  { id: 14, name: 'Dewi Lestari', email: 'dewi.lestari@ddp.test', role: 'finance', created_at: '2026-01-06T10:00:00+07:00' },
+  { id: 15, name: 'Tono Sugiarto', email: 'tono.sugiarto@ddp.test', role: 'finance', created_at: '2026-01-06T10:00:00+07:00' },
 ];
 
 /**

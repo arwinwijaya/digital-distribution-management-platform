@@ -14,7 +14,9 @@
 import { useDummyStore, setDummyGenerator } from '@/dummy/store';
 import type { DummyEntities } from '@/dummy/store';
 import { buildFullDummy } from '@/dummy';
-import { compareRows, paginate } from '@/lib/admin-table';
+import { compareRows, paginate, buildCountLabel } from '@/lib/admin-table';
+import '@testing-library/jest-dom';
+import { render, screen, waitFor } from '@testing-library/react';
 import { fetchAdminOutlets } from '@/app/admin/outlets/api';
 import { fetchAdminUsers } from '@/app/admin/users/api';
 import { fetchAdminProducts } from '@/app/admin/products/api';
@@ -195,5 +197,223 @@ describe('dummy-mode parity across admin tables (zero network)', () => {
     await fetchAdminSalesPerformance('t-token');
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Cycle 2: with dummy mode OFF, the real path must forward the table query
+ * params (`sort`/`order`/`cursor`/`limit` + filters) to the backend and use
+ * the backend's REAL `meta.total` for the paging label — never an estimate.
+ *
+ * Only `global.fetch` is faked; the exported loaders, the shared
+ * `buildCountLabel` helper and the real `<UsersPage />` are exercised end to
+ * end (no module mocks).
+ */
+describe('real path — sort/cursor params forwarded + meta.total used', () => {
+  beforeEach(() => {
+    // Dummy mode OFF (explicit): the real branch must run.
+    useDummyStore.getState().reset();
+    expect(useDummyStore.getState().isDummy).toBe(false);
+    localStorage.setItem('ddp_token', 't-token');
+
+    // Per-test override seam; default is an empty success envelope.
+    fetchMock = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'success', data: [], meta: {} }),
+    }) as unknown as Response);
+    (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+  });
+
+  const jsonResponse = (body: unknown): Response =>
+    ({ ok: true, status: 200, json: async () => body }) as Response;
+
+  const lastUrl = (): string =>
+    String(fetchMock.mock.calls[fetchMock.mock.calls.length - 1][0]);
+
+  it('outlets — forwards sort/order/cursor/limit and reads meta.total + summary', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
+          data: [{ id: 1, name: 'A', created_at: '2026-01-01T00:00:00Z' }],
+          has_more: true,
+          limit: 15,
+          cursor: 30,
+        },
+        meta: {
+          has_more: true,
+          limit: 15,
+          cursor: 30,
+          total: 42,
+          summary: { active: 1, inactive: 0 },
+        },
+      }),
+    );
+
+    const r = await fetchAdminOutlets('t-token', { sort: 'name', order: 'asc', cursor: 30, limit: 15 });
+
+    const url = lastUrl();
+    expect(url).toContain('sort=name');
+    expect(url).toContain('order=asc');
+    expect(url).toContain('cursor=30');
+    expect(url).toContain('limit=15');
+
+    expect(r.total).toBe(42);
+    expect(r.cursor).toBe(30);
+    expect(r.hasMore).toBe(true);
+    expect(r.summary).toEqual({ active: 1, inactive: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('users — forwards role/search/sort/order/cursor and reads meta.total + summary', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: [{ id: 1, name: 'U', email: 'u@x', role: 'admin', created_at: '2026-01-01T00:00:00Z' }],
+        meta: { has_more: false, limit: 20, cursor: 0, total: 8, summary: { total: 8 } },
+      }),
+    );
+
+    const r = await fetchAdminUsers('t-token', {
+      role: 'admin',
+      search: 'U',
+      sort: 'name',
+      order: 'asc',
+      cursor: 0,
+      limit: 20,
+    });
+
+    const url = lastUrl();
+    expect(url).toContain('sort=name');
+    expect(url).toContain('order=asc');
+    expect(url).toContain('cursor=0');
+    expect(url).toContain('limit=20');
+    expect(url).toContain('role=admin');
+    expect(url).toContain('search=U');
+
+    expect(r.total).toBe(8);
+    expect(r.summary!.total).toBe(8);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('products — forwards sort/order/cursor and reads meta.total + summary', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: [{ id: 1, name: 'P', price: '10.00', sku: 'S', stock_quantity: 1 }],
+        meta: { has_more: true, limit: 15, cursor: 15, total: 100, summary: { total: 100, out_of_stock: 3 } },
+      }),
+    );
+
+    const r = await fetchAdminProducts('t-token', { sort: 'price', order: 'desc', cursor: 15, limit: 15 });
+
+    const url = lastUrl();
+    expect(url).toContain('sort=price');
+    expect(url).toContain('order=desc');
+    expect(url).toContain('cursor=15');
+    expect(url).toContain('limit=15');
+
+    expect(r.total).toBe(100);
+    expect(r.summary!.out_of_stock).toBe(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('promotions — forwards sort/order/cursor, reads meta.total + summary, nextCursor = cursor + limit', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: [
+          {
+            id: 1,
+            name: 'Pr',
+            start_date: '2026-01-01T00:00:00+07:00',
+            end_date: '2026-02-01T00:00:00+07:00',
+            created_at: '2026-01-01T00:00:00+07:00',
+          },
+        ],
+        meta: { has_more: true, limit: 15, cursor: 15, total: 9, summary: { total: 9, active: 4, scheduled: 2, ended: 3 } },
+      }),
+    );
+
+    const r = await fetchPromotions('t-token', { sort: 'start_date', order: 'desc', cursor: 15, limit: 15 });
+
+    const url = lastUrl();
+    expect(url).toContain('sort=start_date');
+    expect(url).toContain('order=desc');
+    expect(url).toContain('cursor=15');
+    expect(url).toContain('limit=15');
+
+    expect(r.total).toBe(9);
+    // Offset-derived (cursor + limit) — NEVER the row id.
+    expect(r.nextCursor).toBe(30);
+    expect(r.summary!.active + r.summary!.scheduled + r.summary!.ended).toBe(r.total);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('sales-performance — forwards sort/order/cursor, reads meta.total, nextCursor = cursor + limit when has_more', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: [
+          {
+            user_id: 1,
+            name: 'Budi',
+            period: '2026-02',
+            target: '100',
+            achievement: '80',
+            percentage: '80',
+            order_count: 2,
+          },
+        ],
+        meta: { has_more: true, limit: 15, cursor: 0, total: 6 },
+      }),
+    );
+
+    const r = await fetchAdminSalesPerformance('t-token', { sort: 'name', order: 'asc', cursor: 0, limit: 15 });
+
+    const url = lastUrl();
+    expect(url).toContain('sort=name');
+    expect(url).toContain('order=asc');
+    expect(url).toContain('cursor=0');
+    expect(url).toContain('limit=15');
+
+    expect(r.total).toBe(6);
+    expect(r.nextCursor).toBe(15);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('paging label uses meta.total (not an estimate) when total is present', () => {
+    expect(buildCountLabel({ total: 42, cursor: 30, limit: 15, hasMore: true })).toBe(
+      'Halaman 3 dari 3 · 42 data',
+    );
+  });
+
+  it('paging label falls back to the estimate when total is absent', () => {
+    expect(buildCountLabel({ cursor: 15, limit: 15, hasMore: true })).toBe('Halaman 2 · ada data lain');
+  });
+
+  it('integration: rendering an admin page with meta.total shows the total-based paging label (dummy OFF)', async () => {
+    const rows = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: `User ${i + 1}`,
+      email: `user${i + 1}@x`,
+      role: 'admin',
+      created_at: '2026-01-01T00:00:00Z',
+    }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: rows,
+        meta: { has_more: true, limit: 20, cursor: 0, total: 42, summary: { total: 42 } },
+      }),
+    );
+
+    const { default: UsersPage } = await import('@/app/admin/users/page');
+    render(<UsersPage />);
+
+    await waitFor(() => expect(screen.getByText('User 1')).toBeInTheDocument());
+    // End-to-end: meta.total flows loader → page state → TablePagination label.
+    expect(screen.getByText(/42 data/)).toBeInTheDocument();
   });
 });

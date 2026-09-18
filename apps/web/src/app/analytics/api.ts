@@ -6,6 +6,7 @@ import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import type { FullDummy } from '@/dummy';
+import type { AnalyticsInsight } from './types';
 
 type Measurement = { measured: boolean; note: string };
 type DataSufficiency = { sufficient?: boolean; level: string; note: string };
@@ -90,5 +91,28 @@ export async function loadAnalytics(token: string): Promise<AIData> {
       forecast: bodies[1].data,
       segmentation: bodies[2].data,
     } as AIData;
+  });
+}
+
+/**
+ * Load the strategic insight payload (fixed split-window comparison) for a token.
+ * While dummy mode is ON, returns the pre-built `analyticsInsight` fixture — zero
+ * network. Deliberately separate from `loadAnalytics` so the AI cards and the
+ * insight sections can each fail (and recover) on their own (Rule 7.1).
+ */
+export async function loadAnalyticsInsight(token: string): Promise<AnalyticsInsight> {
+  const { isDummy, dummyEntities } = useDummyStore.getState();
+  const dummy = dummyEntities as FullDummy | null;
+  const dummyData = isDummy && dummy ? dummy.analyticsInsight : null;
+
+  return withDummyRead(isDummy, dummyData as AnalyticsInsight, async () => {
+    const response = await fetch(apiUrl('/analytics/insight'), {
+      headers: authHeaders(token),
+    });
+    const body = await response.json();
+    if (!response.ok || body.status === 'error') {
+      throw new Error(body.message || 'Analitik tidak dapat dimuat.');
+    }
+    return body.data as AnalyticsInsight;
   });
 }

@@ -200,11 +200,11 @@ describe('zero-fetch sweep — all extracted loaders', () => {
     expect(ops.issuesResult.ok).toBe(true);
     expect(ops.issuesResult.data!.issues.length).toBeGreaterThan(0);
 
-    // sales: Visit[]
-    expect(Array.isArray(sales)).toBe(true);
-    expect(sales.length).toBeGreaterThan(0);
-    expect(sales[0]).toHaveProperty('id');
-    expect(sales[0]).toHaveProperty('target');
+    // sales: { visits, meta }
+    expect(Array.isArray(sales.visits)).toBe(true);
+    expect(sales.visits.length).toBeGreaterThan(0);
+    expect(sales.visits[0]).toHaveProperty('id');
+    expect(sales.visits[0]).toHaveProperty('target');
 
     // products catalog: Product[]
     expect(Array.isArray(products)).toBe(true);

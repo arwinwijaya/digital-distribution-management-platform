@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\SalesVisit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -62,6 +63,65 @@ class SalesTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$outletToken}")
             ->postJson('/api/sales/visits', ['target' => 'Forbidden', 'visit_date' => '2026-10-13'])
             ->assertForbidden();
+    }
+
+    public function test_sales_visits_pagination_is_bounded_and_scoped(): void
+    {
+        $sales = User::factory()->sales()->create();
+        $otherSales = User::factory()->sales()->create();
+        $salesToken = $this->loginAs($sales);
+
+        for ($i = 1; $i <= 12; $i++) {
+            SalesVisit::create([
+                'sales_user_id' => $sales->id,
+                'visit_date' => sprintf('2026-10-%02d', $i),
+                'target' => "Owned target {$i}",
+            ]);
+        }
+        SalesVisit::create([
+            'sales_user_id' => $otherSales->id,
+            'visit_date' => '2026-10-12',
+            'target' => 'Other target',
+        ]);
+
+        // Page 1: the newest 10 of the 12 scoped visits, newest first.
+        $page1 = $this->withHeader('Authorization', "Bearer {$salesToken}")
+            ->getJson('/api/sales/visits?page=1&limit=10')
+            ->assertOk()
+            ->assertJsonCount(10, 'data')
+            ->assertJsonPath('meta.page', 1)
+            ->assertJsonPath('meta.limit', 10)
+            ->assertJsonPath('meta.total', 12)
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonPath('data.0.visit_date', '2026-10-12');
+
+        $owners = collect($page1->json('data'))->pluck('sales_user_id')->unique()->values()->all();
+        $this->assertSame([$sales->id], $owners);
+
+        // Page 2: the remaining 2; total stays 12 (counted before the offset).
+        $this->withHeader('Authorization', "Bearer {$salesToken}")
+            ->getJson('/api/sales/visits?page=2&limit=10')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.page', 2)
+            ->assertJsonPath('meta.limit', 10)
+            ->assertJsonPath('meta.total', 12)
+            ->assertJsonPath('meta.has_more', false);
+
+        // Default page size is 10.
+        $this->withHeader('Authorization', "Bearer {$salesToken}")
+            ->getJson('/api/sales/visits')
+            ->assertOk()
+            ->assertJsonCount(10, 'data')
+            ->assertJsonPath('meta.limit', 10)
+            ->assertJsonPath('meta.total', 12);
+
+        // Invalid pagination params are rejected.
+        foreach (['page=0', 'limit=0', 'limit=101'] as $query) {
+            $this->withHeader('Authorization', "Bearer {$salesToken}")
+                ->getJson("/api/sales/visits?{$query}")
+                ->assertStatus(422);
+        }
     }
 
     private function loginAs(User $user): string

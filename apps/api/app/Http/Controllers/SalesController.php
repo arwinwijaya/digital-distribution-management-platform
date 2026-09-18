@@ -8,6 +8,8 @@ use App\Services\CalendarService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class SalesController extends Controller
 {
@@ -27,7 +29,37 @@ class SalesController extends Controller
             $query->where('sales_user_id', $user->id);
         }
 
-        return response()->json(['status' => 'success', 'data' => $query->latest('visit_date')->latest()->get()]);
+        $validator = Validator::make($request->query(), [
+            'page' => ['sometimes', 'integer', 'min:1', 'max:100000'],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        $page = (int) $request->query('page', 1);
+        $limit = (int) $request->query('limit', 10);
+
+        // Count the scoped rows BEFORE the offset/limit slice is applied.
+        $total = (clone $query)->count();
+        $rows = $query
+            ->orderByDesc('visit_date')
+            ->orderByDesc('id')
+            ->offset(($page - 1) * $limit)
+            ->limit($limit + 1)
+            ->get();
+        $hasMore = $rows->count() > $limit;
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $rows->take($limit)->values(),
+            'meta' => [
+                'page' => $page,
+                'limit' => $limit,
+                'total' => $total,
+                'has_more' => $hasMore,
+            ],
+        ]);
     }
 
     public function store(StoreSalesVisitRequest $request): JsonResponse

@@ -4,13 +4,13 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
-import { loadSalesList } from '@/app/sales/api';
+import { loadSalesList, type Visit, type SalesPageMeta } from '@/app/sales/api';
 import { useDummyRefresh } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { createDummyVisit } from '@/dummy/mutations';
-import { Button, Card, EmptyState, Input, PageHeader, StatusBadge, Table } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, StatusBadge, Table, TablePagination } from '@/components/ui';
 
-export type Visit = { id: number; target: string | null; visit_date: string; status: string; notes: string | null };
+const PAGE_SIZE = 10;
 
 export async function scheduleVisit(token: string, payload: { target: string; visit_date: string }): Promise<Visit> {
   if (useDummyStore.getState().isDummy) return createDummyVisit(payload);
@@ -28,16 +28,19 @@ const SALES_NAV = [
 export default function SalesPage() {
   const [token, setToken] = useState<string | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [meta, setMeta] = useState<SalesPageMeta>({ page: 1, limit: PAGE_SIZE, total: 0, has_more: false });
   const [target, setTarget] = useState('');
   const [visitDate, setVisitDate] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const load = async (nextToken: string) => {
+  const load = async (nextToken: string, page = 1) => {
     setLoading(true);
     try {
-      setVisits(await loadSalesList(nextToken));
+      const result = await loadSalesList(nextToken, page);
+      setVisits(result.visits);
+      setMeta(result.meta);
       setError('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Jadwal kunjungan tidak dapat dimuat.');
@@ -64,7 +67,7 @@ export default function SalesPage() {
       setMessage('Kunjungan berhasil dijadwalkan.');
       setTarget('');
       setVisitDate('');
-      await load(token);
+      await load(token, 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Kunjungan tidak dapat dijadwalkan.');
     }
@@ -126,6 +129,16 @@ export default function SalesPage() {
             empty={<EmptyState icon={<span>📋</span>} title="Belum ada kunjungan" description="Jadwal kunjungan sales akan tampil di sini." />}
           />
         )}
+        <TablePagination
+          cursor={(meta.page - 1) * meta.limit}
+          limit={meta.limit}
+          total={meta.total}
+          hasMore={meta.has_more}
+          onPageChange={(nextCursor) => {
+            const nextPage = Math.floor(nextCursor / meta.limit) + 1;
+            if (token) void load(token, nextPage);
+          }}
+        />
       </Card>
     </div>
   );

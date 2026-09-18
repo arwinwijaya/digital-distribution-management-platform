@@ -133,3 +133,32 @@ describe('Sidebar admin menu visibility', () => {
     }
   });
 });
+
+describe('Sidebar Analitik gate (admin + platform_owner)', () => {
+  it('hides Analitik from outlet users', async () => {
+    mockRole('outlet');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Pesanan')).toBeInTheDocument());
+    expect(screen.queryByText('Analitik')).not.toBeInTheDocument();
+  });
+
+  it('shows Analitik and every adminOnly item to platform_owner', async () => {
+    mockRole('platform_owner');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Analitik')).toBeInTheDocument());
+    expect(screen.getByText('Data Intelligence')).toBeInTheDocument();
+    for (const label of ADMIN_MENUS) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+
+  it('keeps Analitik visible to admin (unchanged)', async () => {
+    mockRole('admin');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Analitik')).toBeInTheDocument());
+    expect(screen.getByText('Analitik').closest('a')?.getAttribute('href')).toBe('/analytics');
+  });
+});

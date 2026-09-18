@@ -20,7 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/payments',      label: 'Pembayaran',    icon: '💳', finance: true },
   { href: '/delivery',      label: 'Pengiriman',    icon: '🚚' },
   { href: '/sales',         label: 'Sales',         icon: '📋' },
-  { href: '/analytics',     label: 'Analitik',      icon: '📈' },
+  { href: '/analytics',     label: 'Analitik',      icon: '📈', adminOnly: true },
   { href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️', adminOnly: true },
   { href: '/operations',        label: 'Operasi',       icon: '🔧', adminOnly: true },
   { href: '/admin/orders',             label: 'Kelola pesanan', icon: '⚙️', adminOnly: true },
@@ -125,14 +125,15 @@ function useSidebarAuth(): SidebarAuth {
   return { role, authResolved, authenticated };
 }
 
+function visibleItemsFor(role: string | null): NavItem[] {
+  if (role === 'finance') return NAV_ITEMS.filter((item) => item.finance);
+  // platform_owner is admin-equivalent so adminOnly menus (incl. Analitik) stay visible.
+  if (role === 'admin' || role === 'platform_owner') return NAV_ITEMS;
+  return NAV_ITEMS.filter((item) => !item.adminOnly);
+}
+
 function SidebarNavigation({ pathname, role, authResolved, authenticated, onClose }: { pathname: string; role: string | null; authResolved: boolean; authenticated: boolean; onClose?: () => void }) {
-  const visibleItems = !authResolved || !authenticated
-    ? []
-    : role === 'finance'
-      ? NAV_ITEMS.filter((item) => item.finance)
-      : role === 'admin'
-        ? NAV_ITEMS
-        : NAV_ITEMS.filter((item) => !item.adminOnly);
+  const visibleItems = !authResolved || !authenticated ? [] : visibleItemsFor(role);
   return <nav className="flex-1 overflow-y-auto slim-scroll px-3 py-4 space-y-1">
     {visibleItems.map((item) => {
       const { label, icon } = item;

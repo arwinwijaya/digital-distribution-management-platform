@@ -31,7 +31,7 @@ class DeliveryController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
         }
 
-        $query = Delivery::with(['order', 'driver:id,name,email', 'assignedBy:id,name,email', 'statusHistory.actor:id,name,role']);
+        $query = Delivery::with(self::RELATIONS);
         if ($user->isDriver()) {
             $query->where('driver_id', $user->id);
         } elseif ($user->isSales()) {
@@ -91,12 +91,12 @@ class DeliveryController extends Controller
             throw $exception;
         }
 
-        return response()->json(['status' => 'success', 'data' => $this->format($delivery->load(['order', 'driver:id,name,email', 'assignedBy:id,name,email', 'statusHistory.actor:id,name,role']))], 201);
+        return response()->json(['status' => 'success', 'data' => $this->format($delivery->load(self::RELATIONS))], 201);
     }
 
     public function show(Request $request, int $id): JsonResponse
     {
-        $delivery = Delivery::with(['order', 'driver:id,name,email', 'assignedBy:id,name,email', 'statusHistory.actor:id,name,role'])->findOrFail($id);
+        $delivery = Delivery::with(self::RELATIONS)->findOrFail($id);
         if (!$this->canView($request->user(), $delivery)) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
         }
@@ -138,8 +138,24 @@ class DeliveryController extends Controller
             return $delivery;
         });
 
-        return response()->json(['status' => 'success', 'data' => $this->format($delivery->fresh(['order', 'driver:id,name,email', 'assignedBy:id,name,email', 'statusHistory.actor:id,name,role']))]);
+        return response()->json(['status' => 'success', 'data' => $this->format($delivery->fresh(self::RELATIONS))]);
     }
+
+    /**
+     * Eager-load set shared by every `format()` call site. `order.outlet`,
+     * `order.items.product` and `order.salesUser` feed the enriched detail
+     * payload without triggering lazy loads on the store/show/updateStatus paths.
+     *
+     * @var list<string>
+     */
+    private const RELATIONS = [
+        'order.outlet',
+        'order.items.product',
+        'order.salesUser:id,name,email',
+        'driver:id,name,email',
+        'assignedBy:id,name,email',
+        'statusHistory.actor:id,name,role',
+    ];
 
     private function canView(User $user, Delivery $delivery): bool
     {
@@ -164,6 +180,9 @@ class DeliveryController extends Controller
             'assigned_by_id' => $delivery->assigned_by_id,
             'status' => $delivery->status,
             'assigned_at' => $delivery->assigned_at,
+            // Local (app tz) calendar date — the default serializer emits UTC,
+            // which would misfile 00:00–06:59 WIB deliveries to the prior day.
+            'assigned_date' => $delivery->assigned_at?->toDateString(),
             'started_at' => $delivery->started_at,
             'delivered_at' => $delivery->delivered_at,
             'failure_reason' => $delivery->failure_reason,
@@ -172,7 +191,7 @@ class DeliveryController extends Controller
             'proof_of_delivery' => $delivery->proof_of_delivery,
             'notes' => $delivery->notes,
             'route_data' => $delivery->route_data,
-            'order' => $delivery->order,
+            'order' => $this->formatOrder($delivery->order),
             'driver' => $delivery->driver,
             'assigned_by' => $delivery->assignedBy,
             'status_history' => $delivery->statusHistory->map(fn ($history) => [
@@ -186,6 +205,45 @@ class DeliveryController extends Controller
             ])->values(),
             'created_at' => $delivery->created_at,
             'updated_at' => $delivery->updated_at,
+        ];
+    }
+
+    /**
+     * Explicit, null-safe order projection for the delivery payload. Keeps the
+     * response additive (existing keys preserved) while exposing the outlet,
+     * sales rep and item names the delivery detail view needs. Mirrors the
+     * item mapping in {@see OrderController::format}.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function formatOrder(?Order $order): ?array
+    {
+        if (!$order) {
+            return null;
+        }
+
+        return [
+            'id' => $order->id,
+            'order_id' => $order->order_id,
+            'status' => $order->status,
+            'total_amount' => $order->total_amount,
+            'outlet' => $order->outlet ? [
+                'id' => $order->outlet->id,
+                'name' => $order->outlet->name,
+                'city' => $order->outlet->city,
+                'address' => $order->outlet->address,
+            ] : null,
+            'sales' => $order->salesUser ? [
+                'id' => $order->salesUser->id,
+                'name' => $order->salesUser->name,
+            ] : null,
+            'items' => $order->items->map(fn ($item) => [
+                'product_id' => $item->product_id,
+                'product_name' => $item->product->name ?? null,
+                'quantity' => $item->quantity,
+                'unit_price' => $item->unit_price,
+                'subtotal' => $item->subtotal,
+            ])->values(),
         ];
     }
 }

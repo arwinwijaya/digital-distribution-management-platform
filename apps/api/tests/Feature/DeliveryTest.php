@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Delivery;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Outlet;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -177,6 +179,38 @@ class DeliveryTest extends TestCase
             'recipient_name' => null,
             'proof_of_delivery_url' => null,
         ]);
+    }
+
+    /**
+     * The delivery list must expose the enriched detail payload: outlet,
+     * item names and the local calendar date used by the client-side date
+     * filter (`assigned_date`, NOT the UTC-serialized `assigned_at`).
+     */
+    public function test_index_exposes_enriched_order_detail_and_local_assigned_date(): void
+    {
+        $fixture = $this->createDeliveryFixture(
+            'ORD-DELIVERY-ENRICHED',
+            'delivery-enriched',
+            Delivery::ASSIGNED,
+        );
+        $product = Product::factory()->create(['name' => 'Beras Premium']);
+        OrderItem::create([
+            'order_id' => $fixture['order']->id,
+            'product_id' => $product->id,
+            'quantity' => 3,
+            'unit_price' => 20000,
+            'subtotal' => 60000,
+        ]);
+
+        $token = $this->loginAsDeliveryUser($fixture['admin']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/deliveries')
+            ->assertOk()
+            ->assertJsonPath('data.0.order.outlet.name', $fixture['outlet']->name)
+            ->assertJsonPath('data.0.order.items.0.product_name', 'Beras Premium')
+            ->assertJsonPath('data.0.order.items.0.quantity', 3)
+            ->assertJsonPath('data.0.assigned_date', now()->toDateString());
     }
 
 }

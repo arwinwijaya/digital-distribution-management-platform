@@ -1,0 +1,51 @@
+{
+  "task_id": "T11",
+  "task_name": "Outlets page — sort/paging/summary/timestamps/density",
+  "cycle": 2,
+  "timestamp": "2026-09-17T08:22:46Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "FINDING 1 RESOLVED — sortableColumns is now exactly ['name','category','score','created_at','updated_at'] (page.tsx:196), i.e. the exact intersection of rendered column keys {name,category,score,territory,status,created_at,updated_at,action} and the outlets allowlist {created_at,updated_at,name,id,category,score}. Dead 'is_active' key removed; 'territory'/'status'/'action' correctly excluded (not in allowlist), 'id' not rendered. Verified by render probe via jest: default load exposes 'Dibuat' th with aria-sort='descending' + down-arrow indicator; clicking it flips to aria-sort='ascending' and issues fetch sort=created_at&order=asc&cursor=0; non-sortable 'Aksi' th has no aria-sort and clicking it issues no fetch. Spec Rule 2 Example A satisfied.",
+      "FINDING 2 RESOLVED — the 3 mandated test groups now exist in page.test.tsx and genuinely assert behavior (not tautologies): (a) 'wires aria-sort on the default created_at column and leaves non-sortable headers inert' asserts aria-sort='descending' on the active 'Dibuat' th, flips to 'ascending' after click, asserts fetch sort=created_at&order=asc&cursor=0, and asserts 'Aksi' th has no aria-sort and is click-inert (fetch call count unchanged); (b) 'renders the empty state + beyond-total pagination guard without crashing' drives cursor to 60 with total=48, asserts text 'tidak ada data lanjutan', empty state 'Belum ada outlet', 'Berikutnya' disabled, 'Sebelumnya' enabled, no crash; (c) 'renders an em dash for null/absent timestamps instead of \"Invalid Date\"' renders a row with created_at/updated_at null and asserts cells[5]/cells[6] contain U+2014 and no 'Invalid Date' anywhere.",
+      "buildCountLabel via TablePagination — RE-VERIFIED: TablePagination.tsx calls buildCountLabel({total,cursor,limit,hasMore}); page passes total/cursor/limit/hasMore (page.tsx:203-211). Beyond-total guard renders 'tidak ada data lanjutan' and disables next (isNextDisabled). Still holds.",
+      "formatDateTime for timestamps — RE-VERIFIED: created_at/updated_at columns render formatDateTime(o.created_at ?? null) (page.tsx:139-146); helper returns U+2014 for null/undefined/''/NaN. Still holds.",
+      "compareRows for dummy sort — RE-VERIFIED: listDummyOutlets sorts via compareRows(a,b,sortCol,sortOrder) with default created_at DESC and id-DESC tiebreak (api.ts), then paginate(); dummy-guard.test.ts and the dummy-parity test assert ordering + total=filtered.length + summary {active,inactive} with zero network. Still holds.",
+      "Reset rules — RE-VERIFIED: sort click -> loadOutlets(token,{resetCursor:true,sort:next}); filter 'Terapkan filter' -> {resetCursor:true}; page change -> {cursor:nextCursor} preserving sortRef.current + current filter state. Still holds.",
+      "updateOutlet / fetchOutletOrders / fetchOutletSummary (and their Real variants) — RE-VERIFIED byte-identical to parent cf91927 via per-function body diff (all SAME). Must-not-have satisfied.",
+      "Scope — RE-VERIFIED: only apps/web/src/app/admin/outlets/{page.tsx,api.ts,page.test.tsx} changed across the 4 commits (c59696c,59a0cd8,5fa6549,532ab8e); dummy-guard.test.ts unchanged (not in diff). No out-of-scope files touched.",
+      "Fix commit 532ab8e is surgical: 2 files, +93/-1 — the single line sortableColumns correction plus the 3 test groups. No unrelated churn."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "sortableColumns now derives from the real allowlist∩rendered-keys contract, eliminating the dead 'is_active' key and wiring the default active column's aria-sort end-to-end (page state -> Table prop).",
+      "Table remains generic: sortable-ness is data-driven (sortableColumns includes -> aria-sort/tabIndex/onClick/keydown; absent -> fully inert). Non-sortable 'Aksi' verified inert by test.",
+      "New tests assert rendered accessibility state (aria-sort) independently of fetch-URL assertions, exactly as the cycle-1 fix instructions required — closing the gap where prop wiring could break while URL assertions still passed.",
+      "Refs (sortRef/cursorRef) keep sort/cursor out of loadOutlets' dep list, avoiding the mount-effect reset-on-every-change trap; reset rules implemented at the call sites explicitly.",
+      "Null-timestamp and beyond-total edge cases are covered by page-level integration tests through the real component, not mocked pages.",
+      "Only in-scope files changed across all 4 commits; must-not-have (untouched updateOutlet/fetchOutletOrders/fetchOutletSummary) verified byte-identical.",
+      "Verification: npx jest src/app/admin/outlets -> 18 passed / 18 (2 suites); npx tsc --noEmit -> 0 errors."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Legacy hasMore hint paragraph ('Ada outlet lebih lanjut — sesuaikan filter jika diperlukan.') is still rendered (page.tsx:176) in addition to the new TablePagination, so on a non-final page the orientation text is duplicated. Spec Rule 3 states the paging UI 'menggantikan teks hasMore'. Non-blocking redundancy; consider removing the legacy paragraph in a later pass.",
+        "location": "apps/web/src/app/admin/outlets/page.tsx:176"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "532ab8e3596f8fd85689974dd14dc2cef2f2960a"
+}

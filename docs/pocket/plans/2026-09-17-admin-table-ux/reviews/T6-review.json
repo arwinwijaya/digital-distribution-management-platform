@@ -1,0 +1,66 @@
+{
+  "task_id": "T6",
+  "task_name": "UserRoleController@index — offset cursor + sort + total",
+  "cycle": 1,
+  "timestamp": "2026-09-17T04:33:32Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Contract item 1 — guard + validation + limit preserved: `abort_unless($this->policy->viewAny($request->user()), 403, 'Unauthorized.')` (UserRoleController.php:47), `role` in:admin,supplier,outlet,sales,driver,finance,platform_owner (L50) and `limit` integer min:1 max:100 (L51) are byte-identical to prev_sha; `$limit = (int) $request->input('limit', 20)` (L54) unchanged; limit+1 has_more technique intact (`->limit($limit + 1)`, `$hasMore = $rows->count() > $limit`).",
+      "Contract item 2 — offset cursor: `$cursor = max((int) $this->scalarQueryString($request, 'cursor', '0'), 0)` (L55) is scalar-safe and clamped >=0; `->offset($cursor)` (L71) is applied together with `->limit($limit + 1)` (L70). NOTE on chain order: the code chains `->limit()` then `->offset()`; the contract text says offset before limit, but Laravel's grammar compiles `LIMIT n OFFSET m` regardless of fluent chain order. Independent probe confirmed the generated SQL `select * from \"users\" where \"role\" = ? order by (created_at IS NULL) ASC, created_at DESC, id DESC limit 21 offset 40` — offset is applied correctly, identical to the accepted T5 pattern. Not a deviation. `meta.cursor` returned (L63).",
+      "Contract item 3 — sort allowlist: `private const SORT_ALLOWLIST = ['created_at','updated_at','name','email','role','id']` (L31); resolved via `ListQuery::resolveSort(...)` (resolveSort wrapper L93-105) and rendered with `->orderByRaw(ListQuery::rawOrder(...))` (L70). Default `created_at DESC` nulls-last + `id DESC` confirmed by probe: `(created_at IS NULL) ASC, created_at DESC, id DESC`. Old `->orderBy('id')` is removed — grep confirms the only `orderBy*` in the controller is the allowlisted orderByRaw (L70). Invalid `?sort=__proto__` → `['created_at','desc']` and invalid `?order` → `desc` via ListQuery, i.e. silent HTTP 200 fallback, no throw path.",
+      "Contract item 4 — filtered total: `buildListMeta(clone $query)` (L136) does `ListQuery::meta((clone $query)->count())` on the SAME filtered builder passed at L66, BEFORE orderByRaw/limit/offset, so `meta.total` never counts the limited page. Verified by test `test_user_listing_role_filtered_total_counts_only_matching_role` asserting `meta.total == 3` with `?role=sales` while an admin + outlet also exist; and `test_user_listing_defaults_to_newest_first_with_total_and_cursor` asserting `meta.total == 3`.",
+      "Contract item 5 — scalar-safe reads: `?sort[]=x` and `?order[]=x` fall back to defaults through `scalarQueryString()` (L121-132, returns default unless `is_string($request->query($key,$default))`); `?cursor[]=x` likewise. No 'Array to string conversion' 500 path. Covered by `test_user_listing_handles_non_scalar_sort_param_without_error` (asserts HTTP 200 + default order).",
+      "Contract item 6 — shape: response is `{status:'success', data:[...], meta:{has_more,limit,cursor,total}}`. `data` is a top-level array (`$rows->take($limit)->values()` / `$rows->values()`, empty => []). meta key order via `array_merge(['has_more'=>$hasMore], array_merge(['limit','cursor'], meta))` => has_more, limit, cursor, total. No summary emitted (users has no natural breakdown), matching the contract. `ListQuery::meta($total)` with no summary omits the summary key.",
+      "Contract item 7 — scope/forbidden changes: `git diff 4ee10f0..d4e0e1e` touches exactly the 2 in-scope files. `assignRole()` is byte-identical to prev_sha (span diff empty). Diff against `apps/api/app/Policies`, `app/Services`, `app/Models`, `database`, `routes` is empty — policy/service/model/schema/routes/migrations untouched. No orderBy column outside the allowlist.",
+      "Independent test run: `cd apps/api && php artisan test --filter=RoleManagementTest` => 22 passed (80 assertions), 0 failures. The 5 new tests are: defaults-to-newest-with-total-and-cursor, invalid-sort fallback, non-scalar sort, sort-by-name-ascending, role-filtered total. Test count went 17 -> 22.",
+      "Pre-existing tests NOT weakened: `test_admin_can_list_users_with_role_filter`, `test_user_listing_has_pagination_meta`, `test_user_listing_limit_plus_one_technique` are byte-identical between prev_sha (4ee10f0) and HEAD (verified with per-method span diff — all IDENTICAL). The only helper change is `createUserWithRole(..., array $attributes = [])` with `array_merge([defaults], $attributes)` — an additive, backward-compatible extension. The 'pinned created_at + controlled name' appears only in the NEW tests to make ordering deterministic (legitimate hardening), not to relax any assertion.",
+      "Carbon::setTestNow isolation verified: the new tests call `Carbon::setTestNow('2026-06-01 12:00:00')` with no manual teardown, but Laravel's `InteractsWithTestCaseLifecycle` calls `Carbon::setTestNow()` in teardown (vendor/.../InteractsWithTestCaseLifecycle.php:152), so no time-leak across tests."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Clean reuse of the shared T1 helper (ListQuery::resolveSort/rawOrder/meta) rather than re-implementing allowlist/nullslast logic — the intended cross-controller pattern.",
+      "Scalar-safety is handled at the read boundary via scalarQueryString(), so array params degrade to the default instead of raising a 500; this is the correct defense for both sort/order and cursor.",
+      "Aggregate correctness: meta.total derives from a clone of the filtered builder before order/limit/offset, so it is a true filtered COUNT(*), not a page length.",
+      "Scope discipline: only the two in-scope files changed; assignRole, policy, service, model, schema, routes, migrations untouched; no orderBy column outside the allowlist.",
+      "Deterministic, behaviour-asserting tests: exact row order (data.0.id / data.N.name), exact HTTP 200, and exact meta.total — capable of failing if the guard or ordering regressed.",
+      "All functions well within size heuristics: index() 47 physical lines (max), resolveSort 13, applyListFilters 13, scalarQueryString 12, buildListMeta 8; controller file 155 lines (<~300). No refactor heuristic triggered."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Test coverage gap: no feature test exercises a non-zero offset cursor for the users endpoint (no `?cursor=15` case). Offset pagination is verified only by code read + an independent SQL probe (`limit 21 offset 40`), not by a RoleManagementTest assertion. A test proving page 2 returns the next slice would close the gap.",
+        "location": "apps/api/tests/Feature/RoleManagementTest.php:263-368"
+      },
+      {
+        "severity": "Minor",
+        "description": "Test coverage gap: no test seeds a NULL created_at row to assert nulls-last ordering in both directions for the users endpoint. The behaviour is correct (inherited from ListQuery::rawOrder, which has its own unit tests and was probed to emit `(created_at IS NULL) ASC, created_at DESC, id DESC`), and T5 added a feature-level nulls-last test for outlets, so this is a coverage inconsistency rather than a defect.",
+        "location": "apps/api/tests/Feature/RoleManagementTest.php:263-368"
+      },
+      {
+        "severity": "Minor",
+        "description": "Thin per-controller plumbing (scalarQueryString, the resolveSort wrapper, and the buildListMeta wrapper) is duplicated between AdminOutletController (T5) and UserRoleController (T6). This is 2 occurrences across plan files (below the 3+ identical-logic heuristic), the heavy logic already lives in the shared ListQuery helper, and T5's accepted pattern is being replicated as intended. Watch item: if T7–T10 repeat this plumbing, consider extracting a small list-scaffolding trait/base.",
+        "location": "apps/api/app/Http/Controllers/UserRoleController.php:93-141"
+      },
+      {
+        "severity": "Minor",
+        "description": "Redundant double clone: `buildListMeta(clone $query)` passes a clone, and buildListMeta then does `(clone $query)->count()` again — the inner clone is unnecessary (the outer already isolates the caller's builder). Harmless/defensive. Also, `ListQuery::offset()` is not used here (the controller inlines `max((int) ..., 0)`), consistent with T5's accepted inline style.",
+        "location": "apps/api/app/Http/Controllers/UserRoleController.php:66,136"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "d4e0e1e71e1fb43f3df8f1421d0f472d9ccd2ea1"
+}

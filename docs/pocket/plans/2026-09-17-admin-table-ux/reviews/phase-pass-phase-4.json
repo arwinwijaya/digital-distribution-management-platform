@@ -1,0 +1,16 @@
+{
+  "phase_key": "phase-4",
+  "phase_file": "execution-plan/phase-4.md",
+  "timestamp": "2026-09-18T03:32:13Z",
+  "reviewer_mode": "read-only",
+  "findings": [
+    {
+      "severity": "Minor",
+      "description": "Spec-level gap left uncovered by the task split (non-blocking). The spec's 'Dummy-mode parity' decision requires every admin api.ts dummy branch to implement sort/order identically to the real path ('WAJIB implementasi sort/order/total yang identik ... allowlist sama'), and T17 is explicitly the cross-page dummy-parity net ('dummy parity across all 5 pages ... same allowlist'). However, `dummySalesPerformance` hard-codes `.sort((a,b) => Number(b.achievement) - Number(a.achievement))` and NEVER reads `opts.sort`/`opts.order`, unlike the other four dummy branches (outlets/products/users/promotions) which all sort via the shared `compareRows` off the requested sort. Consequence: in dummy mode, clicking the sales-performance 'Sales' (name) header makes the page forward `sort=name` (page.tsx:60-66) but the dummy loader ignores it and keeps returning achievement DESC; because the page's `displayRows` only re-sorts client-side when `sort.column === 'achievement'` (page.tsx:115-119), the rendered order does not change — the sortable header appears inert in dummy mode while it works in real mode. This is a genuine cross-task divergence: T15's packet scoped the dummy to 'achievement sort' only, so no single task required name/id-sort dummy parity, and T17's dummy tests assert only achievement DESC + offset (never `sort: 'name'`) for sales-performance, leaving the gap outside every task's individual net. Judged Minor and NON-BLOCKING because: (a) it affects only the offline dummy/demo path, not the real backend path; (b) no acceptance criterion's real-path behavior (default achievement DESC, server name sort, offset paging, summary, density) is affected; (c) the spec's sales-performance note makes `achievement` client-side and only `name`/`id` server-sortable, so the parity surface is a single column. Recommended follow-up (not required for phase pass): have `dummySalesPerformance` honor an allowlisted `opts.sort`/`opts.order` (via `compareRows`/`normalizeSort`) for `name`/`id`, and add a T17 assertion for it.",
+      "location": "apps/web/src/app/admin/sales-performance/api.ts:69-112 (dummy branch); apps/web/src/app/admin/sales-performance/page.tsx:60-66,115-119; apps/web/src/__tests__/admin-table-integration.test.tsx:147-164",
+      "task": "T15"
+    }
+  ],
+  "loop_info": { "current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2 },
+  "status": "PHASE_PASS_CLEAN"
+}

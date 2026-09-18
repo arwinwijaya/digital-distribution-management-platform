@@ -2,9 +2,9 @@
   "header": {
     "plan_dir": "docs/pocket/plans/2026-09-17-admin-table-ux",
     "plan_type": "phased",
-    "status": "IN_PROGRESS",
+    "status": "DONE",
     "date_started": "2026-09-17",
-    "date_completed": null,
+    "date_completed": "2026-09-18",
     "baseline_sha": "cb54e099350f5a0937cabcf239d3659e4b9abcbf",
     "pipeline": 4,
     "plan_file": "execution-plan/index.md"
@@ -13,145 +13,178 @@
     {
       "order": 1,
       "file": "execution-plan/phase-1.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T1",
           "name": "Backend `ListQuery` sort/total helper",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T1-backend-listquery-sort-total-helper.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T1-backend-listquery-sort-total-helper.md",
+          "done_sha": "f43fcdcf788c3d2799fc81f7da5fc1b50cd17d33"
         },
         {
           "id": "T2",
           "name": "Frontend `admin-table.ts` helper",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T2-frontend-admin-table-ts-helper.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T2-frontend-admin-table-ts-helper.md",
+          "done_sha": "6a45425237b162fe219768b1a1d477b3922a2331"
         },
         {
           "id": "T3",
           "name": "`Table.tsx` — density + sortable header",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T2",
-          "file": "execution-plan/tasks/T3-table-tsx-density-sortable-header.md"
+          "file": "execution-plan/tasks/T3-table-tsx-density-sortable-header.md",
+          "done_sha": "79824b673bfd914441c07b63a4571886e04dc2d2"
         },
         {
           "id": "T5",
           "name": "`AdminOutletController@index` — sort + total + summary + normalisasi meta",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md"
+          "file": "execution-plan/tasks/T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+          "done_sha": "4ee10f07e3d4e5ca11e3b8ce8a5de6eea5caf8db"
         },
         {
           "id": "T6",
           "name": "`UserRoleController@index` — offset cursor + sort + total",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T6-userrolecontroller-index-offset-cursor-sort-total.md"
+          "file": "execution-plan/tasks/T6-userrolecontroller-index-offset-cursor-sort-total.md",
+          "done_sha": "d4e0e1e71e1fb43f3df8f1421d0f472d9ccd2ea1"
         },
         {
           "id": "T7",
           "name": "`PromotionController@index` — id-cursor → offset + sort + total + summary",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md"
+          "file": "execution-plan/tasks/T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md",
+          "done_sha": "421996bb10d2d3115b15f842f7ae07ea12458af8"
         }
       ]
     },
     {
       "order": 2,
       "file": "execution-plan/phase-2.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T8",
           "name": "`OrderController@index` — offset cursor + sort + total",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T8-ordercontroller-index-offset-cursor-sort-total.md"
+          "file": "execution-plan/tasks/T8-ordercontroller-index-offset-cursor-sort-total.md",
+          "done_sha": "29b0fc28d6e5ccb6712507733860b27f71ab04a0"
         },
         {
           "id": "T9",
           "name": "`ProductController@index` — additive sort/cursor/total (public endpoint)",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md"
+          "file": "execution-plan/tasks/T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md",
+          "done_sha": "46ad726a767b9d5f433edb3e266cd8d70e7133c0"
         },
         {
           "id": "T10",
           "name": "`SalesPerformanceController@adminPerformance` — id-cursor → offset + sort + total",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md"
+          "file": "execution-plan/tasks/T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md",
+          "done_sha": "af3c73564273021a6a37365e55434c65a85381b1"
+        }
+      ],
+      "corrections": [
+        {
+          "sha": "7c73ea7a5b7c7504fbf5afc7b2e323000aaa7e51",
+          "files": [
+            "apps/api/app/Http/Controllers/AdminOutletController.php",
+            "apps/api/app/Http/Controllers/OrderController.php",
+            "apps/api/app/Http/Controllers/ProductController.php",
+            "apps/api/app/Http/Controllers/PromotionController.php",
+            "apps/api/app/Http/Controllers/SalesPerformanceController.php",
+            "apps/api/app/Http/Controllers/UserRoleController.php",
+            "apps/api/app/Support/ListQuery.php",
+            "apps/api/tests/Unit/ListQueryTest.php"
+          ],
+          "for_task": "T8"
         }
       ]
     },
     {
       "order": 3,
       "file": "execution-plan/phase-3.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T4",
           "name": "Table controls (Pagination/Summary/Density toggle + hook)",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T2, T3",
-          "file": "execution-plan/tasks/T4-table-controls-pagination-summary-density-toggle-hook.md"
+          "file": "execution-plan/tasks/T4-table-controls-pagination-summary-density-toggle-hook.md",
+          "done_sha": "cf919270de9cc8a7e6893f9126071b83c2bec880"
         },
         {
           "id": "T11",
           "name": "Outlets page — sort/paging/summary/timestamps/density",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4, T5",
-          "file": "execution-plan/tasks/T11-outlets-page-sort-paging-summary-timestamps-density.md"
+          "file": "execution-plan/tasks/T11-outlets-page-sort-paging-summary-timestamps-density.md",
+          "done_sha": "532ab8e3596f8fd85689974dd14dc2cef2f2960a"
         },
         {
           "id": "T12",
           "name": "Products page — sort/paging/summary/timestamps/density",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4, T9",
-          "file": "execution-plan/tasks/T12-products-page-sort-paging-summary-timestamps-density.md"
+          "file": "execution-plan/tasks/T12-products-page-sort-paging-summary-timestamps-density.md",
+          "done_sha": "15f2f18be0e2ea6c7ad141ee83b231eada04b23a"
         }
       ]
     },
     {
       "order": 4,
       "file": "execution-plan/phase-4.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T13",
           "name": "Users page — sort/paging/summary/timestamps/density",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4, T6",
-          "file": "execution-plan/tasks/T13-users-page-sort-paging-summary-timestamps-density.md"
+          "file": "execution-plan/tasks/T13-users-page-sort-paging-summary-timestamps-density.md",
+          "done_sha": "02cab70588021afe08db8eaf650d1a9ee35bd03b"
         },
         {
           "id": "T14",
           "name": "Promotions page — sort/paging/summary/timestamps/density",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4, T7",
-          "file": "execution-plan/tasks/T14-promotions-page-sort-paging-summary-timestamps-density.md"
+          "file": "execution-plan/tasks/T14-promotions-page-sort-paging-summary-timestamps-density.md",
+          "done_sha": "f9bb608327f21f136c7071de124ab6882ba695e0"
         },
         {
           "id": "T15",
           "name": "Sales-performance page — sort/paging/summary/density",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4, T10",
-          "file": "execution-plan/tasks/T15-sales-performance-page-sort-paging-summary-density.md"
+          "file": "execution-plan/tasks/T15-sales-performance-page-sort-paging-summary-density.md",
+          "done_sha": "86adb2dc3ff9274275f6ea3d63450a8cd69100c2"
         },
         {
           "id": "T16",
           "name": "Orders page — sort/paging/summary/timestamps/density",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4, T8",
-          "file": "execution-plan/tasks/T16-orders-page-sort-paging-summary-timestamps-density.md"
+          "file": "execution-plan/tasks/T16-orders-page-sort-paging-summary-timestamps-density.md",
+          "done_sha": "a2b8e8dabd966f4146982d59ab0616a0b3f769b0"
         },
         {
           "id": "T17",
           "name": "Integration — admin table contract across pages + dummy parity",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T11, T12, T13, T14, T15, T16",
-          "file": "execution-plan/tasks/T17-integration-admin-table-contract-across-pages-dummy-parity.md"
+          "file": "execution-plan/tasks/T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+          "done_sha": "c1b8053b6067d306e90c918b8b1a72617506054c"
         }
       ]
     }

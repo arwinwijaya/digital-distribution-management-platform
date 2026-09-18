@@ -1,0 +1,54 @@
+{
+  "task_id": "T8",
+  "task_name": "OrderController@index \u00e2\u20ac\u201d offset cursor + sort + total",
+  "cycle": 2,
+  "timestamp": "2026-09-17T07:30:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "PRE-EXISTING FAILURES (out of scope, NOT attributed to T8): `php artisan test --filter=OrderTest` at HEAD 29b0fc2 gives 2 failed / 34 passed. The 2 failures are exactly `cannot approve already confirmed order` (OrderTest.php:314) and `concurrent admin approvals append one confirmed history` (OrderTest.php:626) \u00e2\u20ac\u201d both assert 422 on idempotent re-approve while the codebase now returns 200. Verified the T8 diff touches NEITHER those tests NOR approve/cancel logic (git diff shows 0 matches for those test names; approve/show/cancel/runApprovalTransaction/approveInTransaction/approvalResponse are byte-identical to parent 421996b). The 6 new T8 tests pass (6 passed, 33 assertions) and the other 28 pre-existing tests pass.",
+      "Admin guard unchanged: `if (! $request->user()->isAdmin()) { ... 403 }` is byte-identical to parent 421996b (OrderController.php:71-76).",
+      "`formatOrderResponse()` byte-identical to parent (verified via diff of the method body) \u00e2\u20ac\u201d `data` item keys unchanged.",
+      "`?cursor=<n>` returns the SECOND page by OFFSET, not id-based: test 2 creates OLDEST=id1(Jan), NEWEST=id2(Mar), MIDDLE=id3(Feb); created_at DESC \u00e2\u2020\u2019 page1=NEWEST, page2=MIDDLE at cursor=1. An id-based cursor would return NEWEST first, so the assertion is genuinely offset-semantic.",
+      "Nulls-last claim is observable, not just asserted: orders.created_at is nullable (Laravel `timestamps()` \u00e2\u2020\u2019 `nullable()`), and I executed the generated expression `(created_at IS NULL) ASC, created_at DESC, id DESC` in SQLite \u00e2\u20ac\u201d a NULL row sorts LAST on both ASC and DESC. The `id DESC` tiebreak is deterministic.",
+      "index() is 51 lines (OrderController.php:69-119) vs the ~50-line budget \u00e2\u20ac\u201d within the approximate tolerance; the two new private helpers (scalarQueryString, buildListMeta) were extracted to keep it small.",
+      "Spec text says `->offset()` before `->limit()`; implementation chains `->limit($limit + 1)` then `->offset($cursor)`. Functionally identical in Eloquent: limit/offset set independent builder properties and the grammar always compiles `LIMIT x OFFSET y` regardless of call order. No behavioural difference (all page tests green)."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Additive-only diff confined to the 2 in-scope files; ListQuery helper (App\\Support\\ListQuery) already existed at parent 421996b and was reused, not modified.",
+      "Sort allowlist is enforced via ListQuery::resolveSort + orderByRaw(ListQuery::rawOrder(...)); the only orderBy in the file is the resolved allowlist column (OrderController.php:105) \u00e2\u20ac\u201d no column name is ever interpolated from raw user input, and `?sort=evil; DROP TABLE orders--` returns 200.",
+      "Scalar-safe reads verified end-to-end: `limit[]=5`, `cursor[]=x&sort[]=y&order[]=z`, `sort[]=x`, `sort=__proto__`, `sort=created_at&order=BOGUS`, `limit=abc`, `cursor=-3` all return HTTP 200 (no 500 / Array-to-string).",
+      "meta.total derives from an unfiltered clone taken BEFORE order/limit/offset (OrderController.php:98-101, 104-108) \u00e2\u20ac\u201d the test with limit=1 proves total stays the full count (3), not the page length.",
+      "Response shape exactly matches spec: {status, data, meta:{has_more, limit, cursor, total}}; `data` items still produced by the untouched formatOrderResponse.",
+      "Tests are non-vacuous: sort-by-status test is constructed so default created_at DESC yields the OPPOSITE order from status ASC (comment documents this), so it only passes when ?sort is honoured; fallback/array tests assert both 200 and the default newest-first order.",
+      "Clear explanatory comments at each decision point (allowlist fallback, total-from-unfiltered-clone, limit+1 technique)."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "OrderController.php is now 314 lines (was 255 pre-T8), marginally above the ~300-line refactor heuristic. Downgraded to Minor (not Important) because: the threshold is approximate ('~300'), the excess is ~5%, index() itself is within its ~50-line budget, growth is a small cohesive additive change (2 focused helpers), and the task was explicitly additive-only forbidding broader restructuring. Flagging for future tasks that touch this controller.",
+        "location": "apps/api/app/Http/Controllers/OrderController.php:1-314"
+      },
+      {
+        "severity": "Minor",
+        "description": "Redundant double clone: buildListMeta() receives an already-cloned builder and clones it again (`(clone $query)->count()`), while the call site also passes `clone $query`. Harmless (count() does not mutate the builder) but the inner clone is superfluous.",
+        "location": "apps/api/app/Http/Controllers/OrderController.php:100,142"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "7c73ea7a5b7c7504fbf5afc7b2e323000aaa7e51"
+}

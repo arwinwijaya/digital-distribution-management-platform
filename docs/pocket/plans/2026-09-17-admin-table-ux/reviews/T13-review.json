@@ -1,0 +1,65 @@
+{
+  "task_id": "T13",
+  "task_name": "Users page — sort/paging/summary/timestamps/density",
+  "cycle": 2,
+  "timestamp": "2026-09-18T01:45:19Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Cycle-1 Critical RESOLVED — real-mode name/email search now narrows the rendered rows. `filteredBySearch` is re-added (page.tsx:96-100) and passed as `rows={filteredBySearch}` (page.tsx:194) instead of the unfiltered `rows={users}`. Verified by reading the post-fix file and `git diff c31d211..02cab705 -- apps/web/src/app/admin/users/page.tsx` (+7/-2).",
+      "Cycle-1 Critical regression test — VERIFIED non-vacuous: the new `describe('client-side search filter (real mode)')` block (page.test.tsx:127-160) runs with dummy mode OFF (`useDummyStore.getState().reset()` in beforeEach sets isDummy=false; `installDummy()` only registers the generator, it does not toggle). Its fetch mock IGNORES the `search` query param and always returns BOTH rows (page.test.tsx:129-142), so if `filteredBySearch` were absent both rows would render and `queryByText('Petugas Toko')` would be present. The test types 'admin', clicks 'Terapkan filter', and asserts `Admin Satu` remains while `Petugas Toko` disappears — it fails on the pre-fix code and passes only because the client-side filter is applied. Independently confirmed: `npx jest src/app/admin/users` → 15/15 passed including 'narrows the rendered rows when a search term is applied'.",
+      "Cycle-1 Minor RESOLVED — the legacy hasMore paragraph is gone: `grep -rn 'Ada data lebih lanjut' apps/web/src/app/admin/users/` returns no matches; the diff removes the `{hasMore && <p ...>Ada data lebih lanjut...</p>}` line. TablePagination now supplies the position label.",
+      "Default sort + cursor on first load — VERIFIED: state initializes to {column:'created_at', order:'desc'} (page.tsx:27); mount effect calls loadUsers(stored,{resetCursor:true}) (page.tsx:75-80) → nextSort=created_at/desc, nextCursor=0; fetchAdminUsersReal ALWAYS sets `sort` (default created_at), `order` (default desc) and `cursor` (default 0) (api.ts:99-104). Test asserts URL contains sort=created_at&order=desc&cursor=0.",
+      "meta.total / meta.summary read — VERIFIED: `total: meta.total !== undefined ? Number(meta.total) : undefined` and `summary: meta.summary` (api.ts:110-111); page stores total and renders `<TableSummary total={total ?? users.length} noun=\"pengguna\" />` (page.tsx:183) → 'N pengguna' (test asserts '2 pengguna').",
+      "Email header click desc→asc — VERIFIED: onSort uses shared toggleSort(sortRef.current, column) then loadUsers(token,{resetCursor:true, sort:next}) (page.tsx:198-203); first click → sort=email&order=desc&cursor=0, second → order=asc&cursor=0 (page.test.tsx).",
+      "Role-filter change resets cursor=0 preserving sort — VERIFIED: handleFilterApply → loadUsers(token,{resetCursor:true}) (page.tsx:85-88) preserving sortRef.current; test asserts role=sales&cursor=0&sort=email while on page>1.",
+      "Paging preserves sort+filter — VERIFIED: onPageChange → loadUsers(token,{cursor:nextCursor}) (page.tsx:210-213) keeping sortRef.current + roleFilter/search closure; test asserts cursor=20&sort=email&role=sales.",
+      "aria-sort — VERIFIED: Table receives `sort` prop; test asserts default 'Dibuat' header aria-sort='descending', flips to 'ascending' after click, and that non-sortable 'Aksi' th has no aria-sort and is click-inert (fetch count unchanged).",
+      "sortableColumns exactness — VERIFIED: value ['name','email','role','created_at','updated_at'] (page.tsx:196) is EXACTLY the intersection of rendered column keys {name,email,role,created_at,updated_at,action} and SORT_ALLOWLISTS.users {created_at,updated_at,name,email,role,id} (lib/admin-table.ts). 'action' excluded (inert); 'id' not rendered; BOTH created_at AND updated_at present.",
+      "Summary 'N pengguna' — VERIFIED: TableSummary total={total ?? users.length} noun='pengguna' (page.tsx:183).",
+      "Timestamp columns + em dash — VERIFIED: 'Dibuat'/'Diperbarui' render formatDateTime(u.created_at ?? null)/(u.updated_at ?? null) (page.tsx:117-128); helper returns U+2014 for null/undefined/''/NaN (lib/admin-table.ts formatDateTime); tests assert em-dash cells and absence of 'Invalid Date'.",
+      "Density persist — VERIFIED: useTableDensity() with STORAGE_KEY 'admin:table-density'; test asserts py-3→py-2→py-4 class change and localStorage value compact/comfortable.",
+      "Dummy parity via shared helpers + zero network — VERIFIED: listDummyUsers filters role+search, sorts via shared compareRows (created_at DESC, id DESC tiebreak), slices via paginate, returns total=filtered.length and summary {total} (api.ts:24-52); invalid sort does not throw; tests assert ordering/offset slice/total/summary and zero network while dummy ON.",
+      "QUALITY BAR must-have — VERIFIED: per-function diff of `export async function assignUserRole` against `git show 15f2f18:.../users/api.ts` is byte-identical; PATCH /admin/users/{id}/role path, error handling and dummy branch unchanged. `git diff 15f2f18..02cab705 -- apps/web/src/dummy/mutations.ts` is empty (assignDummyUserRole untouched).",
+      "QUALITY BAR red flag — VERIFIED non-breaking: `UsersListResult` gained only additive optional fields (`cursor: number`, `total?: number`, `summary?: {total:number}`); the ONLY external consumer is apps/web/src/app/admin/outlets/dummy-guard.test.ts:184 reading `.users/.hasMore/.limit`. `npx jest src/app/admin/outlets` → 18/18 passed.",
+      "Scope — VERIFIED: `git diff --name-only 15f2f18..02cab705` lists EXACTLY the 3 in-scope files (users/page.tsx, users/api.ts, users/page.test.tsx); no out-of-scope file touched.",
+      "Refactor heuristics — VERIFIED: page.tsx 217 lines, api.ts 132 lines (both <300); longest function loadUsers ~27 lines (<50); no 3+ duplication of identical logic in scope.",
+      "Independent verification — `npx jest src/app/admin/users` 15 passed; `npx jest src/app/admin/outlets` 18 passed; full `npx jest` 249 passed / 33 suites; `npx tsc --noEmit` 0 errors."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "The fix restores the exact client-side filter that existed in the parent (filteredBySearch over name/email, rendered as rows), which is the correct option because the users backend has no search support — no UI control silently no-ops.",
+      "The regression test is genuinely non-vacuous: the mock deliberately ignores the `search` param and returns both rows, so the assertion that the non-matching row disappears can only pass if the client-side filter is applied; it is a real RED→GREEN guard rather than a tautology.",
+      "Sort state is kept out of loadUsers' dependency list via sortRef/cursorRef, so sort/page changes do not re-trigger the mount effect and reset the page; reset rules (sort/filter → cursor=0, paging → preserve) are applied explicitly at each call site.",
+      "sortableColumns is the exact rendered-keys ∩ allowlist intersection including both created_at and updated_at, with 'action' inert — no phantom sortable column that would silently fall back server-side.",
+      "Dummy parity is achieved through the shared compareRows/paginate/formatDateTime helpers rather than bespoke logic, covering created_at-DESC→id-DESC fallback, offset slice, total=filtered.length and summary, with zero network.",
+      "All three commits stayed strictly within the 3 in-scope files; assignUserRole is byte-identical and assignDummyUserRole is untouched, so the role PATCH flow is preserved."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "loadUsers is a useCallback keyed on [roleFilter, search] and the mount effect depends on loadUsers, so editing the search input or the role Select fires an immediate fetch (cursor=0) on each change in addition to the explicit 'Terapkan filter' click — a redundant request per keystroke. This is the established pattern inherited from the products/outlets pages and does not violate the spec's reset rule, so it is non-blocking.",
+        "location": "apps/web/src/app/admin/users/page.tsx:43"
+      },
+      {
+        "severity": "Minor",
+        "description": "page.test.tsx is 432 lines across five nested describe blocks. Test files are naturally long and this mirrors the already-approved products/outlets page.test.tsx, so it is not treated as a blocking split; noted only as a maintainability observation.",
+        "location": "apps/web/src/app/admin/users/page.test.tsx:1"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "02cab70588021afe08db8eaf650d1a9ee35bd03b"
+}

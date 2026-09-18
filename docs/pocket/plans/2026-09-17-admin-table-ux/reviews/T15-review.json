@@ -1,0 +1,66 @@
+{
+  "task_id": "T15",
+  "task_name": "Sales-performance page — sort/paging/summary/density",
+  "cycle": 1,
+  "timestamp": "2026-09-18T02:35:30Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "achievement is CLIENT-SIDE ONLY (must-not-have + red flag) — VERIFIED: page.tsx:34 initializes sort state to {column:'achievement', order:'desc'}; page.tsx:60 computes `serverSort = nextSort.column === 'achievement' ? undefined : nextSort` so the achievement column NEVER reaches the request. api.ts:142-143 only sets sort/order when provided. Tests assert `not.toContain('sort=achievement')` on every captured URL (page.test.tsx:205,284,321,343). `grep -rn 'sort=achievement'` finds only negative test assertions.",
+      "Client-side sort applied ONLY when sort.column==='achievement' — VERIFIED: page.tsx:115-119 `displayRows` returns `[...rows].sort(...)` only in the achievement branch, else returns `rows` (server order). Test 'renders the server order (not the client-side achievement order) after sorting by Sales' (page.test.tsx:288) proves the server order wins after a name sort: default renders [Alpha, Mika, Zeta] (achievement DESC), after clicking Sales renders [Zeta, Alpha, Mika] (server data order). Non-vacuous.",
+      "parseMoney used for NUMERIC achievement comparison (must-have) — VERIFIED: page.tsx:118 `parseMoney(b.achievement) - parseMoney(a.achievement)`. Test fixture (page.test.tsx:123-158) uses 12000000.00 / 3000000.00 / 9000000.00 where string-desc would wrongly put '9000000.00' first; the test asserts ['Sales 12M','Sales 9M','Sales 3M'] (numeric desc), so it genuinely distinguishes numeric vs string ordering.",
+      "Server sort allowlist = rendered keys ∩ ['name','id'] → ONLY name — VERIFIED: page.tsx:208 `sortableColumns={['name']}` (the 'Sales' header). Test 'keeps inertness: only the Sales header is sortable' (page.test.tsx:346) asserts Email/Target/Pencapaian/Persentase/Pesanan `th` have no aria-sort, while the Sales `th` toggles none→descending.",
+      "Offset cursor contract — VERIFIED: api.ts:141 ALWAYS sets cursor (`opts?.cursor ?? 0`); api.ts:149-154 reads `data.meta` (has_more/limit/cursor/total) and NEVER the removed top-level `data.next_cursor`; api.ts:166 derives `nextCursor: hasMore ? cursor + limit : null` (offset). Tests assert cursor=15 on page 2 and `not.toContain('next_cursor')` (page.test.tsx:322,333).",
+      "Paging preserves sort + period — VERIFIED: page.tsx:223-225 onPageChange calls `load(token, period, { cursor: nextCursor })`, keeping sortRef.current + period closure. Test asserts page-2 URL contains cursor=15 & sort=name & period=<current> (page.test.tsx:318-328).",
+      "Period change resets cursor=0 and preserves sort (Rule 5) — VERIFIED: page.tsx:105-108 handlePeriodChange → `load(token, value, { resetCursor: true, sort: sortRef.current })`. Test asserts cursor=0 & sort=name & period=2026-08 after changing period from page 2 (page.test.tsx:331-344).",
+      "Summary strip meta.total → 'N sales' — VERIFIED: api.ts:163-165 exposes `total` and `summary:{total}`; page.tsx:197 `<TableSummary total={total ?? rows.length} noun=\"sales\" />`. Test asserts '42 sales' (page.test.tsx:174-182) and dummy-mode '\u005cd+ sales' with zero network (page.test.tsx:424-432).",
+      "NO timestamp columns (Rule 7 excluded — aggregate rows) — VERIFIED: `grep 'Dibuat|Diperbarui'` in sales-performance/page.tsx returns nothing; SalesPerformanceRow (api.ts:5-14) has no created_at/updated_at; the `Periode` filter remains the time marker. Test asserts queryByText('Dibuat'/'Diperbarui') is null (page.test.tsx:196-197). DummyOrderEntity.created_at (api.ts:42) is pre-existing dummy-order data used only for period derivation — not a violation.",
+      "Density toggle persists to admin:table-density — VERIFIED: page.tsx:35 useTableDensity() + page.tsx:198 <TableDensityToggle value={density} onChange={setDensity} />. Test asserts the rendered Sales `th` class py-3→py-2→py-4 and localStorage value compact/comfortable (page.test.tsx:387-403).",
+      "Dummy-mode parity — VERIFIED: dummySalesPerformance (api.ts:69-111) sorts achievement numerically DESC, offset-slices, returns total=rows.length, summary {total} and offset nextCursor. Test asserts numeric-desc ordering deep-equal to an independent sort, total===rows.length, summary deep-equal {total}, offset slice rows 2..4 with nextCursor=4, and ZERO /admin/sales/performance fetch calls while dummy ON (page.test.tsx:406-421).",
+      "QUALITY BAR must-not-have (parseMoney/formatRupiah/formatPercentage untouched; no out-of-scope file; backend unmodified) — VERIFIED: `git diff f9bb6083..86adb2dc -- apps/web/src/lib/format.ts apps/web/src/lib/admin-table.ts apps/api` is EMPTY. `git diff --name-only f9bb6083..86adb2dc` lists EXACTLY the 3 in-scope files (sales-performance/{api.ts,page.tsx,page.test.tsx}).",
+      "Cycle 3 did not change api.ts — VERIFIED: `git diff 97f5a4e8..86adb2dc -- .../sales-performance/api.ts` shows only the Cycle-2 cursor line (`query.set('cursor', String(opts?.cursor ?? 0))`, commit 8515506); Cycle 3 (86adb2dc) touched only page.tsx (+6/-1) and page.test.tsx.",
+      "Non-vacuity — VERIFIED: tests assert real behavior (fetch URL params sort/order/cursor/period, `not.toContain('sort=achievement'/'next_cursor')`, rendered row order via `getAllByRole('row')`, `aria-sort` attributes, density class on the `th`, localStorage, dummy deep-equality + zero-network) rather than tautologies.",
+      "Independent verification — `npx jest src/app/admin/sales-performance` 14/14 passed; `npx jest src/app/admin/outlets/dummy-guard.test.ts` 6/6 passed; full `npx jest` 271/271 passed / 33 suites; `npx tsc --noEmit` exits 0.",
+      "Refactor heuristics — api.ts 172 lines, page.tsx 231 lines (both <~300); no identical logic repeated 3+ times within the in-scope files."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Clean two-mechanism sort separation: the client-side derived `achievement DESC` is isolated behind the `sort.column === 'achievement'` guard (page.tsx:60,115-119) and never leaks into the request, while the single server-sortable header (`name`) flows through the shared `toggleSort` + offset cursor — exactly the QUALITY BAR's core requirement.",
+      "sortRef/cursorRef keep sort/cursor out of `load`'s dependency list, so header clicks and page changes do not re-trigger the mount effect and silently reset the page; reset rules (sort/period → cursor=0, paging → preserve) are applied explicitly at each call site.",
+      "Dummy parity is faithful to the T10 contract (numeric achievement DESC, offset slice, total=rows.length, summary {total}, offset nextCursor) and the test pins it with deep-equality against an independent computation plus a zero-network counter.",
+      "Tests are genuinely non-vacuous: the achievement fixture distinguishes numeric from string ordering (12M/9M/3M), and the 'server order wins' test contrasts the client-side achievement order against the server data order after a name sort.",
+      "The implementation mirrors the already-approved T12 products / T13 users / T14 promotions pages (same helper wiring, TableSummary/TablePagination/TableDensityToggle, ref pattern), and stayed strictly within the 3 in-scope files with shared helpers and the backend provably unchanged."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "The dummy achievement comparator uses `Number(b.achievement) - Number(a.achievement)` (api.ts:96) rather than the `parseMoney` idiom mandated by the QUALITY BAR. It is harmless here (dummy achievement is code-generated via `amount.toFixed(2)`, always a clean numeric string) and the line is pre-existing (byte-identical in the f9bb6083 parent), while the actual client-side display sort on real server data correctly uses `parseMoney` (page.tsx:118) — so the must-have is satisfied. Noted only for consistency with the shared comparator/parseMoney convention.",
+        "location": "apps/web/src/app/admin/sales-performance/api.ts:96"
+      },
+      {
+        "severity": "Minor",
+        "description": "page.tsx is 231 lines and the single `AdminSalesPerformancePage` component spans ~208 lines (page.tsx:23-231), above the ~50-line function soft heuristic. The bulk is declarative JSX (the `columns` array + filter card), and the shape mirrors the approved products (239) / users (217) pages, so it is recorded as a maintainability observation rather than a blocking split.",
+        "location": "apps/web/src/app/admin/sales-performance/page.tsx:23"
+      },
+      {
+        "severity": "Minor",
+        "description": "page.test.tsx is 433 lines across four nested describe blocks. Test files are naturally long and this mirrors the already-approved products (409) / users (432) / promotions page.test.tsx, so it is not treated as a blocking split.",
+        "location": "apps/web/src/app/admin/sales-performance/page.test.tsx:1"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "86adb2dc3ff9274275f6ea3d63450a8cd69100c2"
+}

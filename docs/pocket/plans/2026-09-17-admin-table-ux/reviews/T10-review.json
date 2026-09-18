@@ -1,0 +1,87 @@
+{
+  "task_id": "T10",
+  "task_name": "SalesPerformanceController@adminPerformance \u00e2\u20ac\u201d id-cursor \u00e2\u2020\u2019 offset + sort + total",
+  "cycle": 2,
+  "timestamp": "2026-09-17T07:30:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "SCOPE: `git diff --name-only 46ad726..af3c735` returns EXACTLY the 2 in-scope files (SalesPerformanceController.php, SalesPerformanceTest.php); `git diff --name-only 46ad726..af3c735 -- apps/api/app/Models apps/api/routes apps/api/database` is empty. Both T10 commits (6c56b8a, af3c735) touch only those 2 files. No service/model/schema/route drift.",
+      "GUARD UNCHANGED: `if (! $this->authz->isAdminOrOwner($user)) { ... 403 }` is byte-identical to parent 46ad726 (controller:74). 403 test `test_sales_user_cannot_access_admin_performance` still passes.",
+      "UNCHANGED HELPERS: method bodies for `myPerformance()`, `resolvePeriod()`, and `formatAmounts()` diff IDENTICAL to parent 46ad726 (line-by-line diff of each method body returned no differences). `calculatePerformance()` is invoked unchanged per row via the new `formatRow()` (controller:119-129).",
+      "PER-ROW CONTRACT PRESERVED: `formatRow()` merges `['user_id','name','email','period']` with `$this->formatAmounts($perf)` \u00e2\u20ac\u201d same keys as the pre-T10 inline closure. `data` remains a TOP-LEVEL JSON array (Collection -> values()).",
+      "ID-CURSOR REMOVED \u00e2\u2020\u2019 OFFSET: `where('id','>',$cursor)` and the old `->orderBy('id')` are gone (grep: zero matches for `where('id'` / `orderBy('id'` in the controller). Query is now `->orderByRaw(...)->offset($cursor)->limit($limit + 1)->get()` (controller:96-100) \u00e2\u20ac\u201d offset precedes limit, matching the spec's ordering requirement.",
+      "OFFSET SEMANTICS (independent probe, divergent fixture): seeded admin(id=1) + 4 sales in ALPHABETICAL order (ids 2..5). `offset=2` page-2 = ['Charlie','Delta'] = array_slice(all,2,2) -> assertion HOLDS; the old id-based `where id > 2` would return ['Bravo','Charlie'] -> assertion FAILS. So the new test `test_admin_performance_cursor_is_offset_not_id` genuinely discriminates offset from id-filtering and would fail against the parent.",
+      "SCALAR-SAFE READS: `scalarQueryString()` (controller:154-160) returns the default for any non-string query value and is applied to `cursor`, `sort`, and `order`. Tests `sort[]=x`, `order[]=x`, `cursor[]=x` all assert HTTP 200. `limit` uses `$request->integer('limit', 100)`; `(int) array` yields 1 (no fatal) so `?limit[]=x` cannot 500 either.",
+      "CURSOR CLAMP: `max((int) $this->scalarQueryString($request,'cursor','0'), 0)` \u00e2\u20ac\u201d negative/array/non-numeric cursor clamps to 0 (controller:84).",
+      "LIMIT CLAMP: `min(max((int) $request->integer('limit', 100), 1), 100)` \u00e2\u20ac\u201d default 100, clamped to 1..100 (controller:83).",
+      "SORT ALLOWLIST = ['name','id'] ONLY: `private const SORT_ALLOWLIST = ['name','id']` (controller:19). `resolveSort()` passes this const to `ListQuery::resolveSort()` with caller default ('name','asc') (controller:138-151). `achievement` is NOT in the allowlist and is never a DB orderBy column.",
+      "INVALID SORT \u00e2\u2020\u2019 200 FALLBACK: `ListQuery::resolveSort(['name','id'], 'achievement', \u00e2\u20ac\u00a6)` returns ['name','asc'] (probe). Test `test_admin_performance_sort_achievement_falls_back_to_default` asserts HTTP 200 + name ASC order. `?sort=__proto__` -> ['name','asc'] -> 200 (test asserts name ASC). `?sort=name&order=desc` -> name DESC (test asserts reversed order, proving sort is honoured).",
+      "meta.total = SALES-USER COUNT: `buildListMeta()` does `(clone $query)->count()` on `User::where('role','sales')` BEFORE orderByRaw/offset/limit (controller:88-92,167-170). Test seeds 3 sales + 1 admin + 1 outlet and asserts `meta.total` = 3 (not the 3-row page coincidence \u00e2\u20ac\u201d the same 3 are returned, but the count is filter-scoped: admin/outlet excluded). Independent SQL probe confirms `count(*) where role='sales'` = 5 while the page (limit 2) returns 2 rows. User model has NO SoftDeletes / global scopes, so the count is an unfiltered role count, matching spec verbatim.",
+      "RESPONSE SHAPE: `{status:'success', data:[...], meta:{has_more, limit, cursor, total}}` (controller:106-110). `meta` = merge(['has_more'=>$hasMore], ['limit'=>\u00e2\u20ac\u00a6,'cursor'=>\u00e2\u20ac\u00a6, 'total'=>\u00e2\u20ac\u00a6]). `has_more` is now under `meta` (was top-level) and `next_cursor` is GONE.",
+      "next_cursor REMOVED ENTIRELY: grep for `next_cursor` in the controller returns ZERO matches. In the test file it appears only in a docblock and in `assertJsonMissingPath('next_cursor')` (asserting absence). Other controllers that still emit `next_cursor` (AdminProductController, SalesTargetController) are out of scope.",
+      "PRE-EXISTING TEST UPDATED, NOT WEAKENED: `test_admin_performance_with_limit_plus_one_pagination` removed ONLY the `next_cursor` assertion (key no longer exists) and KEPT the limit+1 semantics (`assertJsonCount(2,'data')`, `meta.has_more === true`, `meta.limit === 2`). No other assertion was deleted (test-file deletion lines are exactly the 2 removed `has_more`/`next_cursor` lines).",
+      "NEW TESTS GENUINELY ASSERT THE NEW CONTRACT: 5 new tests cover meta.total + meta.cursor offset + `assertJsonMissingPath('next_cursor')`; offset-not-id paging (discriminating fixture, verified above); sort=name DESC; sort=id DESC; sort=achievement \u00e2\u2020\u2019 200 default; invalid/array sort/order/cursor \u00e2\u2020\u2019 200 + default order. Each would fail against the parent controller (no `meta` object, sort ignored, next_cursor present).",
+      "adminPerformance() LENGTH: 42 lines (controller:70-111), under the ~50-line budget. Extracted private helpers: formatRow (119-129), resolveSort (138-151), scalarQueryString (154-160), buildListMeta (167-170).",
+      "ISOLATED SUITE: `cd apps/api && php artisan test --filter=SalesPerformanceTest` \u00e2\u2020\u2019 28 passed (107 assertions). No failures. (Per task note, OrderTest's 2 pre-existing failures and repo-wide PDO/host `db` environmental failures are NOT attributed to T10; the isolated SalesPerformanceTest suite is the judging surface.)",
+      "NO ORDERBY OUTSIDE ALLOWLIST: the single orderBy call is `orderByRaw(ListQuery::rawOrder(...$this->resolveSort($request)))` (controller:97). The column is always the allowlist-resolved value; `rawOrder` interpolates only that column + the normalized asc/desc keyword, so no user string reaches raw SQL."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Spec-exact contract: `{status, data:[], meta:{has_more, limit, cursor, total}}` with the per-row keys (user_id, name, email, period + formatted amounts) byte-identical to the pre-T10 closure \u00e2\u20ac\u201d a clean additive/transform change with no consumer-facing key removed except the deliberately-dropped `next_cursor`.",
+      "Correct reuse of the shared T1 helper `App\\Support\\ListQuery` (resolveSort + rawOrder + meta) instead of hand-rolling sort/clamp logic; caller-supplied default ('name','asc') is threaded through explicitly rather than relying on the helper's global `created_at DESC` default.",
+      "Defense-in-depth on sort: the allowlist is a named class constant, `achievement` is structurally excluded (it is a computed value, not a column), and the comment at the constant and method docblock explicitly documents why \u00e2\u20ac\u201d directly satisfying the plan's STOP condition / red flag.",
+      "`meta.total` is derived from a clone of the SAME base builder taken BEFORE order/offset/limit, so it can never equal the page length; the guard is role-scoped (`where('role','sales')`) so non-sales users are excluded.",
+      "Offset semantics are genuinely tested (not vacuously): the discriminating fixture where offset != id-filtering was independently reproduced in SQLite and the assertion only holds under true OFFSET.",
+      "Input hardening is uniform across the three required params (sort/order/cursor) via `scalarQueryString()`, eliminating the Array-to-string 500 class of bug; invalid sort values fall back silently to 200 per spec.",
+      "Comments are purposeful (allowlist rationale, total-from-clone, scalar-safety) rather than noise; helpers are small, single-purpose and well-named.",
+      "No unused newly-added imports (only `ListQuery` and `Builder` were added, both used). The diff is minimal and confined to the two scoped files."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Cross-file duplication of `scalarQueryString(Request,string,string)` is now byte-identical (md5-verified) across 6 controllers of this plan (AdminOutlet, Order, Product, Promotion, SalesPerformance, UserRole). The '3+ identical logic across files of the same plan' refactor heuristic is nominally met. Classified Minor (not Important) for consistency with the T6/T7/T8/T9 auditors and because fixing it would require editing 5 already-approved out-of-scope controllers \u00e2\u20ac\u201d which the criteria's red-flag rule ('improvements touching files OUTSIDE the task scope \u00e2\u2020\u2019 REVERT') forbids for T10. The drift-prone logic (allowlist, order expression, meta) is centralized in ListQuery; only this 5-line defensive guard is duplicated. Recommend a dedicated consolidation follow-up (e.g. a trait/base controller or `ListQuery::scalarString()`), not a T10 fix.",
+        "location": "apps/api/app/Http/Controllers/SalesPerformanceController.php:154-160"
+      },
+      {
+        "severity": "Minor",
+        "description": "Valid-sort + invalid-order quirk: `ListQuery::resolveSort(['name','id'],'name','nonsense','name','asc')` returns ['name','desc'] (helper falls back to its own hardcoded 'desc' for a valid column with an unparseable order), not the endpoint's declared default 'asc'. Still HTTP 200 and still an allowlist column, so it satisfies the 'no 422/500' contract; only the direction differs from the endpoint default. Unspecified by the T10 packet (which only mandates `?sort=name&order=asc` \u00e2\u2020\u2019 asc and `?sort=achievement` \u00e2\u2020\u2019 200 fallback). The behaviour lives in the shared/out-of-scope ListQuery helper, so no T10 change requested \u00e2\u20ac\u201d flagged for awareness.",
+        "location": "apps/api/app/Support/ListQuery.php:25 (consumed at apps/api/app/Http/Controllers/SalesPerformanceController.php:140)"
+      },
+      {
+        "severity": "Minor",
+        "description": "Default tiebreaker direction: `ListQuery::rawOrder('name','asc')` emits `(name IS NULL) ASC, name ASC, id DESC`, i.e. id DESC as the deterministic tiebreaker, whereas the spec Implementation Notes describe the sales-performance DB default as `name ASC, id ASC`. Harmless (name collisions among sales users are possible but the ordering stays deterministic and id is a unique non-null PK), and the direction comes from the shared out-of-scope helper; the T10 packet's stated requirement is only 'default name ASC (caller default (\"name\",\"asc\"))', which is satisfied.",
+        "location": "apps/api/app/Http/Controllers/SalesPerformanceController.php:97"
+      },
+      {
+        "severity": "Minor",
+        "description": "Unused import `use App\\Models\\SalesTarget;` (controller:5) \u00e2\u20ac\u201d the controller references no `SalesTarget::` symbol (grep count 0). This is PRE-EXISTING (present at parent 46ad726:5) and NOT introduced by T10; noted for completeness only.",
+        "location": "apps/api/app/Http/Controllers/SalesPerformanceController.php:5"
+      },
+      {
+        "severity": "Minor",
+        "description": "Redundant `(int)` cast around `$request->integer('limit', 100)` (controller:83) \u00e2\u20ac\u201d `Request::integer()` already returns int. Trivial; no behavioural impact.",
+        "location": "apps/api/app/Http/Controllers/SalesPerformanceController.php:83"
+      },
+      {
+        "severity": "Minor",
+        "description": "CROSS-TASK OBSERVATION (not a T10 defect): the current frontend `apps/web/src/app/admin/sales-performance/api.ts:127-128` still reads top-level `data.has_more` and `data.next_cursor`. Under the new shape these are `meta.has_more` and removed, so that consumer is stale until T15 (phase 4, depends on T10) updates the sales-performance page. T10's scope is backend-only and the spec explicitly defers the frontend to the page task, so no T10 change is required \u00e2\u20ac\u201d flagged so the orchestrator/T15 owner is aware the contract moved.",
+        "location": "apps/web/src/app/admin/sales-performance/api.ts:127-128"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "7c73ea7a5b7c7504fbf5afc7b2e323000aaa7e51"
+}

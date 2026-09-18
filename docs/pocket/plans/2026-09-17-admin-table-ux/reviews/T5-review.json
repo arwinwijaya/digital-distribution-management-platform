@@ -1,0 +1,58 @@
+{
+  "task_id": "T5",
+  "task_name": "AdminOutletController@index — sort + total + summary + normalisasi meta",
+  "cycle": 2,
+  "timestamp": "2026-09-17T03:24:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Cycle-1 finding 1 [Important, non-scalar query params -> HTTP 500]: RESOLVED. index() now reads sort/order through private scalarQueryString(Request,string,string) (AdminOutletController.php:117-124), which returns the default unless is_string($request->query($key,$default)). `?sort[]=x` and `?order[]=x` therefore fall back to the created_at DESC default with HTTP 200. Verified three ways: (a) read of the helper source; (b) two new regression tests test_admin_list_handles_non_scalar_sort_param_without_error and test_admin_list_handles_non_scalar_order_param_without_error both pass (2 passed, 6 assertions); (c) independent php -r probe against Illuminate\\Http\\Request::create() confirmed query('sort') returns an array for `sort[]=x` (is_string=false), the old `(string)` cast emits 'Array to string conversion' (Warning) while the guard returns the default ('' / 'desc'). No file was created for the probe.",
+      "Cycle-1 finding 2 [Important, index() ~75 physical lines > ~50 heuristic]: RESOLVED. index() is now 47 physical / 39 non-blank lines (measured via awk span from `public function index` to closing brace). Filter application extracted to applyListFilters(Builder,Request):Builder (33 lines) and aggregate/meta construction to buildListMeta(Builder):array (16 lines). Every remaining function in the controller is <50 lines (max is index at 47; orders 34; update 16). Controller file total is 221 lines, under the ~300-line file heuristic.",
+      "Fix introduced no regression: applyListFilters body is byte-identical (modulo indentation) to the prev_sha inline filter block (category via ofCategory, territory_id `!== null && !== ''` then (int) cast, is_active filter_var FILTER_NULL_ON_FAILURE, search `!== null && !== ''`), verified with a normalized diff of the base filter statements vs the extracted helper.",
+      "Aggregate semantics preserved: buildListMeta does `(clone $query)->count()` for total and `(clone $query)->where('is_active',true|false)->count()` for active/inactive, all on the SAME filtered builder passed in as `clone $query` at the call site (AdminOutletController.php:55-61) BEFORE orderByRaw/limit/offset are applied, so meta.total/summary never count the limited page.",
+      "Meta key order preserved: array_merge(['limit','cursor'], buildListMeta(...)) then array_merge(['has_more'], $meta) yields exactly {has_more, limit, cursor, total, summary} — identical key order to the cycle-1 b0a4f9a construction.",
+      "KEEP-unchanged contract verified byte-identical to prev_sha: `$limit = min(max((int) $request->query('limit', 15), 1), 100)`; `$cursor = max((int) $request->query('cursor', 0), 0)`; `->limit($limit + 1)->offset($cursor)`; `$hasMore = $rows->count() > $limit`; `$this->authorization->assertAdmin($request->user())`. Old `->orderBy('id')` is removed (grep confirms no `orderBy('id')`); index now orders via `->orderByRaw(ListQuery::rawOrder($sortColumn, $sortOrder))`.",
+      "Sort allowlist exact and safe: private const SORT_ALLOWLIST = ['created_at','updated_at','name','id','category','score'] passed to ListQuery::resolveSort with default created_at/desc; the column fed to orderByRaw is always an allowlist member or the in-allowlist default. No orderBy column outside the allowlist (red flag clear). The other orderBy calls (orders L173-174, summary L206) are pre-existing literal columns in untouched methods.",
+      "Response shape verified: {status:'success', data:[...], meta:{has_more,limit,cursor,total,summary}}; data is a top-level array (`$rows->take($limit)->values()` / `$rows->values()`, empty => []). meta normalised to top level (no nested data.has_more).",
+      "meta.total reflects the filtered COUNT: test_admin_can_filter_outlets_by_category asserts meta.total==1 with `?category=warung` while a second outlet exists; test_admin_list_normalizes_meta_to_top_level... asserts meta.total==48 with limit 15 and cursor=60 (beyond total) still returns meta.total==48 with data==[]. summary uses the same filters (active/inactive asserted 2/1).",
+      "Nulls-last both directions + id DESC tiebreak: ListQuery::rawOrder emits `(<col> IS NULL) ASC, <col> <dir>, id DESC`; test_admin_list_places_null_created_at_rows_last_in_both_directions asserts the null row is last for both asc and desc.",
+      "New regression tests are non-vacuous: each seeds two outlets with distinct created_at ('2026-01-01' vs '2026-03-01'), asserts assertOk() (HTTP 200) AND exact row order data.0.name=='Newer', data.1.name=='Older' — they would fail if the guard were absent (500) or ordering defaulted wrongly.",
+      "Scope: `git log --oneline 79824b6..4ee10f0 -- <file>` shows exactly the 4 T5 commits (be7fcf3, dac6861, b0a4f9a, 4ee10f0) touch each in-scope file; no other commit touches them. Interleaved d6bd821 (GeoMap) touches only apps/web GeoMap files — not in scope. `git diff 79824b6..4ee10f0 -- apps/api/app/Models apps/api/database` is empty (no model/schema/migration change). update/orders/summary bodies are byte-identical to prev_sha (diff of each method span is empty).",
+      "Independent test run: `cd apps/api && php artisan test --filter=AdminOutletTest` => 24 passed (124 assertions), 0 failures, ~20s."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Both cycle-1 Important findings are genuinely fixed, not papered over: the non-scalar crash is eliminated at the read boundary (scalarQueryString) rather than by catching a 500, and the oversized index() was split along natural seams (filters vs aggregate/meta) without changing behavior.",
+      "Extraction preserved behavior byte-for-byte: the filter block is identical, aggregates are still derived from `clone $query` before limit/offset/order, meta key order is unchanged, and update/orders/summary are untouched.",
+      "Regression coverage is behaviour-asserting: exact row order and exact HTTP status, not snapshot/tautological checks; the two new non-scalar tests directly encode the fixed contract.",
+      "Idiomatic reuse of the shared T1 helper (ListQuery::resolveSort/rawOrder/meta) — the canonical pattern the other five controllers will replicate.",
+      "Scope discipline maintained: only the two in-scope files changed; no model/schema/migration or non-list endpoint touched; no orderBy column outside the allowlist."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "meta.summary still issues three separate COUNT queries (total, active, inactive) via buildListMeta on top of the page query. Carry-over from cycle 1 and explicitly accepted by the spec (summary is defined as a separate aggregate query with the same filters; 'additional aggregate cost' accepted), so non-blocking. A single grouped aggregate (group by is_active) could reduce round-trips.",
+        "location": "apps/api/app/Http/Controllers/AdminOutletController.php:130-142"
+      },
+      {
+        "severity": "Minor",
+        "description": "The in-scope test file AdminOutletTest.php is now 537 lines, nominally above the ~300-line file heuristic. Pre-existing: it was already 379 lines at prev_sha (already past the threshold before T5) and 499 at the cycle-1 HEAD, so T5 did not cross the threshold; every test method remains small (max 38 lines) and cohesive, and the repo convention tolerates large feature test suites (e.g. OrderTest.php 918, MeasurementTest.php 643). Non-blocking; no split recommended as part of this task.",
+        "location": "apps/api/tests/Feature/AdminOutletTest.php:1-537"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "4ee10f07e3d4e5ca11e3b8ce8a5de6eea5caf8db"
+}

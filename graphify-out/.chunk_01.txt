@@ -1,0 +1,16 @@
+D:\Development\amal\digital-distribution-management-platform\checklist.md
+D:\Development\amal\digital-distribution-management-platform\development-roadmap.md
+D:\Development\amal\digital-distribution-management-platform\docker-compose.yml
+D:\Development\amal\digital-distribution-management-platform\idea.md
+D:\Development\amal\digital-distribution-management-platform\.github\workflows\ci.yml
+D:\Development\amal\digital-distribution-management-platform\apps\web\AGENTS.md
+D:\Development\amal\digital-distribution-management-platform\apps\web\CLAUDE.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\closeout.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\phase-a-foundation-data.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\phase-b-interception.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\phase-c-verification.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\index.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\phase-1.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\phase-2.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\phase-3.md

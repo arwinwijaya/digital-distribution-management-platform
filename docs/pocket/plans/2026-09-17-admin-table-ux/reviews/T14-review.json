@@ -1,0 +1,69 @@
+{
+  "task_id": "T14",
+  "task_name": "Promotions page — sort/paging/summary/timestamps/density",
+  "cycle": 1,
+  "timestamp": "2026-09-18T02:14:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Offset cursor (must-have) — VERIFIED: fetchPromotionsReal ALWAYS sets limit (default 15), cursor (default 0), sort (default created_at) and order (default desc) on the query (api.ts:159-163), so the real path never omits the sort/order/cursor params. nextCursor is derived purely from the offset: `nextCursor: cursor + limit` (api.ts:185), and the removed id-based `next_cursor` is NEVER read (the old `data.next_cursor ?? null` return was replaced by the meta-based block). Test asserts the first-load URL contains sort=created_at&order=desc&cursor=0 and `not.toContain('next_cursor')` (page.test.tsx:160-164).",
+      "Red flag absent — VERIFIED: no `next_cursor` is ever placed on a request URL and no id-based cursor is read. The only `next_cursor` occurrences in promotions code are the negative test assertions (page.test.tsx:164,291,304,324) and the stale fixture key `next_cursor: null` in the legacy `promotionsResponse` (page.test.tsx:21) which the offset-based api ignores (it reads `meta`, not the top-level `next_cursor`).",
+      "Default sort created_at DESC + cursor=0 on first load — VERIFIED: state initializes to {column:'created_at', order:'desc'} (page.tsx:53); mount effect calls loadPromotions(stored,{resetCursor:true}) (page.tsx:81-84) → nextSort=created_at/desc, nextCursor=0; test asserts the URL (page.test.tsx:158-164).",
+      "Header sort toggle on 'Mulai' — VERIFIED: onSort uses the shared toggleSort(sortRef.current, column) then loadPromotions(token,{resetCursor:true, sort:next}) (page.tsx:257-261). First click on a new column → sort=start_date&order=desc&cursor=0; second click → order=asc&cursor=0. Test asserts both (page.test.tsx:278-306).",
+      "'Aksi' inert — VERIFIED: sortableColumns=['start_date','end_date','created_at','updated_at'] (page.tsx:255) excludes 'action', so Table renders the Aksi th with no aria-sort and no onClick (Table.tsx:70-84). Test asserts `not.toHaveAttribute('aria-sort')` and that clicking it does not increase the promotions fetch count (page.test.tsx:344-348).",
+      "aria-sort correctness — VERIFIED: Table maps sort.order→'ascending'/'descending' and any other column→'none' (Table.tsx:37-40). Test asserts default 'Dibuat' th aria-sort='descending' and 'Mulai'='none', then 'Mulai'='descending' / 'Dibuat'='none' after the click (page.test.tsx:333-341).",
+      "sortableColumns exactness — VERIFIED: rendered column keys = {name, discount, start_date, end_date, status, created_at, updated_at, action}; SORT_ALLOWLISTS.promotions = ['created_at','updated_at','start_date','end_date','id'] (lib/admin-table.ts:22). The value ['start_date','end_date','created_at','updated_at'] (page.tsx:255) is EXACTLY the intersection. 'name' is correctly NOT sortable (promotions allowlist has no 'name'), 'action'/'discount'/'status' excluded, 'id' not rendered.",
+      "Paging preserves sort + filter and uses offset cursor — VERIFIED: onPageChange → setCursor(nextCursor) + loadPromotions(token,{cursor:nextCursor}) (page.tsx:270-273) keeping sortRef.current; TablePagination emits cursor+limit / cursor-limit / pageIndex*limit (TablePagination.tsx handlePrev/handleNext/handleJump). Test asserts page 2 sends cursor=15 AND keeps sort=start_date (page.test.tsx:308-325), and that sorting while on a later page resets to cursor=0 (page.test.tsx:352-368).",
+      "meta.total read + summary strip — VERIFIED: api reads `total: meta.total !== undefined ? Number(meta.total) : undefined` and `summary: meta.summary` (api.ts:182-183); page stores them (page.tsx:76-77) and renders <TableSummary total={total ?? promotions.length} breakdown=[{aktif},{terjadwal},{berakhir}] noun='promosi' /> (page.tsx:238-246) → 'N promosi · N aktif · N terjadwal · N berakhir'. Test asserts live rendered text '2 promosi', '2 aktif', '0 terjadwal', '0 berakhir' (page.test.tsx:180-186).",
+      "Timestamp columns + em dash — VERIFIED: 'Dibuat'/'Diperbarui' render formatDateTime(p.created_at ?? null) / formatDateTime(p.updated_at ?? null) (page.tsx:208-216); helper returns U+2014 for null/undefined/''/NaN (lib/admin-table.ts formatDateTime). Tests assert em-dash cells, absence of raw ISO and of 'Invalid Date' (page.test.tsx:196-260).",
+      "Density persist — VERIFIED: useTableDensity() persists to localStorage key 'admin:table-density' (hooks/useTableDensity.ts); page passes density to <Table density={density}> (page.tsx:256). Test asserts the rendered <th> class py-3→py-2→py-4 and localStorage value compact/comfortable (page.test.tsx:400-421).",
+      "Dummy parity via shared helpers + zero network — VERIFIED: listDummyPromotions sorts via the shared compareRows (default created_at DESC, id-DESC tiebreak) and slices via the shared paginate (api.ts:71-86) — no reimplemented sort/paging; total = all.length (api.ts:61); 4-state summary computed from the full list with mutually-exclusive buckets (active: start<=today && end>=today; scheduled: start>today; ended: end<today) that sum to total (api.ts:64-68,85). Tests assert ordering equals compareRows, total===length, summary deep-equality + bucket sum, offset slice rows 3..6 with nextCursor=6, and zero /admin/promotions fetch calls while dummy ON (page.test.tsx:424-472).",
+      "QUALITY BAR must-not-have — VERIFIED byte-identical: per-function diff of createPromotion/updatePromotion/deletePromotion/broadcastPromotion between `git show 02cab705:.../promotions/api.ts` and HEAD reports IDENTICAL for all four; no +/- lines matching any CRUD/broadcast function name in `git diff 02cab705..f9bb608 -- promotions/api.ts`. Dummy mutations (createDummyPromotion/updateDummyPromotion/deleteDummyPromotion/broadcastDummyPromotion in apps/web/src/dummy/mutations.ts) are untouched (`git diff 02cab705..f9bb608 -- src/dummy/mutations.ts` empty).",
+      "Scope — VERIFIED: `git diff --name-only 02cab705..f9bb608` lists EXACTLY the 3 in-scope files (promotions/page.tsx, promotions/api.ts, promotions/page.test.tsx); no out-of-scope file touched across the 3 commits.",
+      "No leftover break (non-vacuity / Cycle 2-3 hardening) — VERIFIED: `git diff e123d86..f9bb608 -- promotions/page.tsx promotions/api.ts` is EMPTY, and blob hashes match exactly (page.tsx df91497484c6cf55dfc2ddb8bd43f1b49404afa3 on both e123d86 and f9bb608; api.ts 859d7ff9729a8282842c1040b675b87616f0fc5e on both). Only page.test.tsx changed after Cycle 1 (+253 lines). The temporary RED breaks were reverted with zero residue.",
+      "Test non-vacuity — VERIFIED: assertions read live rendered output and real dummy computation, not tautologies. Density asserts the actual <th> class (py-3/py-2/py-4) and localStorage; summary asserts the rendered data-testid='table-summary' text; sort/paging assert the captured fetch URL params; dummy parity asserts deep equality against an independent compareRows computation, the exact offset slice (ids of rows 3..6) and nextCursor=6, and a zero-network counter. 14/14 promotions tests pass; 260/260 full suite; `npx tsc --noEmit` exits 0.",
+      "Reference-consistency — VERIFIED: the promotions implementation mirrors the approved T12 products page and T13 users page (same sortRef/cursorRef pattern, same shared helpers, same TableSummary/TablePagination/TableDensityToggle wiring)."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "The offset-cursor contract is implemented at a single derivation point (`nextCursor: cursor + limit`, api.ts:185) and the id-based `next_cursor` is never read or sent — the exact behavior the QUALITY BAR must-have/red-flag pair targets.",
+      "Dummy parity is achieved through the shared compareRows/paginate helpers rather than bespoke logic, covering created_at-DESC→id-DESC fallback, offset slice, total=filtered.length and the 4-state {total,active,scheduled,ended} breakdown, with a verified zero-network guarantee.",
+      "The 4-state dummy buckets are mutually exclusive by construction (active/scheduled/ended partition the list), so they always sum to total — the test pins this with a deep-equality assertion at a fake clock.",
+      "sortRef/cursorRef keep sort/cursor out of loadPromotions' dependency list, so header clicks and page changes do not re-trigger the mount effect and reset the page; the reset rules (sort → cursor=0, paging → preserve) are applied explicitly at each call site.",
+      "sortableColumns is the exact rendered-keys ∩ allowlist intersection including both created_at and updated_at and correctly excluding 'name' (absent from the promotions allowlist) and 'action' — no phantom sortable column that would silently fall back server-side.",
+      "The three commits stayed strictly within the 3 in-scope files; page.tsx/api.ts are byte-identical to Cycle 1 and the CRUD/broadcast functions are byte-identical to the pre-task baseline, so the promotion write/broadcast flow is provably preserved.",
+      "Tests exercise real rendered behavior (aria-sort attributes, em-dash cells, summary text, fetch-URL params, dummy ordering/slice) rather than tautologies, and the em-dash, offset-slice and invalid-sort edge cases are covered."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "The sort-defaulting idiom `const sortCol = filters.sort || 'created_at'; const sortOrder = filters.order === 'asc' ? 'asc' : 'desc';` is repeated across the dummy branches of outlets/products/users/promotions api.ts (4 occurrences on this plan), while the shared `normalizeSort` helper (lib/admin-table.ts:44) already encapsulates it. This is a pre-existing cross-page pattern inherited from the already-approved T4/T12/T13 dummy branches (none of which were flagged for it), and refactoring only promotions would make it inconsistent while refactoring all four would touch out-of-scope files — so it is recorded as a non-blocking observation rather than a defect introduced by T14.",
+        "location": "apps/web/src/app/admin/promotions/api.ts:70-71"
+      },
+      {
+        "severity": "Minor",
+        "description": "page.tsx is 307 lines and the single AdminPromotionsPage component spans ~270 lines (page.tsx:38-307), marginally above the ~300-line soft threshold / 50-line function heuristic. The bulk is declarative JSX (the columns array + two Modal blocks) and the shape mirrors the approved products (239) and users (217) pages, so it is noted as a maintainability observation rather than a blocking split; the sibling pages were approved at similar sizes.",
+        "location": "apps/web/src/app/admin/promotions/page.tsx:38"
+      },
+      {
+        "severity": "Minor",
+        "description": "listDummyPromotions does not validate the requested sort against SORT_ALLOWLISTS.promotions, so an out-of-allowlist column (e.g. 'bogus') resolves to an all-null comparison and falls back to id-DESC rather than the backend's documented created_at-DESC fallback. The UI only ever emits allowlisted columns via sortableColumns, and the test confirms the behavior is deterministic and non-throwing, so the divergence is unreachable in practice — the same non-allowlisted dummy behavior exists in the approved users/products/outlets branches.",
+        "location": "apps/web/src/app/admin/promotions/api.ts:70-73"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "f9bb608327f21f136c7071de124ab6882ba695e0"
+}

@@ -1,0 +1,60 @@
+{
+  "task_id": "T12",
+  "task_name": "Products page — sort/paging/summary/timestamps/density (+ additive backend summary)",
+  "cycle": 1,
+  "timestamp": "2026-09-17T08:41:01Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Default sort — VERIFIED: products page state initializes to {column:'created_at',order:'desc'} (page.tsx:29) and fetchAdminProductsReal always sends sort=created_at&order=desc&cursor=0 when no params given (api.ts:189-191). Backend no-param default is STILL id ASC via resolveSort fallback ('id','asc') (ProductController.php:100-109); hard DEFAULT_LIMIT=100, supplier filter, offset/scalar-safe handling and top-level data array unchanged. Diff vs parent 532ab8e is +8/-1 and touches ONLY the meta block.",
+      "Additive backend summary — VERIFIED: ProductController@index now emits meta.summary = {total, out_of_stock} where total mirrors the pre-existing meta.total (same filtered builder) and out_of_stock = (clone $query)->where('stock_quantity','<=',0)->count() (ProductController.php:38-49). meta.total, supplier eligibility filter, default id ASC, hard limit(100) and limit+1 cursor technique are byte-identical to parent. Confirmed by per-block diff.",
+      "fetchProducts backward compat — VERIFIED: `export async function fetchProducts(token: string, search?: string): Promise<AdminProduct[]>` (api.ts:163) is unchanged vs parent; the new `fetchAdminProducts(token, filters): Promise<ProductsListResult>` (api.ts:179) is a SEPARATE export. outlets/dummy-guard.test.ts still calls fetchProducts('t-token') and expects AdminProduct[] (dummy-guard.test.ts:191) → 18/18 passed.",
+      "Must-not-have — VERIFIED: updateProductPrice, fetchPriceHistory, fetchPriceHistoryReal and dummyPriceHistory are byte-identical to parent (no +/- lines in diff for these functions; signature grep matches).",
+      "buildCountLabel via TablePagination — VERIFIED: page renders <TablePagination cursor/limit/total/hasMore onPageChange> (page.tsx:185-194); TablePagination.tsx calls buildCountLabel({total,cursor,limit,hasMore}).",
+      "formatDateTime for timestamps — VERIFIED: 'Dibuat'/'Diperbarui' columns render formatDateTime(p.created_at ?? null) / formatDateTime(p.updated_at ?? null) (page.tsx:128-136); helper returns U+2014 for null/undefined/''/NaN (admin-table.ts formatDateTime).",
+      "compareRows/paginate for dummy — VERIFIED: listDummyAdminProducts sorts via compareRows (default created_at DESC, id-DESC tiebreak) then slices via paginate, returning total=filtered.length and summary {total,out_of_stock} (api.ts:43-76).",
+      "Dummy parity contract — VERIFIED: dummy products carry no created_at so created_at DESC falls back to id DESC (nulls-last) through compareRows; page.test.tsx asserts id ordering, offset slice, total=filtered.length and summary {total,out_of_stock} with zero network while dummy ON.",
+      "sortableColumns — VERIFIED: value ['name','sku','price','stock_quantity','created_at','updated_at'] (page.tsx:175) is EXACTLY the intersection of the rendered column keys {name,sku,price,stock_quantity,created_at,updated_at,action} and the products allowlist {created_at,updated_at,name,sku,price,stock_quantity,id} (SORT_ALLOWLISTS.products, admin-table.ts). 'action' correctly excluded (inert); 'id' not rendered. Default created_at header renders aria-sort='descending' (asserted by test).",
+      "Reset rules — VERIFIED: sort header click → loadProducts(token,{resetCursor:true,sort:next}) (page.tsx:180); search 'Cari' → {resetCursor:true} (page.tsx:152); page change → {cursor:nextCursor} preserving sortRef.current + current filter state (page.tsx:191-193).",
+      "Null timestamps — VERIFIED: null created_at/updated_at render '—' via formatDateTime; page.test.tsx asserts cells[4]/cells[5] contain U+2014 and no 'Invalid Date' in the DOM.",
+      "Scope — VERIFIED: `git diff 532ab8e..15f2f18 --name-only` lists exactly the 5 in-scope files (ProductController.php, ProductTest.php, products/{page.tsx,api.ts,page.test.tsx}); no out-of-scope files touched across the 4 commits.",
+      "Independent verification — ProductTest 13 passed / 57 assertions; `npx jest src/app/admin/products` 15 passed; `npx jest src/app/admin/outlets` 18 passed (dummy-guard intact); full `npx jest` 237 passed / 33 suites; `npx tsc --noEmit` 0 errors."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Backend change is strictly additive and surgical (+8/-1, one block): meta.summary derived from the SAME filtered builder as meta.total, so the strip can never disagree with the total; out_of_stock reuses the identical eligibility filter (inactive-supplier exclusion covered by a dedicated test).",
+      "fetchProducts is left untouched and fetchAdminProducts is a clean parallel export, preserving the dummy-guard contract while letting the page consume meta.total/meta.summary with a tolerant fallback when total/summary are absent.",
+      "sortableColumns derives from the real allowlist∩rendered-keys contract (verified against SORT_ALLOWLISTS.products); default created_at header is wired end-to-end to aria-sort='descending' and non-sortable 'Aksi' is inert (tested).",
+      "sortRef/cursorRef keep sort/cursor out of loadProducts' dependency list, avoiding the mount-effect reset-on-every-change trap; reset rules are applied explicitly at each call site.",
+      "Dummy path achieves real parity through the shared compareRows/paginate helpers (no bespoke sort logic), covering created_at-DESC→id-DESC fallback, offset slice, total=filtered.length and summary, with zero network.",
+      "Tests assert rendered behavior (aria-sort, em-dash cells, summary text, fetch URLs, dummy ordering) rather than tautologies, and null-timestamp + paging edge cases are exercised through the real component.",
+      "Only in-scope files changed; must-not-have functions verified byte-identical to parent."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "page.test.tsx is 409 lines (four nested describe blocks). Test files are naturally long and this mirrors the already-approved outlets page.test.tsx (399 lines), so it is not treated as a blocking split; noted only as a maintainability observation.",
+        "location": "apps/web/src/app/admin/products/page.test.tsx:1"
+      },
+      {
+        "severity": "Minor",
+        "description": "Because loadProducts is a useCallback keyed on `search` and the mount effect depends on loadProducts, changing the search input triggers an immediate fetch (cursor=0) on each keystroke in addition to the explicit 'Cari' button, so there is no debounce and a request may fire per keystroke. This is the established pattern inherited from the outlets page (same shape) and does not violate the spec's reset rule, so it is non-blocking.",
+        "location": "apps/web/src/app/admin/products/page.tsx:62"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "15f2f18be0e2ea6c7ad141ee83b231eada04b23a"
+}

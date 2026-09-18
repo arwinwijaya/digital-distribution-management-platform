@@ -1,0 +1,74 @@
+{
+  "task_id": "T9",
+  "task_name": "ProductController@index \u00e2\u20ac\u201d additive sort/cursor/total (public)",
+  "cycle": 2,
+  "timestamp": "2026-09-17T07:30:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "SUPPLIER FILTER INTACT: applyCatalogFilters() (ProductController.php:67-74) reproduces the parent predicate byte-for-byte \u00e2\u20ac\u201d `whereNull('supplier_id')->orWhereHas('supplier', subscription_status='active')`. Independent SQL probe of the filtered builder emits `where (\"supplier_id\" is null or exists (select * from \"suppliers\" where \"products\".\"supplier_id\" = \"suppliers\".\"id\" and \"subscription_status\" = ?))`. The pre-existing test `test_inactive_supplier_products_are_not_exposed_in_legacy_catalog` still passes (inactive-supplier product excluded, supplier-less product exposed).",
+      "`Product::search($search)` call preserved (ProductController.php:70) \u00e2\u20ac\u201d model untouched (git diff shows 0 changes to apps/api/app/Models/Product.php), scopeSearch still used.",
+      "DEFAULT ORDER PRESERVED: with NO new params, resolveSort() supplies caller default ('id','asc') to ListQuery::resolveSort, rendering `order by (id IS NULL) ASC, id ASC, id DESC`. Probe with 150 seeded rows and no params \u00e2\u2020\u2019 data ids 1..100 in ascending order. Invalid `?sort=__proto__&order=desc` \u00e2\u2020\u2019 ids 1,2,3 (id ASC), NOT created_at DESC (test `test_invalid_sort_falls_back_to_products_default_id_asc` deliberately diverges id-order from created_at-order to prove this).",
+      "HARD CAP 100 PRESERVED / limit+1 does NOT change the returned set: resolveLimit() returns DEFAULT_LIMIT=100 when `limit` is absent; the query uses `limit($limit + 1)` then `take($limit)` when has_more. Probe with 150 rows and no params \u00e2\u2020\u2019 exactly 100 rows returned (ids 1..100), has_more=true, meta.limit=100. The +1 row is only used to compute has_more and is trimmed, so the visible set size is identical to the legacy `limit(100)`.",
+      "limit CLAMP: absent\u00e2\u2020\u2019100; present\u00e2\u2020\u2019clamp 1..100. Probe: `limit=200`\u00e2\u2020\u2019100 rows, meta.limit=100; `limit=0`\u00e2\u2020\u20191 row; `limit=-5`\u00e2\u2020\u20191 row; `limit=5`\u00e2\u2020\u20195 rows. `limit=abc` \u00e2\u2020\u2019 (int)'abc'=0 \u00e2\u2020\u2019 clamp to 1 (HTTP 200, no 500).",
+      "OFFSET CURSOR: cursor is scalar-safe, `max((int)\u00e2\u20ac\u00a6,0)`, applied via `->offset($cursor)`. Probe `cursor=-3`\u00e2\u2020\u2019meta.cursor=0, first id 1; `limit=5&cursor=5`\u00e2\u2020\u2019ids 6,7,8,9,10 (true OFFSET semantics, not id-based).",
+      "meta.total = COUNT(*) WITH THE SAME FILTERS: `(clone $query)->count()` is taken from the filtered builder BEFORE orderByRaw/limit/offset (ProductController.php:41). Probe with 150 rows, no params \u00e2\u2020\u2019 data count=100 but meta.total=150 (total is NOT the page length). `?search=P00` \u00e2\u2020\u2019 meta.total=9 and data count=9 (search filter flows into the count). Supplier eligibility is inside the same clone via applyCatalogFilters. Test `test_meta_total_reflects_the_search_filter` asserts total=2 while the table has 3.",
+      "SCALAR-SAFE READS: `?sort[]=name&order[]=asc&cursor[]=5` \u00e2\u2020\u2019 HTTP 200 (test `test_array_sort_param_falls_back_without_server_error`); independent probe confirms first id 1, meta defaulted. The `scalarQueryString()` guard (ProductController.php:115-120) returns the default for any non-string value, so no 'Array to string conversion' 500 for sort/order/cursor/limit.",
+      "RESPONSE SHAPE ADDITIVE: `{status, data:[\u00e2\u20ac\u00a6], meta:{has_more, limit, cursor, total}}`; `data` remains a TOP-LEVEL array (Collection\u00e2\u2020\u2019values() serializes to a JSON array). The only additive change is the new top-level `meta` object; the pre-existing `status`/`data` keys are unchanged.",
+      "index() IS 30 LINES (ProductController.php:30-59), well under the ~50-line budget; the four private helpers (applyCatalogFilters, resolveLimit, resolveSort, scalarQueryString) keep it small.",
+      "NO ORDERBY OUTSIDE ALLOWLIST: grep of the controller finds exactly one orderBy call \u00e2\u20ac\u201d `orderByRaw(ListQuery::rawOrder(...$this->resolveSort($request)))` (ProductController.php:46). The column is always the allowlist-resolved value; `?sort=evil; DROP TABLE products--` cannot reach raw SQL as it is not in SORT_ALLOWLIST and falls back to 'id'.",
+      "SCOPE: only the 2 in-scope files changed across T9 commits (6d01470 touches ProductController.php + ProductTest.php; 46ad726 touches ProductTest.php only). git diff 29b0fc2..46ad726 --stat shows exactly those 2 files. AdminProductController.php, Product.php model, schema/migrations, and routes are untouched (diff is empty for each).",
+      "PRE-EXISTING TESTS NOT WEAKENED: `git diff 29b0fc2..46ad726 -- ProductTest.php` contains ZERO deletion lines (pure addition of 5 tests / 90 lines). The original 6 tests are byte-identical to parent; all 11 ProductTest tests pass (50 assertions).",
+      "5 NEW TESTS GENUINELY ASSERT THE NEW CONTRACT: default id-ASC ordering + additive meta.total/limit/cursor/has_more; sort=created_at&order=desc nulls-last (4 seeded rows incl. a NULL created_at \u00e2\u2020\u2019 ['Newest','Middle','Oldest','Undated']); invalid sort fallback to id ASC (divergent-order construction); array-param 200 fallback; search-aware meta.total. Each would fail against the parent controller (no `meta` key, sort ignored).",
+      "`php artisan test --filter=ProductTest` \u00e2\u2020\u2019 11 passed (50 assertions). ListQueryTest 12 passed. OrderTest \u00e2\u2020\u2019 2 failed / 34 passed, and the 2 failures are exactly the PRE-EXISTING `cannot approve already confirmed order` + `concurrent admin approvals append one confirmed history` \u00e2\u20ac\u201d NOT attributable to T9 (T9 does not touch OrderController or those tests).",
+      "rawOrder('id','asc') inspected: emits `(id IS NULL) ASC, id ASC, id DESC`. The trailing `id DESC` is redundant when `id ASC` already precedes it, but `id` is the unique, non-null PK so the tiebreaker is never reached \u00e2\u20ac\u201d harmless, reported as Minor below (matches the prompt's guidance).",
+      "CROSS-TASK OBSERVATION (not an in-scope T9 defect): the spec's product summary breakdown `{total, out_of_stock}` is NOT returned by this endpoint. T9's DELIVERABLE/QUALITY BAR only mandate `meta.total`, so this is not a T9 gap; T12 (products page) is the task that consumes/derives `out_of_stock`. Flagged for T12 awareness only."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Additive-only diff: the legacy contract (supplier filter, search, id-ASC default, hard cap 100, top-level `data` array) is preserved exactly; `meta` is purely additive, which is the correct discipline for a shared public marketplace/catalog endpoint.",
+      "Correct reuse of the shared ListQuery helper (App\\Support\\ListQuery, created by T1) \u00e2\u20ac\u201d resolveSort with an explicit caller default ('id','asc') instead of the global created_at DESC, and rawOrder for portable nulls-last ordering.",
+      "meta.total is computed from a clone taken BEFORE order/limit/offset and from the SAME filtered builder (applyCatalogFilters applied first), so it reflects search + supplier eligibility and is never the page length \u00e2\u20ac\u201d verified end-to-end (150 rows \u00e2\u2020\u2019 total 150 vs data 100; search=P00 \u00e2\u2020\u2019 total 9).",
+      "Defensive scalarQueryString() guard applied uniformly to sort/order/cursor/limit; the allowlist means no user string can reach raw SQL \u00e2\u20ac\u201d no injection surface.",
+      "index() at 30 lines with four focused, well-named, well-commented helpers; clear separation between filter application, limit resolution, sort resolution, and scalar reads.",
+      "Tests are non-vacuous and purpose-built (divergent id vs created_at ordering to distinguish the products default from the global default; NULL created_at row to assert nulls-last).",
+      "Constants instead of magic values: SORT_ALLOWLIST and DEFAULT_LIMIT are named class constants."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Redundant ORDER BY term: ListQuery::rawOrder('id','asc') yields `(id IS NULL) ASC, id ASC, id DESC`. For the default sort the trailing `id DESC` tiebreaker is unreachable because `id` is the unique, non-null primary key, and even for other allowlist columns the tiebreak is redundant whenever the resolved column is `id`. Harmless (deterministic ordering, no correctness impact, id is never NULL) \u00e2\u20ac\u201d the helper is shared/out-of-scope for T9 and already unit-tested, so no change requested.",
+        "location": "apps/api/app/Support/ListQuery.php:47 (consumed at apps/api/app/Http/Controllers/ProductController.php:46)"
+      },
+      {
+        "severity": "Minor",
+        "description": "Duplication debt: `scalarQueryString(Request,string,string)` is now byte-identical (md5-verified) across 5 controllers of this plan \u00e2\u20ac\u201d AdminOutletController.php:117, OrderController.php:126, ProductController.php:115, PromotionController.php:114, UserRoleController.php:121. T9 added the 5th copy, so the '3+ identical logic' heuristic is nominally met. Classified Minor (not Important) for consistency with the T6 (2 copies) and T7 (3 copies) auditors, and because: (a) it is a 5-line defensive input-guard boilerplate, while the drift-prone logic is centralized in ListQuery; (b) the plan's architecture deliberately uses per-controller wiring; (c) fixing it inside T9 would require editing 4 already-approved out-of-scope controllers, which T9's file scope forbids. Recommend a dedicated consolidation follow-up (e.g. a small trait/base controller or ListQuery::scalarString) rather than a T9 fix.",
+        "location": "apps/api/app/Http/Controllers/ProductController.php:115-120"
+      },
+      {
+        "severity": "Minor",
+        "description": "Test coverage gap: no test exercises a NON-ZERO offset cursor or an explicit `limit` for this endpoint (no `?limit=\u00e2\u20ac\u00a6&cursor=\u00e2\u20ac\u00a6` case asserting the second page / has_more=true). Offset semantics and the limit clamp are verified here only by code read + an independent probe (limit=5&cursor=5 \u00e2\u2020\u2019 ids 6..10; limit=200\u00e2\u2020\u2019100; limit=0\u00e2\u2020\u20191), not by a ProductTest assertion. The array test `?cursor[]=5` only proves scalar-safety, not positive-offset paging. Same gap the T6 auditor noted for the users endpoint; a page-2 test would close it.",
+        "location": "apps/api/tests/Feature/ProductTest.php:116-205"
+      },
+      {
+        "severity": "Minor",
+        "description": "PRE-EXISTING (not introduced by T9), out of the T9 scalar-safety contract: `?search[]=x` still 500s because `Product::scopeSearch(?string $search)` type-hints string and `$request->query('search')` is passed straight through (ProductController.php:70). Verified: passing an array raises `TypeError: scopeSearch(): Argument #2 must be of type ?string, array given`. This behaviour is identical to the parent (29b0fc2) and the T9 contract only lists sort/order/cursor as required scalar-safe params, so it is not a T9 defect \u00e2\u20ac\u201d noted for completeness only.",
+        "location": "apps/api/app/Http/Controllers/ProductController.php:70"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "7c73ea7a5b7c7504fbf5afc7b2e323000aaa7e51"
+}

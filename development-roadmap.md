@@ -15,9 +15,9 @@ data-driven business by utilizing:
 -   Operational automation
 -   AI-based recommendation and forecasting
 
-## Implementation Status Audit (2026-09-16)
+## Implementation Status Audit (2026-09-18)
 
-Roadmap **tetap belum 100% terimplementasi**. Sejak audit 2026-09-14, dua plan tambahan selesai: Business Validation Production Pilot (pre-pilot compatibility & readiness, 6 tasks T1→T6, `DONE`) dan Concierge Production Pilot Phase 6 (3 services pilot + TDD, `DONE`). Data Intelligence, operational wall (readiness pipeline), dan infrastruktur pilot/pengukuran kini memiliki rangkaian penutup yang lengkap. Sisa pekerjaan adalah validasi lapangan sebenarnya (pilot produksi dengan partner/outlet nyata) dan sisa fase 7–10.
+Roadmap **tetap belum 100% terimplementasi**. Sejak audit 2026-09-14, empat plan tambahan selesai: Business Validation Production Pilot (pre-pilot compatibility & readiness, 6 tasks T1→T6, `DONE`), Concierge Production Pilot Phase 6 (3 services pilot + TDD, `DONE`), Dummy Mode Jabodetabek (12 tasks, `DONE`, closeout), dan **Phase 7 — MVP Completion & Core Operations (9 tasks T1→T9, `DONE`)** yang menutup gap role management, outlet lifecycle, price/promotion, sales order collection, sales quota/performance, dan WhatsApp promotion broadcast. Ditambah hardening UX **Admin Table Readability (17 tasks, `DONE`, closeout)** untuk sort/paging/ringkasan/density di seluruh tabel admin. Data Intelligence, operational wall (readiness pipeline), infrastruktur pilot/pengukuran, dan administrasi MVP kini memiliki rangkaian penutup yang lengkap. Sisa pekerjaan adalah validasi lapangan sebenarnya (pilot produksi dengan partner/outlet nyata) dan sisa fase 8–10.
 
 Legend: `[x]` implemented · `[~]` partial/MVP/foundation · `[ ]` not implemented · `[?]` outcome belum terverifikasi.
 
@@ -27,14 +27,18 @@ Detail checklist per fitur tersedia di [`checklist.md`](checklist.md). Closeout 
 - [`Phase 3 Data Intelligence Foundation`](docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md)
 - [`Business Validation — Pre-Pilot Compatibility & Readiness`](docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md)
 - [`Concierge Production Pilot — Phase 6 Business Validation`](docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md)
+- [`Dummy Mode Jabodetabek`](docs/pocket/plans/2026-02-14-dummy-mode-jabodetabek/closeout.md)
+- [`Admin Table Readability (Paging, Sort, Ringkasan, Kepadatan)`](docs/pocket/plans/2026-09-17-admin-table-ux/closeout.md)
+- [`Phase 7 — MVP Completion & Core Operations`](docs/pocket/plans/2026-09-16-phase7-mvp-completion/execution-plan/index.md) (log `DONE`; 9 tasks, belum ada file closeout terpisah)
 
 Ringkasan:
 
 - Phase 0 — Business Validation & Planning: `[~]` dokumen ada, tetapi riset bisnis, BRD, dan partner database belum terbukti. Sejak saat itu, **platform readiness sudah dibuktikan** oleh `2026-09-14-business-validation-production-pilot` (T1 baseline `docs/pilot/pre-pilot-compatibility-baseline.md` + compatibility gate `docs/pilot/pre-pilot-runbook.md`, `READY_FOR_PILOT=allow`—record `OperationalEvent`/`operational_events` hanya append, tanpa mutasi sumber transaksi), dan **Phase 6 Business Validation tervalidasi secara teknikal** oleh `2026-09-15-concierge-production-pilot` (T1 `PilotQualificationService` qualification 10-outlet/30d, T2 `PilotMetricsService` lifecycle `measureLifecycleTiming`→`calculateSpeedDelta` + guardrails `error<5% / delivery>95% / payment>90%`, T3 `PilotEvaluationService` decision matrix scale-up/iterate/stop + `phase7Evidence`). Validasi **lapangan yang sesungguhnya** (partner & order nyata) belum dieksekusi.
-- Phase 1 — MVP Platform: `[~]` core flow sudah ada, tetapi role management, promosi, outlet scoring/category, dan sebagian analytics belum lengkap.
-- Phase 2 — Sales & Distribution Automation: `[~]` invoice, reminder, payment, delivery, sales visit, dan WhatsApp order tersedia; sales target, live tracking, dan broadcast promosi belum ada.
+- Phase 1 — MVP Platform: `[x]` **DONE** — core flow berjalan dan gap administrasi ditutup oleh Phase 7: `platform_owner` + `UserPolicy` + role management API/UI, outlet category/scoring/purchase-history, product price management + history, promotion CRUD, dan dashboard admin. Sisa: verifikasi adoption bisnis (`[?]`).
+- Phase 2 — Sales & Distribution Automation: `[~]` invoice, reminder, payment, delivery, sales visit, WhatsApp order, sales order collection, sales quota/performance dashboard, dan WhatsApp promotion broadcast tersedia. Yang belum: PWA offline, GPS/live tracking, driver roster, route optimization, dan proof of delivery foto/tanda tangan (Phase 8).
 - Phase 3 — Data Intelligence & AI: `[x]` **DONE** — foundation selesai: pipeline, geographic/supplier BI, stock planning, measurement, admin UI/map, dan atomic publication tersedia; ML/LLM production dan action workflow tetap `[ ]` out-of-scope Phase 3.
 - Phase 4 — Ecosystem Expansion: `[~]` marketplace dasar ada; dynamic pricing, financial services, distributor network, dan automated replenishment belum tersedia.
+- Phase 7 — MVP Completion & Core Operations: `[x]` **DONE** — 9 tasks (`1858ff4..fd7ee8d`) mencakup F1 role management/`platform_owner`, F2 outlet lifecycle, F3 price management, F4 promotion management, F5 sales order collection & performance, F6 WhatsApp promotion broadcast, plus halaman admin/sales; ditutup dengan Admin Table UX (17 tasks).
 
 ------------------------------------------------------------------------
 
@@ -71,7 +75,7 @@ representative - Warung/store owner - Delivery team
 
 ------------------------------------------------------------------------
 
-# Phase 1 - MVP Platform Development — `[~] PARTIAL`
+# Phase 1 - MVP Platform Development — `[x] DONE`
 
 ## Objective
 
@@ -89,7 +93,9 @@ Roles:
 -   Supplier
 -   Outlet Partner
 
-Features: - Login - Role management - User profile
+Roles: Platform Owner (`[x]`), Admin, Sales, Supplier, Outlet Partner, Finance (`[x]`).
+
+Features: - Login `[x]` - Role management `[x]` (`UserPolicy`, `UserRoleService`, `UserRoleController`, audit `RoleAssignmentAudit`, JWT invalidation) - User profile `[x]` (`PATCH /auth/me`)
 
 ------------------------------------------------------------------------
 
@@ -97,12 +103,12 @@ Features: - Login - Role management - User profile
 
 Features:
 
--   Outlet registration
--   Outlet profile
--   Location mapping
--   Outlet category
--   Purchase history
--   Outlet scoring
+-   Outlet registration — `[x]`
+-   Outlet profile — `[x]` admin list/update via `AdminOutletController`
+-   Location mapping — `[~]` lat/long + territory/map data tersedia; belum ada map picker khusus outlet
+-   Outlet category — `[x]` enum `warung|minimarket|supermarket|grosir|restoran|kafe|toko_kelontong|lainnya`, default `lainnya`
+-   Purchase history — `[x]` `GET /admin/outlets/{id}/orders` + `summary`
+-   Outlet scoring — `[x]` `OutletScoringService` (volume/frequency/recency), recalculation saat order `Delivered`
 
 Goal:
 
@@ -114,11 +120,11 @@ Create digital database of retail network.
 
 Features:
 
--   Product master
--   SKU management
--   Price management
--   Promotion
--   Product availability
+-   Product master — `[x]`
+-   SKU management — `[x]`
+-   Price management — `[x]` `AdminProductController` + `ProductPriceService` + `product_price_histories`
+-   Promotion — `[x]` `PromotionController`/`PromotionService` (CRUD, overlap guard, min_order, snapshot saat order, immutable setelah broadcast)
+-   Product availability — `[x]`
 
 ------------------------------------------------------------------------
 
@@ -126,10 +132,11 @@ Features:
 
 Features:
 
--   Outlet ordering
--   Order approval
--   Order status tracking
--   Order history
+-   Outlet ordering — `[x]`
+-   Order approval — `[x]`
+-   Order status tracking — `[x]`
+-   Order history — `[x]`
+-   Sales order collection — `[x]` `POST /sales/orders` (territory-scoped, reuse `OrderCreationService`, mencatat `sales_user_id`)
 
 Flow:
 
@@ -151,11 +158,12 @@ Flow:
 
 Metrics:
 
--   Total outlets
--   Active outlets
--   Sales value
--   Order volume
--   Product performance
+-   Total outlets — `[x]`
+-   Active outlets — `[x]`
+-   Sales value — `[x]`
+-   Order volume — `[x]`
+-   Product performance — `[~]` metrik/count dan ranking dasar tersedia
+-   Admin tables — `[x]` sort, offset paging, ringkasan, timestamp, dan density toggle di outlets/products/users/promotions/sales-performance/orders (plan `2026-09-17-admin-table-ux`)
 
 ------------------------------------------------------------------------
 
@@ -167,7 +175,7 @@ Target:
 -   100 active ordering outlets — `[?]` belum terbukti sebagai adoption produksi
 -   5-10 supplier partners — `[?]` belum terbukti sebagai partner aktif produksi
 
-**Current status:** `[~] PARTIAL`. Core register → browse → order → approval flow berjalan, tetapi role management, outlet category/scoring, promotion, dan sebagian analytics belum tersedia.
+**Current status:** `[x] DONE` (implementasi). Core register → browse → order → approval flow berjalan dan gap administrasi (role management, outlet category/scoring/history, price/promotion management, dashboard admin) telah ditutup oleh Phase 7 (`2026-09-16-phase7-mvp-completion`) serta hardening tabel admin (`2026-09-17-admin-table-ux`). Target adoption bisnis tetap `[?]`.
 
 ------------------------------------------------------------------------
 
@@ -185,11 +193,11 @@ Improve field execution and operational efficiency.
 
 Features:
 
--   Sales visit planning
--   Outlet visit tracking
--   Order collection
--   Sales target
--   Performance dashboard
+-   Sales visit planning — `[x]`
+-   Outlet visit tracking — `[~]` status/notes tersedia; GPS/check-in telemetry belum ada
+-   Order collection — `[x]` `SalesOrderController` (territory-scoped)
+-   Sales target — `[x]` `SalesTargetController` + `sales_targets` (periode `YYYY-MM`)
+-   Performance dashboard — `[x]` `SalesPerformanceController` + halaman sales/admin
 
 ------------------------------------------------------------------------
 
@@ -197,11 +205,11 @@ Features:
 
 Features:
 
--   Delivery planning
--   Driver management
--   Route planning
--   Delivery confirmation
--   Proof of delivery
+-   Delivery planning — `[x]`
+-   Driver management — `[~]` assignment/validasi driver ada; driver roster CRUD belum ada
+-   Route planning — `[~]` `RoutingService`/`route_data` sebagai seam MVP; optimasi penuh belum ada
+-   Delivery confirmation — `[x]`
+-   Proof of delivery — `[~]` recipient name + proof URL; foto/tanda tangan belum ada
 
 ------------------------------------------------------------------------
 
@@ -220,10 +228,10 @@ Features:
 
 Features:
 
--   Product catalog via WhatsApp
--   Order via WhatsApp
--   Automated notification
--   Promotion broadcast
+-   Product catalog via WhatsApp — `[x]`
+-   Order via WhatsApp — `[x]` (signed webhook)
+-   Automated notification — `[x]`
+-   Promotion broadcast — `[x]` `PromotionBroadcastController` + `promo_broadcast` message type, targeting outlet dengan order 30d terakhir, idempotency `promo-broadcast:{promo_id}`
 
 ------------------------------------------------------------------------
 
@@ -235,11 +243,11 @@ Target:
 -   Digital ordering adoption \>70% — `[?]` belum ada measurement
 -   Reduced manual order processing — `[?]` belum ada measurement
 
-**Current status:** `[~] PARTIAL`. Operational readiness untuk invoice, payment, finance role, reminder, dan delivery proof sudah selesai; sales target/dashboard, GPS/live tracking, dan promotion broadcast masih belum tersedia.
+**Current status:** `[~] PARTIAL`. Operational readiness untuk invoice, payment, finance role, reminder, dan delivery proof sudah selesai; sales order collection, sales target/performance dashboard, dan promotion broadcast telah ditambahkan oleh Phase 7. Yang masih belum tersedia adalah PWA/offline, GPS/live tracking, driver roster, route optimization, dan proof of delivery foto/tanda tangan (dijadwalkan Phase 8).
 
 ------------------------------------------------------------------------
 
-# Phase 3 - Data Intelligence & AI Capability — `[~] FOUNDATION COMPLETE`
+# Phase 3 - Data Intelligence & AI Capability — `[x] FOUNDATION COMPLETE`
 
 ## Objective
 
@@ -368,7 +376,7 @@ Capability:
 
 ## Phase 6 — Business Validation & Production Pilot
 
-Status (2026-09-16): **teknikal DONE, validasi lapangan tertunda (deferred)** — lihat dua closeout Phase 6 di atas.
+Status (2026-09-18): **teknikal DONE, validasi lapangan tertunda (deferred)** — lihat dua closeout Phase 6 di atas. Phase 7 (`2026-09-16-phase7-mvp-completion`) sudah menindaklanjuti `phase7Evidence` dari `PilotEvaluationService` dengan menutup gap MVP.
 
 **Apa yang sudah dilakukan (terbukti di repo):**
 
@@ -386,18 +394,26 @@ Status (2026-09-16): **teknikal DONE, validasi lapangan tertunda (deferred)** �
 
 ## Phase 7 — MVP Completion & Core Operations
 
+Status (2026-09-18): **DONE** — plan `docs/pocket/plans/2026-09-16-phase7-mvp-completion` (log `DONE`, 9 tasks `T1..T9`, SHA `1858ff4..fd7ee8d`).
+
 **Tujuan:** menutup gap MVP yang menghambat administrasi, outlet lifecycle, dan operasi order.
 
-**Scope:**
+**Scope & bukti:**
 
-- Role management API/UI dan Platform Owner.
-- Outlet profile list/update, category, scoring, dan purchase-history UI/API.
-- Product price management dan promotion management.
-- Sales-specific order collection.
-- Sales performance dashboard, sales quota, period, dan achievement.
-- WhatsApp promotion broadcast.
+- **F1 Role management & Platform Owner** — `apps/api/app/Policies/UserPolicy.php`, `apps/api/app/Services/UserRoleService.php`, `apps/api/app/Http/Controllers/UserRoleController.php`, `PATCH /auth/me`; `platform_owner` superset admin; audit via `RoleAssignmentAudit`; JWT invalidation saat role berubah.
+- **F2 Outlet lifecycle** — `AdminOutletController`, `UpdateOutletRequest`, `OutletScoringService`, kategori enum + `score` (migrasi `2026_09_16_000003`), purchase history & summary endpoint.
+- **F3 Product price management** — `AdminProductController`, `ProductPriceService`, model `ProductPriceHistory`, tabel `product_price_histories` (migrasi `..._000004`), price snapshot pada order.
+- **F4 Promotion management** — `Promotion` model + `PromotionController` + `PromotionService` + `Store/UpdatePromotionRequest`, tabel `promotions` (migrasi `..._000007`), overlap guard, `min_order`, snapshot saat order creation, immutable setelah broadcast.
+- **F5 Sales order collection & performance** — `SalesOrderController`, `SalesTargetController`, `SalesPerformanceController`, `SalesPerformanceService`, model `SalesTarget` + tabel `sales_targets` (migrasi `..._000008`), `territory_id` + `sales_user_id` (migrasi `..._000002`/`..._000005`), reuse `OrderCreationService`.
+- **F6 WhatsApp promotion broadcast** — `PromotionBroadcastController`, `WhatsAppOutboundService` + `WhatsAppMessage` diperluas (`promo_broadcast`), idempotency + retry.
+- **Frontend** — halaman `admin/users`, `admin/outlets`, `admin/products`, `admin/promotions`, `admin/sales-performance`, `admin/orders`, `sales/orders`, `sales/performance`.
+- **Tests** — `RoleManagementTest`, `AdminOutletTest`, `OutletScoringTest`, `AdminProductPriceTest`, `PromotionTest`, `PromotionBroadcastTest`, `SalesOrderTest`, `SalesPerformanceTest`, plus Jest page tests.
 
-**Exit criteria:** admin dapat mengelola role, outlet, harga, promosi, dan target sales; seluruh perubahan memiliki authorization dan audit yang sesuai.
+**Exit criteria:** tercapai — admin dapat mengelola role, outlet, harga, promosi, dan target sales; seluruh perubahan memiliki authorization dan audit yang sesuai. Verifikasi adoption produksi tetap `[?]`.
+
+## Phase 7.5 — Admin Table Readability (hardening, non-roadmap)
+
+Status (2026-09-18): **DONE** — plan `docs/pocket/plans/2026-09-17-admin-table-ux` (closeout, 17 tasks `T1..T17`, SHA `cb54e09..c1b8053`). Menambahkan helper backend `ListQuery` (sort allowlist, offset cursor, total/summary) dan frontend `admin-table.ts` + komponen `TablePagination`/`TableSummary`/`TableDensityToggle`, diterapkan ke seluruh tabel admin dengan dummy-mode parity.
 
 ## Phase 8 — Mobile Field Operations
 
@@ -442,7 +458,7 @@ Status (2026-09-16): **teknikal DONE, validasi lapangan tertunda (deferred)** �
 
 **Exit criteria:** setiap distributor terisolasi secara data dan authorization; pricing memiliki guardrail; integrasi pembayaran/financing memiliki reconciliation, audit, dan kontrol risiko.
 
-**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 9 dapat dimulai setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
+**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal) dan Phase 7 sudah `DONE`; fase berikutnya adalah Phase 8 (Mobile Field Operations). Phase 9 dapat dimulai setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
 
 ------------------------------------------------------------------------
 
@@ -451,7 +467,7 @@ Status (2026-09-16): **teknikal DONE, validasi lapangan tertunda (deferred)** �
 ## Frontend
 
 -   Phase 1: Next.js Web Application — `[x]` implemented di `apps/web/`
--   Phase 2: Progressive Web App (PWA) — `[ ]` belum tersedia
+-   Phase 2: Progressive Web App (PWA) — `[~]` `apps/web/src/app/manifest.ts` (standalone display, icon 192/512) tersedia; service worker/offline caching belum ada
 -   Phase 2: Mobile Sales Application — `[ ]` belum tersedia
 
 ------------------------------------------------------------------------

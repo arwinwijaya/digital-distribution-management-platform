@@ -1,0 +1,22 @@
+{
+  "phase_key": "phase-2",
+  "phase_file": "execution-plan/phase-2.md",
+  "timestamp": "2026-09-17T07:23:54Z",
+  "reviewer_mode": "read-only",
+  "findings": [
+    {
+      "severity": "Minor",
+      "description": "Spec-level gap left uncovered by the union of tasks: the spec's 'Summary strip source' pins the products breakdown to `{ total, out_of_stock }` (stok ≤ 0), but no task in the plan produces it. T9 — the only task that touches ProductController — was scoped to `meta.total` only and returns no `meta.summary`; T12 (products page) is frontend-only (page.tsx/api.ts/page.test.tsx) and its packet explicitly accepts 'meta.summary.out_of_stock absent → fallback total only'. Consequently the products summary strip cannot render the spec's Story 3 Example B 'N produk · M stok habis'. Non-blocking for phase 2's backend contract (the frontend degrades to total-only), but the products summary-breakdown acceptance criterion will not be met unless `meta.summary = {total, out_of_stock}` is added to ProductController@index (T9 follow-up / a small backend correction) or the spec is amended to total-only.",
+      "location": "apps/api/app/Http/Controllers/ProductController.php:38-42; docs/pocket/spec/2026-09-17-admin-table-ux/admin-table-readability.md:94",
+      "affected_tasks": ["T9", "T12"]
+    },
+    {
+      "severity": "Minor",
+      "description": "Informational (NOT a phase-2 defect — correctly sequenced downstream item): the phase-2 controllers moved `has_more` under top-level `meta` and removed `next_cursor`, but the admin frontends still read the pre-phase-2 shape — `apps/web/src/app/admin/promotions/api.ts:114` reads `data.has_more`/`data.next_cursor`; `apps/web/src/app/admin/sales-performance/api.ts:127-128` reads `data.has_more`/`data.next_cursor`; `apps/web/src/app/admin/products/api.ts:111-118` and `apps/web/src/app/admin/orders/page.tsx` ignore the new `meta`. These consumers are plan-sequenced to T12/T14/T15/T16 (phase 3–4), and the spec's rollback note explicitly accepts the transition window. No action for phase 2; recorded so the downstream page tasks read `meta.has_more`/`meta.cursor`/`meta.total`.",
+      "location": "apps/web/src/app/admin/{promotions,sales-performance}/api.ts; apps/web/src/app/admin/{products}/api.ts; apps/web/src/app/admin/orders/page.tsx",
+      "affected_tasks": ["T12", "T14", "T15", "T16"]
+    }
+  ],
+  "loop_info": { "current_cycle": 2, "max_cycles": 2, "cycles_remaining": 1 },
+  "status": "PHASE_PASS_RESOLVED"
+}

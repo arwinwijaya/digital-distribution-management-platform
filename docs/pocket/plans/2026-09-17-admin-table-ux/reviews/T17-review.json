@@ -1,0 +1,70 @@
+{
+  "task_id": "T17",
+  "task_name": "Integration — admin table contract across pages + dummy parity",
+  "cycle": 1,
+  "timestamp": "2026-09-18T03:22:51Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Zero-network invariant (QUALITY BAR must-have): asserted via `expect(fetchMock).not.toHaveBeenCalled()` in every dummy test (7 occurrences — outlets/users/products/promotions/sales-performance parity, invalid-sort fallback, and the combined one-pass read at admin-table-integration.test.tsx:85,102,119,141,164,187,198). PASS.",
+      "Must-not-have 'tests that inspect source code': verified absent — no fs/readFileSync/require, no regex over source; behavior exercised through the exported `fetch*` loaders + real store/guards only (admin-table-integration.test.tsx:17-21). PASS.",
+      "Must-not-have 'reimplementing comparator/paginate in the test': `compareRows`, `paginate`, `buildCountLabel` imported from `@/lib/admin-table` (admin-table-integration.test.tsx:16) and used to derive expected values; no local reimplementation. PASS.",
+      "Red flag 'test hits the real network': `global.fetch` is stubbed in beforeEach/afterEach and call count asserted zero; no network reached (all 15 tests pass in jsdom). PASS.",
+      "Non-vacuity of the two temporary breaks: range diff on implementation paths (apps/web/src/app|components|lib|hooks|dummy) is EMPTY — products real-path sort param and users real-path meta.total were reverted byte-identically; no leftover break. PASS.",
+      "Group 2 mock payload shapes match loaders' real parsing: outlets uses nested `data.data` (matches fetchAdminOutletsReal inner shape), users/products/promotions/sales-performance use flat `data` arrays (match their loaders), and meta.total/summary keys are read from `data.meta` (admin-table-integration.test.tsx:236-382 vs outlets/api.ts:230-243, users/api.ts:93-107, products/api.ts:214-228, promotions/api.ts:161-183, sales-performance/api.ts:157-172). PASS.",
+      "Test-only scope: `git diff --name-only a2b8e8da..c1b8053b` returns only apps/web/src/__tests__/admin-table-integration.test.tsx; both commits (07e2995f, c1b8053b) touch only that file. PASS.",
+      "Verification runs: `npx jest src/__tests__/admin-table-integration.test.tsx` = 15/15 PASS; `npx jest` = 299/299 PASS (35 suites); `npx tsc --noEmit` = exit 0."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Zero-network invariant is asserted in EVERY dummy test, not just one aggregate case — the strongest possible encoding of the QUALITY BAR must-have.",
+      "Exercises the REAL store + `withDummyRead` guard path with no module mocks (`jest.mock` absent); only `global.fetch` is faked, so the dummy branch, comparator, pagination and summary wiring are all under test.",
+      "Expected values are derived from the SAME shared helpers the implementation uses (`compareRows`/`paginate`), so the test is a true parity check rather than a reimplementation that could drift.",
+      "Deterministic generator pinned to a fixed `today` and registered through the production `setDummyGenerator` seam (admin-table-integration.test.tsx:24-29), making dummy counts/ordering reproducible.",
+      "Group 2 covers the full real-path contract per loader (sort/order/cursor/limit forwarding + meta.total/meta.summary reads + offset-derived nextCursor) and includes an end-to-end page render (loader -> UsersPage state -> TablePagination label) proving meta.total flows to the visible paging label.",
+      "`buildCountLabel` covered both branches (real total present -> 'Halaman 3 dari 3 · 42 data'; absent -> estimate 'Halaman 2 · ada data lain'), matching the spec's Kontrak total rule.",
+      "Mock payload shapes deliberately mirror each loader's real parser (nested outlets envelope vs flat arrays), avoiding vacuous assertions."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Redundant duplicated line: `localStorage.setItem('ddp_token', 't-token')` appears twice (lines 39 and 41) around `useDummyStore.getState().reset()`. Harmless but a leftover that can be collapsed to a single call after reset().",
+        "location": "apps/web/src/__tests__/admin-table-integration.test.tsx:39-41"
+      },
+      {
+        "severity": "Minor",
+        "description": "Three `as any` casts when calling `compareRows` (lines 73, 97, 131), whereas the production loaders use the more type-honest `as unknown as Record<string, unknown>`. Style-only; the shared comparator signature accepts a generic record.",
+        "location": "apps/web/src/__tests__/admin-table-integration.test.tsx:73,97,131"
+      },
+      {
+        "severity": "Minor",
+        "description": "File is 419 lines, marginally above the ~300-line soft heuristic. This is a test file and matches the already-approved sibling suites (products 409, users 432, promotions 433, sales-performance 433, orders 379) which were all accepted as non-blocking, so it is recorded as a maintainability observation rather than a required split.",
+        "location": "apps/web/src/__tests__/admin-table-integration.test.tsx:1"
+      },
+      {
+        "severity": "Minor",
+        "description": "The 'invalid sort falls back to the default WITHOUT throwing' test only asserts the returned row count is > 0; it does not additionally assert the fallback ORDER equals the default created_at DESC ordering. The test is non-vacuous (it proves no throw and non-empty output across all five loaders) and the default-order contract is separately covered by the per-loader parity tests, so this is a coverage-strength observation only.",
+        "location": "apps/web/src/__tests__/admin-table-integration.test.tsx:167-188"
+      },
+      {
+        "severity": "Minor",
+        "description": "The URL query assertion idiom (`expect(url).toContain('sort=…')` / `order` / `cursor` / `limit`) is repeated across the five Group-2 loader tests (25 assertions). It reads clearly and each targets a distinct loader/param, so extracting a shared helper is optional; noted for conciseness only.",
+        "location": "apps/web/src/__tests__/admin-table-integration.test.tsx:234-380"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "c1b8053b6067d306e90c918b8b1a72617506054c"
+}

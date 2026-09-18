@@ -1,0 +1,68 @@
+{
+  "task_id": "T7",
+  "task_name": "PromotionController@index — id-cursor → offset + sort + total + summary",
+  "cycle": 1,
+  "timestamp": "2026-09-17T05:06:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Contract item 1 — guard + forbidden changes: `$this->assertAdminOrOwner($request)` kept in index (PromotionController.php:38). Span diffs of show/store/update/destroy between prev_sha (d4e0e1e) and HEAD are EMPTY (byte-identical). `git diff d4e0e1e..421996b --name-status` lists exactly the 2 in-scope files; Promotion model, schema/migrations, routes/api.php, and PromotionService untouched. No orderBy column outside the allowlist.",
+      "Contract item 2 — id-cursor → offset: old `where('id','>',$cursor)` and `orderBy('id')` are GONE (grep for `where('id'` / `orderBy('id')` in the controller returns nothing; the only ordering call is `->orderByRaw(ListQuery::rawOrder(...))` at L51). Scalar-safe read `max((int) $this->scalarQueryString($request,'cursor','0'), 0)` (L41); `->offset($cursor)` (L52) applied together with `->limit($limit + 1)` (L53); `meta.cursor` returned (L45).",
+      "Contract item 3 — legacy `next_cursor` removed entirely: grep of app/ and tests/ shows no `next_cursor` in PromotionController; the only occurrence in the test file is `assertArrayNotHasKey('next_cursor', $json)` (PromotionTest.php:171). Response has no `next_cursor` key.",
+      "Contract item 4 — limit clamp: `min(max((int) $request->query('limit', 15), 1), 100)` (L40) — default 15, range 1..100, byte-for-byte per contract. `?limit=2` test still returns exactly 2 rows.",
+      "Contract item 5 — sort allowlist + fallback: `private const SORT_ALLOWLIST = ['created_at','updated_at','start_date','end_date','id']` (L22), resolved via `ListQuery::resolveSort(...)` (resolveSort wrapper L72-83) and rendered with `->orderByRaw(ListQuery::rawOrder(...))` (L51). Default `created_at DESC` nulls-last + `id DESC` (ListQuery::rawOrder emits `(<col> IS NULL) ASC, <col> <dir>, id DESC`). Invalid `?sort=__proto__` and invalid `?order` fall back silently to `created_at DESC` → HTTP 200 (never 422/500).",
+      "Contract item 6 — meta.total: `buildListMeta(Promotion::query(), $now)` (L44-47) is computed BEFORE the rows query (L49-54) applies orderByRaw/offset/limit. buildListMeta does `(clone $query)->count()` (L96). Promotions have no owner scoping (both admin and platform_owner see every row), so the base query is correctly unscoped — this satisfies the QUALITY BAR 'summary consistent with assertAdminOrOwner scope'. No global scope exists on the Promotion model. Test asserts `meta.total == 4` with 4 rows.",
+      "Contract item 7 — meta.summary 4-state: `{total,active,scheduled,ended}` (L100-105). Classification by date: active = `start_date <= today AND end_date >= today`; scheduled = `start_date > today`; ended = `end_date < today`. Derived from clones of the SAME base query (never from the paginated rows). Mutually exclusive and exhaustive for well-formed data (start<=end enforced by StorePromotionRequest/UpdatePromotionRequest `before_or_equal`/`after_or_equal` and by the factory): start>today => scheduled only; end<today => ended only; otherwise active. Test asserts the 3 buckets sum to summary.total (PromotionTest.php:164-171).",
+      "Contract item 8 — scalar-safe reads: sort/order/cursor all read through `scalarQueryString(Request,string,string)` (L114-119) which returns the default unless `is_string($request->query($key,$default))`. `?sort[]=x`, `?order[]=x`, `?cursor[]=x` all degrade to defaults with HTTP 200; covered by `test_admin_list_promotions_handles_non_scalar_params_without_error`. Independent PHP 8.3 probe confirmed `(int)['x']` yields 1 with NO warning (so even an array `limit` cannot produce a 500).",
+      "Contract item 9 — shape: response is `{status:'success', data:[...], meta:{has_more,limit,cursor,total,summary:{total,active,scheduled,ended}}}` (L58-62). meta = array_merge(['has_more'=>$hasMore], array_merge(['limit','cursor'], buildListMeta(...))). `data` is a top-level JSON array (`$rows->take($limit)->values()` / `$rows->values()`, empty => []).",
+      "Contract item 10 — no orderBy outside allowlist: the only `orderBy*` call is L51 with a column that is always an allowlist member (or the in-allowlist default created_at).",
+      "Independent test run: `cd apps/api && php artisan test --filter=PromotionTest` => 21 passed (89 assertions), 0 failures. Test count went 15 -> 21.",
+      "Offset semantics independently verified: `test_admin_list_promotions_cursor_is_offset_based` seeds 20 promos whose created_at DESC order is the reverse of id (i=1 oldest ... i=20 newest). Page1 (`cursor=0`) returns Promo 20..6; Page2 (`cursor=15`) returns Promo 5..1 via OFFSET. An id-filter (`where id > 15`) would instead return ids 16..20 = Promo 16..20 — so the fixture genuinely distinguishes offset from id-filtering, and the assertion data.0.name=='Promo 5' would fail under the old id-based contract.",
+      "Sort/null/fallback independently verified: `?sort=start_date&order=asc` => January, February, March; `?sort=created_at` with a NULL row places the null LAST in both asc and desc with id DESC tiebreak; `?sort=__proto__` => 200 with default newest-first order.",
+      "Pre-existing test updated (not deleted/weakened): `test_admin_can_list_promotions_with_limit_plus_one` — the removed assertion is exactly `->assertJsonPath('next_cursor', Promotion::orderBy('id')->limit(2)->get()[1]->id)` plus the `has_more` top-level path, because those keys no longer exist; the limit+1 semantics assertion `assertJsonCount(2,'data')` + `assertJsonPath('meta.has_more', true)` REMAINS. The remaining 14 pre-existing tests are untouched.",
+      "Implementer concern — date-granularity vs full-datetime: the controller compares `start_date`/`end_date` against `now()->toDateString()` (DATE granularity). This MATCHES the model's own `Promotion::isCurrentlyValid()` which uses `now()->startOfDay()` against the `date`-cast columns (Promotion.php:60-67), and matches the spec/plan rule 'active = now dalam [start,end]' where now is day-granularity for DATE columns. A promo ending today therefore counts as active, consistent with the model. Not a deviation."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Clean reuse of the shared T1 helper (ListQuery::resolveSort/rawOrder/meta) rather than re-implementing allowlist/nulls-last/meta logic — the intended cross-controller pattern; the drift-prone substantive logic is centralized.",
+      "Scalar-safety handled at the read boundary via scalarQueryString(), so array params degrade to defaults instead of raising a 500 — the correct defense for sort/order/cursor, and independently probed.",
+      "Aggregate correctness: meta.total and all 4 summary buckets derive from clones of the same base builder BEFORE orderByRaw/offset/limit, so they are true COUNT(*)s, never a page length.",
+      "Offset conversion is genuinely tested (page 2 by offset vs id-filtering) with a fixture whose sort order is the reverse of id — the assertion would fail under the old contract.",
+      "Scope discipline: only the two in-scope files changed; show/store/update/destroy are byte-identical to prev_sha; model/schema/routes/service untouched; no orderBy column outside the allowlist.",
+      "Behaviour-asserting tests: exact row order (data.0.name etc.), exact HTTP 200, exact meta values, and an explicit `assertArrayNotHasKey('next_cursor')` — not snapshot/tautological checks.",
+      "Deterministic time handling: Carbon::setTestNow() is used to freeze now for summary classification and is restored in tearDown(), preventing time-leak across tests.",
+      "All functions well within size heuristics: index() ~24 non-blank lines, resolveSort ~10, buildListMeta ~16, scalarQueryString ~5; controller file 177 lines (<~300). No size refactor heuristic triggered."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Duplication threshold reached: `scalarQueryString(Request,string,string)` is now byte-identical (md5-verified) across 3 controllers of the same plan — AdminOutletController.php:117, UserRoleController.php:121, PromotionController.php:114 — and the `resolveSort` wrapper is identical across UserRoleController.php:93 and PromotionController.php:72. T7 added the 3rd copy, so the '3+ identical logic' heuristic is technically met. Classified Minor (not Important) because: (a) it is a 5-line defensive input guard (boilerplate), while the drift-prone logic is already centralized in ListQuery; (b) the plan's architecture deliberately uses per-controller wiring and allocates no consolidation task; (c) fixing it in T7 would require touching already-approved out-of-scope files (T5/T6), which T7's file scope forbids; (d) the T6 auditor set the precedent (2 occurrences = Minor, explicit watch item for T7-T10). Recommend a dedicated follow-up consolidation task (small trait/base or a static ListQuery::scalarString) if T8-T10 add further copies.",
+        "location": "apps/api/app/Http/Controllers/PromotionController.php:114-119"
+      },
+      {
+        "severity": "Minor",
+        "description": "In-scope feature test file PromotionTest.php is now 654 lines (was 437 at prev_sha), nominally above the ~300-line file heuristic. Pre-existing trajectory (already 437 > 300 before T7) and consistent with the repo convention of large feature suites (OrderTest 918, MeasurementTest 643); every test method is small and cohesive. Non-blocking; no split recommended as part of this task.",
+        "location": "apps/api/tests/Feature/PromotionTest.php:1-654"
+      },
+      {
+        "severity": "Minor",
+        "description": "Cross-task integration observation (NOT an in-scope defect): the frontend promotions api.ts still reads top-level `data.has_more` and `data.next_cursor` (apps/web/src/app/admin/promotions/api.ts:114), which this new contract no longer emits (they now live at `meta.has_more` / offset `meta.cursor`). Until the Promotions page task (T14) lands, the promotions page's hasMore/nextCursor will read as false/null. This is an expected, plan-sequenced transition (backend T7 precedes frontend T14; the packet's rollback note explicitly accepts the old next_cursor frontend as unused) and is out of T7's judged file scope, so it is recorded as an integration risk for T14 rather than a T7 issue.",
+        "location": "apps/web/src/app/admin/promotions/api.ts:114"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "421996bb10d2d3115b15f842f7ae07ea12458af8"
+}

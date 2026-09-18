@@ -1,0 +1,42 @@
+{
+  "task_id": "T2",
+  "task_name": "Frontend admin-table.ts helper",
+  "cycle": 1,
+  "timestamp": "2026-09-17T01:43:51Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": []
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Pure module with zero imports (no React/component/Next) — verifiable without jsdom, satisfying the must-not-have 'file murni' bar.",
+      "SORT_ALLOWLISTS mirrors the spec's DIPUTUSKAN allowlist table exactly for all 6 pages (outlets, products, users, promotions, orders, sales-performance) and documents the mirror as the single source of truth.",
+      "compareRows enforces nulls-last in BOTH asc and desc (null/undefined/'' short-circuit to +1/-1 before any direction flip) and applies an id DESC tiebreak regardless of direction — verified by reading the comparator, not just test names.",
+      "buildCountLabel never fabricates a total when `total` is absent: it emits the estimate form 'Halaman 2 · ada data lain' (or a bare page label), never 'dari' or a fake count.",
+      "formatDateTime tolerates null/undefined/''/malformed and returns an em dash, so cells never render 'Invalid Date'; null-safe behavior matches the spec's Rule 7.",
+      "toggleSort is the single source of direction logic: same column flips desc→asc→desc, new column starts at desc.",
+      "All 4 unit test groups (allowlist, compareRows, paginate/format/label, toggleSort) pass: 16/16.",
+      "Refactor heuristics clean: admin-table.ts = 193 lines, test = 184 lines (both < ~300), largest function ~25 lines (< ~50), no logic repeated 3+ times."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "normalizeSort falls back to the global DEFAULT_SORT_COLUMN 'created_at', which is NOT a member of the sales-performance allowlist ('name','id'). This is per the task spec ('column outside allowlist → created_at') and mirrors backend ListQuery's global default, so it is non-blocking, but the T16 sales-performance integrator must not route 'achievement' through normalizeSort (it sorts client-side) or the server would re-fallback to name ASC.",
+        "location": "apps/web/src/lib/admin-table.ts:35"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "6a45425237b162fe219768b1a1d477b3922a2331"
+}

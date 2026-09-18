@@ -1,0 +1,1437 @@
+{
+  "nodes": [
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_database_migrations_for_phase_7_doc",
+      "label": "T1 — Database Migrations for Phase 7",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T1-database-migrations-for-phase-7.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_additive_migrations",
+      "label": "Additive Non-Destructive Migrations",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T1-database-migrations-for-phase-7.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_platform_owner_role",
+      "label": "platform_owner Role Enum Value",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T1-database-migrations-for-phase-7.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_central_authorization_policy_role_management_f1_doc",
+      "label": "T2 — Central Authorization Policy & Role Management (F1)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_user_policy",
+      "label": "UserPolicy (Central Authorization)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_user_role_service",
+      "label": "UserRoleService (Role Assignment + Audit + JWT Invalidation)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_role_assignment_audit",
+      "label": "RoleAssignmentAudit",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_platform_owner_superset",
+      "label": "platform_owner is superset of admin",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+      "label": "T3 — Outlet Profile & Lifecycle (F2)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_admin_outlet_controller",
+      "label": "AdminOutletController",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_scoring_service",
+      "label": "OutletScoringService",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_scoring_formula",
+      "label": "Outlet Scoring Formula (volume*0.4 + frequency*0.3 + recency*0.3)",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+      "label": "T4 — Product Price Management (F3)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T4-product-price-management-f3.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_service",
+      "label": "ProductPriceService (History Logging)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T4-product-price-management-f3.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_price_snapshot_frozen",
+      "label": "Price snapshot frozen at order creation",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T4-product-price-management-f3.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "label": "T5 — Promotion Management (F4)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_service",
+      "label": "PromotionService (Overlap Check + Immutability)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promo_snapshot_at_creation",
+      "label": "Promo snapshot stored at order creation (no retroactive application)",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "label": "T6 — Sales Order Collection & Performance (F5)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service",
+      "label": "OrderCreationService (shared order pipeline)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_performance_service",
+      "label": "SalesPerformanceService (Achievement Aggregation)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_territory_binding",
+      "label": "Sales Territory Binding (user.territory_id === outlet.territory_id)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_promotion_broadcast_f6_doc",
+      "label": "T7 — WhatsApp Promotion Broadcast (F6)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T7-whatsapp-promotion-broadcast-f6.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_outbound_service",
+      "label": "WhatsAppOutboundService (broadcastPromotion)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T7-whatsapp-promotion-broadcast-f6.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_logical_key_dedup",
+      "label": "logical_key dedup + insertOrIgnore idempotency",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T7-whatsapp-promotion-broadcast-f6.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_frontend_admin_pages_doc",
+      "label": "T8 — Frontend Admin Pages",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T8-frontend-admin-pages.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_admin_frontend_pages",
+      "label": "Admin Frontend Pages (users/outlets/products/promotions)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T8-frontend-admin-pages.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t9_frontend_sales_pages_integration_doc",
+      "label": "T9 — Frontend Sales Pages & Integration",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T9-frontend-sales-pages-integration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t9_sales_frontend_pages",
+      "label": "Sales Frontend Pages (orders + performance)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T9-frontend-sales-pages-integration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_doc",
+      "label": "Closeout — 2026-09-17-admin-table-ux",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_admin_table_ux",
+      "label": "Admin Table UX Plan (CLOSED, all phases DONE)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_review_verdict",
+      "label": "Review verdict: 44 Minor carried forward, 0 Critical/Important",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "label": "Execution Plan — Admin Table Readability",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_list_query",
+      "label": "ListQuery sort/total helper",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_offset_cursor_contract",
+      "label": "Offset Cursor Contract (cursor=0, limit, 2*limit)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_sort_allowlist",
+      "label": "Sort via per-controller allowlist; invalid falls back silently",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_nulls_last_ordering",
+      "label": "Nulls-last portable ordering expression",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_frontend_admin_table_helper",
+      "label": "Frontend admin-table.ts helper",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_table_controls",
+      "label": "Table Controls (Pagination/Summary/Density toggle + hook)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_density_toggle",
+      "label": "Density Toggle (compact/default/comfortable, localStorage admin:table-density)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_summary_strip",
+      "label": "Summary Strip (total + breakdown)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_doc",
+      "label": "Execution Index — Admin Table Readability",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_phase_plan",
+      "label": "Admin Table UX Phased Task Index (T1-T17, 4 phases)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_1_doc",
+      "label": "Phase 1 — Backend ListQuery sort/total helper",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-1.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_2_doc",
+      "label": "Phase 2 — OrderController@index offset cursor + sort + total",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-2.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_3_doc",
+      "label": "Phase 3 — Table controls (Pagination/Summary/Density toggle + hook)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-3.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_4_doc",
+      "label": "Phase 4 — Users page sort/paging/summary/timestamps/density",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-4.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_central_authorization_policy_role_management_f1_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_database_migrations_for_phase_7_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_database_migrations_for_phase_7_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_database_migrations_for_phase_7_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T4-product-price-management-f3.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_promotion_broadcast_f6_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T7-whatsapp-promotion-broadcast-f6.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_frontend_admin_pages_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_central_authorization_policy_role_management_f1_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T8-frontend-admin-pages.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_frontend_admin_pages_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T8-frontend-admin-pages.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_frontend_admin_pages_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T8-frontend-admin-pages.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_frontend_admin_pages_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T8-frontend-admin-pages.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t9_frontend_sales_pages_integration_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T9-frontend-sales-pages-integration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t9_frontend_sales_pages_integration_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_promotion_broadcast_f6_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T9-frontend-sales-pages-integration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_database_migrations_for_phase_7_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_additive_migrations",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T1-database-migrations-for-phase-7.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_database_migrations_for_phase_7_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_platform_owner_role",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T1-database-migrations-for-phase-7.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_central_authorization_policy_role_management_f1_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_user_policy",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_central_authorization_policy_role_management_f1_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_user_role_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_central_authorization_policy_role_management_f1_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_role_assignment_audit",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_user_role_service",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_role_assignment_audit",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_platform_owner_superset",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_user_policy",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_platform_owner_superset",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_platform_owner_role",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T2-central-authorization-policy-role-management-f1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_admin_outlet_controller",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_scoring_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_scoring_formula",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_scoring_service",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T4-product-price-management-f3.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_price_snapshot_frozen",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_service",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T4-product-price-management-f3.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T4-product-price-management-f3.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_price_snapshot_frozen",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T4-product-price-management-f3.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promo_snapshot_at_creation",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_service",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_service",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_performance_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_territory_binding",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_territory_binding",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_promotion_broadcast_f6_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_outbound_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T7-whatsapp-promotion-broadcast-f6.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_logical_key_dedup",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_outbound_service",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T7-whatsapp-promotion-broadcast-f6.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_promotion_broadcast_f6_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T7-whatsapp-promotion-broadcast-f6.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_frontend_admin_pages_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_admin_frontend_pages",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T8-frontend-admin-pages.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t9_frontend_sales_pages_integration_doc",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t9_sales_frontend_pages",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T9-frontend-sales-pages-integration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t9_sales_frontend_pages",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_territory_binding",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T9-frontend-sales-pages-integration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_1_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_2_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_3_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_4_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_1_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_2_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-2.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_3_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-3.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_4_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_2_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_1_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-2.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_3_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_2_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-3.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_4_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_3_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\phase-4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_1_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_2_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_3_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_4_doc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_admin_table_ux",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_review_verdict",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_admin_table_ux",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_list_query",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_offset_cursor_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_sort_allowlist",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_nulls_last_ordering",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_frontend_admin_table_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_table_controls",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_density_toggle",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_summary_strip",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_sort_allowlist",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_list_query",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_nulls_last_ordering",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_list_query",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_offset_cursor_contract",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_list_query",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_frontend_admin_table_helper",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_list_query",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_density_toggle",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_table_controls",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_summary_strip",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_table_controls",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_phase_plan",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_phase_plan",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_list_query",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T3-outlet-profile-lifecycle-f2.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T5-promotion-management-f4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_admin_frontend_pages",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_frontend_admin_table_helper",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T8-frontend-admin-pages.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_review_verdict",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\closeout.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_additive_migrations",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_platform_owner_role",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T1-database-migrations-for-phase-7.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_outbound_service",
+      "target": "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.55,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T7-whatsapp-promotion-broadcast-f6.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "phase7_mvp_task_flow",
+      "label": "Phase 7 MVP Completion task flow (T1-T9)",
+      "nodes": [
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t1_database_migrations_for_phase_7_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t2_central_authorization_policy_role_management_f1_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t3_outlet_profile_lifecycle_f2_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t7_whatsapp_promotion_broadcast_f6_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t8_frontend_admin_pages_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t9_frontend_sales_pages_integration_doc"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T1-database-migrations-for-phase-7.md"
+    },
+    {
+      "id": "admin_table_ux_execution_flow",
+      "label": "Admin Table UX phased execution flow (T1-T17)",
+      "nodes": [
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_doc",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_index_doc",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_1_doc",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_2_doc",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_3_doc",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_phase_4_doc",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_closeout_doc"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\index.md"
+    },
+    {
+      "id": "order_creation_service_consumers",
+      "label": "OrderCreationService shared pipeline consumers (T4/T5/T6)",
+      "nodes": [
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t4_product_price_management_f3_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t5_promotion_management_f4_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_sales_order_collection_performance_f5_doc",
+        "docs_pocket_plans_2026_09_16_phase7_mvp_completion_execution_plan_tasks_t6_order_creation_service"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-16-phase7-mvp-completion\\execution-plan\\tasks\\T6-sales-order-collection-performance-f5.md"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

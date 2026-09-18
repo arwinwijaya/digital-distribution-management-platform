@@ -1,0 +1,16 @@
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T1-dummy-module-scaffold-seeded-rng-date-utils-jabode.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T10-consolidate-and-guard-inline-fetch-pages.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T11-fake-mutation-mutators-write-path-guards.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T12-cross-unit-dummy-mode-integration-verification.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T2-zustand-dummy-store-isdummy-entities-role-toggle-l.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T3-role-persistence-at-login-ddp-role-sidebar-offline.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T4-topbar-toggle-ui.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T5-dummyfactory-master-data-territories-outlets-produ.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T6-dummyfactory-transactions-analytics-di-ai-aggregat.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T7-read-guard-helper-commit-guard-helper.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T8-guard-data-intelligence-api-operations-api.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-02-14-dummy-mode-jabodetabek\execution-plan\tasks\T9-guard-admin-sales-api-modules.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-09-16-phase7-mvp-completion\execution-plan.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-09-16-phase7-mvp-completion\execution-plan\index.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-09-16-phase7-mvp-completion\execution-plan\phase-1.md
+D:\Development\amal\digital-distribution-management-platform\docs\pocket\plans\2026-09-16-phase7-mvp-completion\execution-plan\phase-2.md

@@ -1,0 +1,866 @@
+{
+  "nodes": [
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "label": "Admin Table Readability Spec (approved)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_document",
+      "label": "Continuation Prompt (pocket-grinding to pocket-planning)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_document",
+      "label": "Admin Table UX Pitch Exploration (draft)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_default_sort",
+      "label": "Default Sort Terbaru-Terlama",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Data terbaru paling berharga secara operasional; admin tidak perlu filter/tebak untuk menemukan data baru."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_paging_ui",
+      "label": "Paging UI Berorientasi (Halaman X dari Y)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Paging tak terlihat membuat admin tidak tahu jumlah data dan posisinya; teks 'Ada data lebih lanjut' diganti label posisi + prev/next + jump."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_summary_strip",
+      "label": "Summary Strip (Total + Breakdown)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Admin harus hitung manual atau scroll untuk orientasi; strip total + breakdown status memberi orientasi instan sebelum membaca baris."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_toggle",
+      "label": "Row Density Toggle (Compact/Default/Comfortable)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Ahli butuh dense, pemula butuh lapang; preferensi di-persist di localStorage admin:table-density."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sortable_header",
+      "label": "Sortable Header via Klik Kolom",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Admin butuh sort kolom tanpa filter tambahan; toggle asc/desc dengan indikator arah dan query param sort/order."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_timestamp_columns",
+      "label": "Kolom created_at/updated_at Terlihat",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Admin perlu tahu mana yang baru tanpa buka detail; berlaku untuk 5 tabel entitas, sales-performance dikecualikan karena agregat per-user per-periode tanpa timestamp."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_offset_cursor",
+      "label": "Kontrak Offset Cursor Seragam",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Semua 6 tabel memakai offset cursor (cursor=0, limit, 2*limit) demi keseragaman jump paging; tradeoff skip/duplikat saat insert konkuren diterima karena volume admin kecil (~48-100 row)."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_meta_total",
+      "label": "meta.total + meta.summary (Aditif)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Semua 6 controller mengembalikan top-level meta.total (COUNT(*) dengan filter sama) plus meta.summary; has_more dipertahankan. Frontend fallback ke label estimasi bila total absen."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sort_allowlist",
+      "label": "Sort Allowlist per Controller",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Param sort/order divalidasi terhadap allowlist per-controller; nilai invalid/berbahaya (__proto__, ; DROP) fallback diam ke created_at DESC, id DESC dengan HTTP 200 (bukan 422/500) untuk mencegah error/SQL injection."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_nulls_last",
+      "label": "Nulls-Last Dua Arah",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Ordering pakai ekspresi portabel ORDER BY (col IS NULL) ASC, col dir, id DESC agar identik di PostgreSQL dan SQLite test tanpa bergantung NULLS LAST."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_dummy_mode_parity",
+      "label": "Dummy-mode Parity",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Branch dummy di api.ts + helper listDummy* wajib implementasi sort/order/total identik agar tetap zero-network dan lolos dummy-guard.test.ts + dummy-mode.e2e.test.tsx."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_table_tsx_contract",
+      "label": "Table.tsx Generic Contract (sortableColumns/sort/onSort)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Sortable state tinggal di Table via props opsional agar tetap generik; kolom Aksi inert; halaman orders (fetch inline tanpa api.ts) pakai props sama dengan local sort state."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_ssr_hydration",
+      "label": "Density Persistence + SSR Hydration",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Initial density Default di server render; baca localStorage admin:table-density hanya di useEffect setelah mount agar tidak hydration mismatch, mirror pola readPersistedFlag di dummy/store.ts."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_authorization",
+      "label": "Authorization Inherit Guard (sort/order/total)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Param baru inherit guard yang sudah ada (401/403 tidak berubah); orders tetap mempertahankan isAdmin() + middleware deny.finance."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_option_b_full_paging",
+      "label": "Design Decision: Option B — Full Paging",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "brainstorm session",
+      "contributor": null,
+      "rationale": "Dipilih atas Option A (Smart Default saja — gagal skenario paging/cursor beyond total/reset state) dan Option C (Progressive bertahap — menambah risiko setengah jadi); tradeoff COUNT(*) + agregat dan offset cursor diterima."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_direction_b_full_paging",
+      "label": "Direction B: Full Paging (Pitch)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_six_admin_pages",
+      "label": "Enam Halaman Admin (outlets, products, users, promotions, sales-performance, orders)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_brainstorm_synthesis",
+      "label": "Brainstorm Synthesis (5 Methods)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Kegagalan utama bukan 'terlalu sedikit fitur' tetapi tidak ada default yang benar; semua role butuh orientasi cepat."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "label": "10 Blocking Clarifications (Edge Case Hunter)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Edge case hunter menghasilkan 10 pertanyaan blocking (cursor semantics, total shape, reset state, allowlist, nulls-last, summary source, dummy parity, Table contract, auth, hydration) yang diselesaikan dengan default rekomendasi tanpa bertanya ulang ke user."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_pocket_planning_handoff",
+      "label": "Handoff ke pocket-planning",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Setelah Phase 5-7 pocket-grinding selesai dan spec approved, lanjut ke pocket-planning Phase 0 untuk menghasilkan execution-plan.md."
+    }
+  ],
+  "edges": [
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_document",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_document",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_default_sort",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_paging_ui",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_summary_strip",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_toggle",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sortable_header",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_timestamp_columns",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_offset_cursor",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_meta_total",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sort_allowlist",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_nulls_last",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_dummy_mode_parity",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_table_tsx_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_ssr_hydration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_authorization",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_option_b_full_paging",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_option_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_default_sort",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_option_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_paging_ui",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_option_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_toggle",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_option_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_summary_strip",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_offset_cursor",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_paging_ui",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_meta_total",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_paging_ui",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_meta_total",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_summary_strip",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sort_allowlist",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sortable_header",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_nulls_last",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_default_sort",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_nulls_last",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_timestamp_columns",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_ssr_hydration",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_toggle",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_dummy_mode_parity",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_offset_cursor",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_dummy_mode_parity",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_meta_total",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_table_tsx_contract",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sortable_header",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_table_tsx_contract",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_toggle",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_authorization",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_offset_cursor",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_direction_b_full_paging",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_six_admin_pages",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_brainstorm_synthesis",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_direction_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_option_b_full_paging",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_direction_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_default_sort",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_direction_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_paging_ui",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_direction_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_summary_strip",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_direction_b_full_paging",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_toggle",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_document",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_pocket_planning_handoff",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_offset_cursor",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_meta_total",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sort_allowlist",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_nulls_last",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_ssr_hydration",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_authorization",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_blocking_clarifications",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_table_tsx_contract",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_brainstorm_synthesis",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_summary_strip",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_six_admin_pages",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_table_tsx_contract",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_pocket_planning_handoff",
+      "target": "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "admin_table_readability_feature_set",
+      "label": "Admin Table Readability Feature Set",
+      "nodes": [
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_default_sort",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_paging_ui",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_summary_strip",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_density_toggle",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sortable_header",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_timestamp_columns"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md"
+    },
+    {
+      "id": "admin_table_api_contract_decisions",
+      "label": "Admin Table API Contract Decisions",
+      "nodes": [
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_offset_cursor",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_meta_total",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_sort_allowlist",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_nulls_last",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_dummy_mode_parity"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\admin-table-readability.md"
+    },
+    {
+      "id": "admin_table_ux_pocket_workflow",
+      "label": "Pocket Pitching to Grinding to Planning Workflow",
+      "nodes": [
+        "docs_pocket_spec_2026_09_17_admin_table_ux_pitch_exploration_document",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_admin_table_readability_document",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_document",
+        "docs_pocket_spec_2026_09_17_admin_table_ux_continuation_prompt_pocket_planning_handoff"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-17-admin-table-ux\\continuation-prompt.md"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

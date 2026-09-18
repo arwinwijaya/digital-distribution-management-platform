@@ -1,0 +1,1489 @@
+{
+  "nodes": [
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "label": "T1 - Backend ListQuery sort/total helper",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_task",
+      "label": "T2 - Frontend admin-table.ts helper",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T2-frontend-admin-table-ts-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_task",
+      "label": "T3 - Table.tsx density + sortable header",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T3-table-tsx-density-sortable-header.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "label": "T4 - Table controls (Pagination/Summary/Density toggle + hook)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "label": "T5 - AdminOutletController@index sort + total + summary + meta normalization",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t6_userrolecontroller_index_offset_cursor_sort_total_task",
+      "label": "T6 - UserRoleController@index offset cursor + sort + total",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T6-userrolecontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t7_promotioncontroller_index_id_cursor_offset_sort_total_summary_task",
+      "label": "T7 - PromotionController@index id-cursor to offset + sort + total + summary",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t8_ordercontroller_index_offset_cursor_sort_total_task",
+      "label": "T8 - OrderController@index offset cursor + sort + total",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T8-ordercontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t9_productcontroller_index_additive_sort_cursor_total_public_endpoint_task",
+      "label": "T9 - ProductController@index additive sort/cursor/total (public)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task",
+      "label": "T10 - SalesPerformanceController@adminPerformance offset + sort + total",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "label": "T11 - Outlets page sort/paging/summary/timestamps/density",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t12_products_page_sort_paging_summary_timestamps_density_task",
+      "label": "T12 - Products page sort/paging/summary/timestamps/density",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T12-products-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t13_users_page_sort_paging_summary_timestamps_density_task",
+      "label": "T13 - Users page sort/paging/summary/timestamps/density",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T13-users-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t14_promotions_page_sort_paging_summary_timestamps_density_task",
+      "label": "T14 - Promotions page sort/paging/summary/timestamps/density",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T14-promotions-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t15_sales_performance_page_sort_paging_summary_density_task",
+      "label": "T15 - Sales-performance page sort/paging/summary/density",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T15-sales-performance-page-sort-paging-summary-density.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t16_orders_page_sort_paging_summary_timestamps_density_task",
+      "label": "T16 - Orders page sort/paging/summary/timestamps/density",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T16-orders-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "label": "T17 - Integration admin table contract + dummy parity",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_mode_spec",
+      "label": "Dummy Mode - JABODETABEK (60 days, all menus)",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\dummy-mode.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_pitch_exploration",
+      "label": "Pitch Exploration: dummy-mode-jabodetabek",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\pitch-exploration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "label": "Phase 7 - MVP Completion & Core Operations",
+      "file_type": "document",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-16-phase7-mvp-completion\\phase7-mvp-completion.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "label": "ListQuery Helper",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Shared Helper Pattern - 6 controllers need identical sort resolution, total and nulls-last ordering; without a helper each controller duplicates the logic and it is never consolidated."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_sort_allowlist",
+      "label": "Sort Allowlist per Controller",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Sorting is allowed only for whitelisted columns; any invalid or dangerous value silently falls back to a default (created_at DESC, or a caller-supplied default for public endpoints) to avoid 422/500 and injection."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_nulls_last",
+      "label": "Nulls-last ordering (portable)",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Expression (col IS NULL) ASC, col DIR, id DESC keeps null ordering identical on SQLite (tests) and PostgreSQL (runtime)."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "label": "Admin Table Readability Spec",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Defines the sort-allowlist, offset-cursor contract, top-level meta.total, summary strip, nulls-last, density and dummy-parity rules that every task implements."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_option_b_full_paging",
+      "label": "Design Decision: Option B (Full Paging)",
+      "file_type": "rationale",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Chosen to give a uniform offset-cursor plus top-level meta.total contract across all admin list endpoints, enabling consistent paging/sort/summary UI in one generic Table component."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "label": "admin-table.ts Helper",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T2-frontend-admin-table-ts-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Shared Helper Pattern - 6 dummy listDummy branches and 6 page components need an identical comparator/sort/paginate/format; without it each page writes its own copy. SORT_ALLOWLISTS mirrors the backend allowlist as a single documented source of truth."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_table_density_type",
+      "label": "TableDensity type",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T2-frontend-admin-table-ts-helper.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "TableDensity = 'compact' | 'default' | 'comfortable' drives row padding and is persisted in localStorage."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_table_component",
+      "label": "Table.tsx Generic Contract",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T3-table-tsx-density-sortable-header.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Table is the single table component used by 6 pages; upgrading it in one place (optional props, aria-sort, density) lowers duplication risk while keeping the existing columns/rows/rowKey/empty contract backward compatible."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_pagination",
+      "label": "TablePagination",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_summary",
+      "label": "TableSummary strip",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_density_toggle",
+      "label": "TableDensityToggle",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_use_table_density",
+      "label": "useTableDensity hook",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Initial density is default on server render; localStorage key admin:table-density is read only in useEffect to avoid hydration mismatch."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_offset_cursor_contract",
+      "label": "Offset Cursor Contract",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Option B (Full Paging) with a uniform offset cursor so all admin lists share one paging contract; promotions and sales-performance convert from id-based cursor to offset."
+    },
+    {
+      "id": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_meta_total_contract",
+      "label": "meta.total Contract",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Total is a COUNT with the same filters; meta is normalized to top-level (has_more/limit/cursor/total/summary) while data stays an array for frontend compatibility."
+    },
+    {
+      "id": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_store_factory",
+      "label": "Dummy Mode Zustand Store + Factory",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\dummy-mode.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Option A (Zustand singleton store + per-API-function guard) chosen over global fetch override (fails relational invariant) and page-level swapped components (bypasses the aggregation/chart functions that must be verified). One seeded factory builds a single relational graph consumed by all menus."
+    },
+    {
+      "id": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_parity",
+      "label": "Dummy-mode Parity",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\dummy-mode.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Dummy data must flow through the same functions as real data so downstream aggregation/chart functions are actually exercised; determinism makes a wrong chart a code bug rather than data noise."
+    },
+    {
+      "id": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "label": "Phase 7 MVP Completion",
+      "file_type": "concept",
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-16-phase7-mvp-completion\\phase7-mvp-completion.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Incremental service-layer extension with dedicated controllers per domain; string-role enum kept instead of spatie RBAC to minimize migration risk. Created the AdminOutlet/UserRole/Promotion/Order/Product/SalesPerformance controllers that this plan upgrades."
+    }
+  ],
+  "edges": [
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T3-table-tsx-density-sortable-header.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t6_userrolecontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T6-userrolecontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t7_promotioncontroller_index_id_cursor_offset_sort_total_summary_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t8_ordercontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T8-ordercontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t9_productcontroller_index_additive_sort_cursor_total_public_endpoint_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t12_products_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T12-products-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t12_products_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t9_productcontroller_index_additive_sort_cursor_total_public_endpoint_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T12-products-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t13_users_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T13-users-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t13_users_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t6_userrolecontroller_index_offset_cursor_sort_total_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T13-users-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t14_promotions_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T14-promotions-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t14_promotions_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t7_promotioncontroller_index_id_cursor_offset_sort_total_summary_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T14-promotions-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t15_sales_performance_page_sort_paging_summary_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T15-sales-performance-page-sort-paging-summary-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t15_sales_performance_page_sort_paging_summary_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T15-sales-performance-page-sort-paging-summary-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t16_orders_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T16-orders-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t16_orders_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t8_ordercontroller_index_offset_cursor_sort_total_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T16-orders-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t12_products_page_sort_paging_summary_timestamps_density_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t13_users_page_sort_paging_summary_timestamps_density_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t14_promotions_page_sort_paging_summary_timestamps_density_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t15_sales_performance_page_sort_paging_summary_density_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t16_orders_page_sort_paging_summary_timestamps_density_task",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_sort_allowlist",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_nulls_last",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_option_b_full_paging",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T2-frontend-admin-table-ts-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_table_density_type",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T2-frontend-admin-table-ts-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T2-frontend-admin-table-ts-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_sort_allowlist",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T2-frontend-admin-table-ts-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_table_component",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T3-table-tsx-density-sortable-header.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_table_density_type",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T3-table-tsx-density-sortable-header.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T3-table-tsx-density-sortable-header.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_pagination",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_summary",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_density_toggle",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_use_table_density",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T4-table-controls-pagination-summary-density-toggle-hook.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_offset_cursor_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_meta_total_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_option_b_full_paging",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t6_userrolecontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T6-userrolecontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t6_userrolecontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_meta_total_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T6-userrolecontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t6_userrolecontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T6-userrolecontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t7_promotioncontroller_index_id_cursor_offset_sort_total_summary_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t7_promotioncontroller_index_id_cursor_offset_sort_total_summary_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_offset_cursor_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t7_promotioncontroller_index_id_cursor_offset_sort_total_summary_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t8_ordercontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T8-ordercontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t8_ordercontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_offset_cursor_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T8-ordercontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t8_ordercontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_meta_total_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T8-ordercontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t8_ordercontroller_index_offset_cursor_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T8-ordercontroller-index-offset-cursor-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t9_productcontroller_index_additive_sort_cursor_total_public_endpoint_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t9_productcontroller_index_additive_sort_cursor_total_public_endpoint_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_meta_total_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t9_productcontroller_index_additive_sort_cursor_total_public_endpoint_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_offset_cursor_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_meta_total_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_pagination",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_summary",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_density_toggle",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_option_b_full_paging",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t12_products_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T12-products-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t12_products_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T12-products-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t12_products_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t4_table_controls_pagination_summary_density_toggle_hook_table_summary",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T12-products-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t13_users_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T13-users-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t13_users_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T13-users-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t14_promotions_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T14-promotions-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t14_promotions_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T14-promotions-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t14_promotions_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_offset_cursor_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T14-promotions-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t15_sales_performance_page_sort_paging_summary_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T15-sales-performance-page-sort-paging-summary-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t15_sales_performance_page_sort_paging_summary_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T15-sales-performance-page-sort-paging-summary-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t16_orders_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t3_table_tsx_density_sortable_header_table_component",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T16-orders-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t16_orders_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T16-orders-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_parity",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_mode_spec",
+      "target": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_store_factory",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\dummy-mode.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_mode_spec",
+      "target": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_parity",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\dummy-mode.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_pitch_exploration",
+      "target": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_store_factory",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-16-phase7-mvp-completion\\phase7-mvp-completion.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_offset_cursor_contract",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-16-phase7-mvp-completion\\phase7-mvp-completion.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_meta_total_contract",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-09-16-phase7-mvp-completion\\phase7-mvp-completion.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_listquery_helper",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T2-frontend-admin-table-ts-helper.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_parity",
+      "target": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_admin_table_readability_spec",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\dummy-mode.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+      "target": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T5-adminoutletcontroller-index-sort-total-summary-normalisasi-meta.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t7_promotioncontroller_index_id_cursor_offset_sort_total_summary_task",
+      "target": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T7-promotioncontroller-index-id-cursor-offset-sort-total-summary.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t9_productcontroller_index_additive_sort_cursor_total_public_endpoint_task",
+      "target": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T9-productcontroller-index-additive-sort-cursor-total-public-endpoint.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task",
+      "target": "docs_pocket_spec_2026_09_16_phase7_mvp_completion_phase7_mvp_completion",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T10-salesperformancecontroller-adminperformance-id-cursor-offset-sort-total.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+      "target": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_store_factory",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_pitch_exploration",
+      "target": "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_mode_spec",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\spec\\2026-02-14-dummy-mode-jabodetabek\\pitch-exploration.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "backend_list_contract",
+      "label": "Backend admin list sort/total/cursor contract",
+      "nodes": [
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t1_backend_listquery_sort_total_helper_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t5_adminoutletcontroller_index_sort_total_summary_normalisasi_meta_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t6_userrolecontroller_index_offset_cursor_sort_total_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t7_promotioncontroller_index_id_cursor_offset_sort_total_summary_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t8_ordercontroller_index_offset_cursor_sort_total_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t9_productcontroller_index_additive_sort_cursor_total_public_endpoint_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t10_salesperformancecontroller_adminperformance_id_cursor_offset_sort_total_task"
+      ],
+      "relation": "implement",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T1-backend-listquery-sort-total-helper.md"
+    },
+    {
+      "id": "frontend_table_upgrade",
+      "label": "Frontend admin table page upgrades",
+      "nodes": [
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t11_outlets_page_sort_paging_summary_timestamps_density_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t12_products_page_sort_paging_summary_timestamps_density_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t13_users_page_sort_paging_summary_timestamps_density_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t14_promotions_page_sort_paging_summary_timestamps_density_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t15_sales_performance_page_sort_paging_summary_density_task",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t16_orders_page_sort_paging_summary_timestamps_density_task"
+      ],
+      "relation": "implement",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T11-outlets-page-sort-paging-summary-timestamps-density.md"
+    },
+    {
+      "id": "dummy_parity_flow",
+      "label": "Dummy-mode parity verification flow",
+      "nodes": [
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t17_integration_admin_table_contract_across_pages_dummy_parity_task",
+        "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_mode_spec",
+        "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_parity",
+        "docs_pocket_spec_2026_02_14_dummy_mode_jabodetabek_dummy_store_factory",
+        "docs_pocket_plans_2026_09_17_admin_table_ux_execution_plan_tasks_t2_frontend_admin_table_ts_helper_admin_table_helper"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "D:\\Development\\amal\\digital-distribution-management-platform\\docs\\pocket\\plans\\2026-09-17-admin-table-ux\\execution-plan\\tasks\\T17-integration-admin-table-contract-across-pages-dummy-parity.md"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

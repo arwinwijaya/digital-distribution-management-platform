@@ -1,0 +1,53 @@
+{
+  "task_id": "T1",
+  "task_name": "Backend ListQuery sort/total helper",
+  "cycle": 1,
+  "timestamp": "2026-09-17T01:36:52Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "No implementer concerns were supplied for this task; none to reconcile.",
+      "Verified diff range d106625..f43fcdc touches ONLY apps/api/app/Support/ListQuery.php (new) and apps/api/tests/Unit/ListQueryTest.php (new); the favicon commit d106625 is excluded and no apps/web/src/app/icon.svg appears in-range (confirmed via name-status + grep).",
+      "resolveSort: strict allowlist guard via in_array($sort, $allowlist, true); invalid column -> ($defaultSort ?? 'created_at'); order normalized case-insensitively to asc|desc else 'desc' while keeping a valid column; no exception path on invalid values.",
+      "rawOrder: exact portable contract verified: sprintf('(%s IS NULL) ASC, %s %s, id DESC', ...) with DIR uppercased -> '(created_at IS NULL) ASC, created_at DESC, id DESC' matches the packet string contract literally.",
+      "offset: max(0, (int) $offset) clamps null and negative to 0 and passes positive values through.",
+      "meta: summary key present only when $summary !== [] (not an isset-style check); test asserts its absence with assertArrayNotHasKey.",
+      "Pure static helper, no DB access, no Eloquent, no side effects; verified no other in-repo reference to ListQuery (controller not wired yet), matching the rollback note.",
+      "Must-not-have: no controller/route/schema/migration file appears in the range (grep over changed paths: none). No existing endpoint behavior changed.",
+      "Test command re-run independently: 'cd apps/api && php artisan test --filter=ListQueryTest' -> 12 passed (13 assertions), 0 failures."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Spec-compliant, minimal, pure-static design with no framework coupling (no DB/Eloquent), exactly the 4 required groups: allowlist, rawOrder, offset/meta, default caller.",
+      "Tests are exact-value assertions (assertSame / assertArrayNotHasKey), not tautological and capable of failing: they pin the literal ORDER BY string, the fallback column/order, caller-supplied default, and the omitted summary key.",
+      "Strict comparisons used throughout the helper (in_array with strict=true; strtolower/strtoupper normalization) — no loose coercion that could leak a non-allowlisted column.",
+      "Files and functions well within size limits (ListQuery.php 78 lines, ListQueryTest.php 96 lines; longest function well under ~50 lines); no duplicated logic. No refactor heuristic triggered (no 3x repetition, no ~300-line file, no ~50-line function)."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Case-insensitive order handling is implemented (normalizeOrder uses strtolower) but not directly asserted: tests exercise 'asc' and invalid 'DROP' only, with no 'ASC'/'Desc' input proving case normalization. Coverage gap, not a correctness defect.",
+        "location": "apps/api/tests/Unit/ListQueryTest.php:41-52"
+      },
+      {
+        "severity": "Minor",
+        "description": "offset(?int $offset, int $limit) leaves $limit unused. This is the spec-mandated signature and the docblock explains it as the call-site contract, so it is intentional; noted only as a minor smell that a future unused-parameter linter could flag.",
+        "location": "apps/api/app/Support/ListQuery.php:52-55"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "f43fcdcf788c3d2799fc81f7da5fc1b50cd17d33"
+}

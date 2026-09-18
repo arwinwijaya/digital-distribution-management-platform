@@ -1,0 +1,53 @@
+{
+  "task_id": "T16",
+  "task_name": "Orders page — sort/paging/summary/timestamps/density",
+  "cycle": 1,
+  "timestamp": "2026-09-18T03:06:05Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Task reported the inert-header and sort-propagation tests were proven via temporary breaks that were reverted — confirmed: `git diff dfe9f9ac..a2b8e8da -- page.tsx` contains only density tokens (import TableDensityToggle, import useTableDensity, `const { density, setDensity }`, `density={density}`); no leftover break.",
+      "STOP CONDITIONS 'meta.total absent → fallback estimate' — confirmed: summary renders `total ?? orders.length` (page.tsx:77) and paging falls back to the labeled estimate via `buildCountLabel` (TablePagination), matching the spec's labeled-estimate rule.",
+      "STOP CONDITIONS 'need a separate api.ts for orders' — not triggered: orders still fetches inline; no `apps/web/src/app/admin/orders/api.ts` was created.",
+      "Concern 'must-not touch OrderForm / Order type / statusHistory render' — confirmed byte-identical: `git rev-parse 86adb2dc:…/OrderForm.tsx` == `git rev-parse a2b8e8da:…/OrderForm.tsx` (772d2800fe9e5ddaf6b2db9cd935faf86f2b8eed); the `Riwayat status` / `status_history` render block is unchanged between prev and HEAD."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Exact sort allowlist match: `sortableColumns={['created_at', 'updated_at', 'order_id', 'status', 'total_amount']}` (page.tsx:77) is precisely rendered keys ∩ the T8 orders allowlist `['created_at','updated_at','order_id','status','total_amount','id']` — `action` excluded (inert) and `id` not rendered; identical to `SORT_ALLOWLISTS.orders` in lib/admin-table.ts.",
+      "Default load is `sort=created_at&order=desc&cursor=0&limit=100` and the test asserts all four params on the actual fetch URL (page.test.tsx:70-79), so the default is proven non-vacuously rather than assumed.",
+      "Offset-cursor contract honored: page 2 sends `cursor=100` (PAGE_LIMIT=100), `meta.cursor` is read via `setCursor(meta?.cursor ?? nextCursor)`, `meta.total` is read into the summary, and the URL never emits `next_cursor` (asserted page.test.tsx:259).",
+      "Rule 5 reset semantics implemented and tested: `onSort` always passes `{ resetCursor: true, sort: next }` so sorting from a later page returns to `cursor=0`, while `onPageChange` passes only `{ cursor: nextCursor }` preserving the active sort — both directions asserted.",
+      "Timestamp columns use the shared `formatDateTime` helper with null → `—`; tests assert raw ISO is absent from the DOM and the em dash appears for null rows.",
+      "Density wiring is the approved pattern: `useTableDensity` + `TableDensityToggle` with `density={density}` on `<Table>`; tests assert the header padding class on the `<th>` (`py-3`→`py-2`→`py-4`), persistence to `admin:table-density`, mount rehydration, and invalid-value fallback to Default with correct `aria-pressed`.",
+      "QUALITY BAR must-have preserved: `approve()` still PUTs `/orders/{id}/approve` and then `await loadOrders(token)`, verified by a call-count assertion (listCallsAfter === listCallsBefore + 1); `showOrder` detail flow unchanged and tested.",
+      "Scope discipline: the SHA range touches exactly 2 files (page.tsx + page.test.tsx); `apps/api` diff is empty, no `OrderForm.tsx` change, no out-of-scope file touched — matching the must-not-have list and the Out-of-Scope 'existing filters unchanged' rule.",
+      "Verification reproduced independently: `npx jest src/app/admin/orders` → 13/13 pass; full `npx jest` → 284/284 pass (34 suites); `npx tsc --noEmit` → exit 0."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "page.tsx uses very dense single-line JSX — the whole return tree is one ~2.5k-char line (page.tsx:77), and `showOrder`/`approve` are likewise single-line (page.tsx:70-71). This mirrors the already-approved reference pages (products/users/promotions), so it is a readability observation rather than a defect introduced by T16; no logic is obscured.",
+        "location": "apps/web/src/app/admin/orders/page.tsx:77"
+      },
+      {
+        "severity": "Minor",
+        "description": "page.test.tsx is 379 lines across three nested describe blocks. Test files are naturally long and this mirrors the already-approved sibling suites (products 409 / users 432 / promotions 433 / sales-performance 433), so it is not treated as a blocking split — noted only as a maintainability observation.",
+        "location": "apps/web/src/app/admin/orders/page.test.tsx:1"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "a2b8e8dabd966f4146982d59ab0616a0b3f769b0"
+}

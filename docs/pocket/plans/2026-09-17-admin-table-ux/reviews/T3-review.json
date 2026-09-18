@@ -1,0 +1,53 @@
+{
+  "task_id": "T3",
+  "task_name": "Table.tsx — density + sortable header",
+  "cycle": 1,
+  "timestamp": "2026-09-17T01:51:55Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Packet step-1 test intent writes `sort={column:'name',direction:'asc'}` while the spec's 'Table.tsx generic contract' section also says `direction`; the already-merged canonical T2 contract is `ColumnSort = { column, order }`. Implementation and tests follow the canonical `order` shape via `import type { ColumnSort } from '@/lib/admin-table'` — confirmed correct, no defect.",
+      "Diff range 62ce50e..79824b6 touches exactly the 3 in-scope files (Table.tsx M, Table.test.tsx A, index.ts M) — no API/pipeline/dummy/controller files in range.",
+      "Empty path (rows.length === 0) still returns `empty ?? <default copy>` with no `<thead>` — legacy contract intact.",
+      "Existing `Column<T>` = { key, header, render, className? } and `Props<T>` = { columns, rows, rowKey, empty? } are unchanged; all new props are optional, so the 6 not-yet-migrated pages keep compiling and rendering."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "aria-sort mapping is exactly asc→\"ascending\", desc→\"descending\", otherwise/non-active sortable column→\"none\"; non-sortable columns get no aria-sort at all (`ariaSortValue` + `headerSort = sortable ? ... : undefined`, Table.tsx:36-39,70,74).",
+      "Non-sortable columns are genuinely inert: `onClick`, `onKeyDown` and `tabIndex` are all `sortable ? ... : undefined`, so the `Aksi` header has no handler at all — verified in code (Table.tsx:75-77) and by the test 'keeps non-sortable headers inert: clicking \"Aksi\" never calls onSort' (12/12 Table tests pass).",
+      "`density` and `sort` are optional and typed via `import type { ColumnSort, TableDensity } from '@/lib/admin-table'` — neither type is redefined locally; the barrel re-exports both with `export type` (index.ts:13), so no runtime coupling is introduced.",
+      "Density buckets map smaller/default/larger: compact px-5 py-2, default px-5 py-3 (th) / px-5 py-3.5 (td) — byte-equivalent to the pre-change legacy padding — and comfortable px-5 py-4 / px-5 py-5; `?? DENSITY_PADDING.default` guards a malformed runtime value.",
+      "Table stays generic: grep over Table.tsx finds no domain column name (`outlet`, `product`, `sku`, `created_at`, `role`, …); only `column.key`/`column.header` are used.",
+      "No pipeline/API/dummy files in the diff; `git diff --name-status` confirms 3 files only.",
+      "Backward-compat proven by execution: `npx jest src/app/admin` → 6 suites / 21 tests pass, and the full web suite → 27 suites / 159 tests pass; `npx tsc --noEmit` is clean.",
+      "Refactor heuristics clean: Table.tsx 97 lines and Table.test.tsx 243 lines (both < ~300), the `Table` function is 46 lines (< ~50), no logic repeated 3+ times, and the two pure helpers (`ariaSortValue`, `SortIndicator`) are extracted.",
+      "Tests assert real behaviour (aria-sort tokens, arrow glyph, py-* padding tokens, onSort call args) rather than snapshots, and explicitly cover the no-`sortableColumns` inert fallback plus the legacy empty-state/rowKey contract."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Additive keyboard path has zero test coverage: sortable <th> gains tabIndex={0} and an Enter/Space onKeyDown handler, but no test dispatches a key event, so the new behaviour is unverified. The DELIVERABLE only requires click-driven onSort, so this is an untested extra rather than a spec miss.",
+        "location": "apps/web/src/components/ui/Table.tsx:57-61,75-77"
+      },
+      {
+        "severity": "Minor",
+        "description": "Comment accuracy: 'default MUST stay byte-identical to the legacy markup' is not literally true. For a non-sortable <th> the new class template yields an extra trailing space (the `${sortable ? ... : ''}` interpolation) versus the legacy single-space string. Purely cosmetic — browsers/CSS collapse class whitespace and no rendered style changes — and the padding tokens themselves are identical.",
+        "location": "apps/web/src/components/ui/Table.tsx:23-24,78"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "79824b673bfd914441c07b63a4571886e04dc2d2"
+}

@@ -312,4 +312,85 @@ describe('admin users page', () => {
       expect(fetchMock.mock.calls.length).toBe(callsBefore);
     });
   });
+
+  // ── Cycle 3: density toggle + dummy parity ───────────────────────────────
+  describe('density toggle + dummy parity', () => {
+    it('density toggle changes the table padding class and persists to localStorage', async () => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        const urlString = String(url);
+        if (urlString.includes('/admin/users')) return jsonResponse(usersListResponse());
+        return jsonResponse({});
+      });
+
+      const { default: Page } = await import('@/app/admin/users/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Budi Terbaru')).toBeInTheDocument());
+
+      let headerCell = screen.getByText('Nama').closest('th') as HTMLTableCellElement;
+      expect(headerCell).toHaveClass('py-3');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Nama').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-2');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('compact');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
+      await waitFor(() => {
+        headerCell = screen.getByText('Nama').closest('th') as HTMLTableCellElement;
+        expect(headerCell).toHaveClass('py-4');
+      });
+      expect(localStorage.getItem('admin:table-density')).toBe('comfortable');
+    });
+
+    it('dummy listDummyUsers mirrors sort + offset slice + total + summary', async () => {
+      const { fetchAdminUsers } = await import('@/app/admin/users/api');
+      const { compareRows } = await import('@/lib/admin-table');
+      useDummyStore.getState().toggle();
+      expect(useDummyStore.getState().isDummy).toBe(true);
+
+      // Default: created_at DESC with the shared comparator (id DESC tiebreak).
+      const all = await fetchAdminUsers('t-token', { limit: 200 });
+      const expectedDefault = [...all.users].sort((a, b) =>
+        compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'created_at', 'desc'),
+      );
+      expect(all.users.map((u) => u.id)).toEqual(expectedDefault.map((u) => u.id));
+      expect(all.total).toBe(all.users.length);
+      expect(all.summary).toEqual({ total: all.users.length });
+
+      // Offset slice: cursor 3, limit 3 → the 4th..6th rows of the sorted list.
+      const page = await fetchAdminUsers('t-token', { limit: 3, cursor: 3 });
+      expect(page.users.map((u) => u.id)).toEqual(all.users.slice(3, 6).map((u) => u.id));
+      expect(page.hasMore).toBe(all.users.length > 6);
+
+      // Explicit name ASC matches compareRows('name','asc').
+      const byName = await fetchAdminUsers('t-token', { limit: 200, sort: 'name', order: 'asc' });
+      const expectedByName = [...byName.users].sort((a, b) =>
+        compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, 'name', 'asc'),
+      );
+      expect(byName.users.map((u) => u.id)).toEqual(expectedByName.map((u) => u.id));
+
+      // Invalid sort falls back without throwing and stays deterministic.
+      const bogusA = await fetchAdminUsers('t-token', { limit: 200, sort: 'bogus_column' });
+      const bogusB = await fetchAdminUsers('t-token', { limit: 200, sort: 'bogus_column' });
+      expect(bogusA.users.map((u) => u.id)).toEqual(bogusB.users.map((u) => u.id));
+      expect(bogusA.users).toHaveLength(all.users.length);
+
+      // Zero network while dummy mode is ON.
+      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/users')).length).toBe(0);
+    });
+
+    it('renders the summary strip from dummy data (zero network)', async () => {
+      useDummyStore.getState().toggle();
+      const { default: Page } = await import('@/app/admin/users/page');
+      render(<Page />);
+
+      await waitFor(() => {
+        const summary = screen.getByTestId('table-summary').textContent ?? '';
+        expect(summary).toMatch(/\d+ pengguna/);
+      });
+      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/users')).length).toBe(0);
+    });
+  });
 });

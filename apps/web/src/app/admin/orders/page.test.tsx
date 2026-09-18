@@ -162,3 +162,152 @@ describe('default sort + summary + timestamp columns', () => {
     await waitFor(() => expect(screen.getByText('Riwayat status')).toBeInTheDocument());
   });
 });
+
+// ── Cycle 2: sort header + offset paging ───────────────────────────────────
+describe('sort header + offset paging', () => {
+  let fetchMock: jest.Mock;
+
+  /** T8 offset-cursor contract: rows in `data`, paging in `meta` (cursor = offset). */
+  function listResponse(overrides?: { data?: unknown[]; total?: number; hasMore?: boolean; cursor?: number }) {
+    const data = overrides?.data ?? [
+      { id: 2, order_id: 'ORD-002', status: 'new', total_amount: '75000.00', items: [], created_at: '2026-09-10T10:00:00Z', updated_at: '2026-09-10T11:00:00Z' },
+      { id: 1, order_id: 'ORD-001', status: 'completed', total_amount: '50000.00', items: [], created_at: '2026-09-01T08:00:00Z', updated_at: '2026-09-01T09:00:00Z' },
+    ];
+    const total = overrides?.total ?? data.length;
+    return {
+      status: 'success',
+      data,
+      meta: {
+        has_more: overrides?.hasMore ?? false,
+        limit: 100,
+        cursor: overrides?.cursor ?? 0,
+        total,
+      },
+    };
+  }
+
+  function lastListUrl(): string {
+    const calls = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/orders?'));
+    return String(calls[calls.length - 1][0]);
+  }
+
+  function listCallCount(): number {
+    return fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/orders?')).length;
+  }
+
+  beforeEach(() => {
+    useDummyStore.getState().reset();
+    installDummy();
+    mockGetStoredToken.mockReturnValue('test-token');
+    fetchMock = jest.fn(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/admin/orders?')) return { ok: true, status: 200, json: async () => listResponse() } as Response;
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+    (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    jest.restoreAllMocks();
+  });
+
+  it('sorts by the Status header: desc then asc, always cursor=0', async () => {
+    const { default: Page } = await import('@/app/admin/orders/page');
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText('ORD-002')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Status'));
+    await waitFor(() => {
+      const url = lastListUrl();
+      expect(url).toContain('sort=status');
+      expect(url).toContain('order=desc');
+      expect(url).toContain('cursor=0');
+    });
+
+    fireEvent.click(screen.getByText('Status'));
+    await waitFor(() => {
+      const url = lastListUrl();
+      expect(url).toContain('sort=status');
+      expect(url).toContain('order=asc');
+      expect(url).toContain('cursor=0');
+    });
+  });
+
+  it('pages with an OFFSET cursor (100) and preserves the active sort', async () => {
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/admin/orders?')) return { ok: true, status: 200, json: async () => listResponse({ total: 250, hasMore: true, cursor: 0 }) } as Response;
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
+    const { default: Page } = await import('@/app/admin/orders/page');
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText('ORD-002')).toBeInTheDocument());
+
+    // Activate sort=status first.
+    fireEvent.click(screen.getByText('Status'));
+    await waitFor(() => expect(lastListUrl()).toContain('sort=status'));
+
+    // Page 2 must move to offset 100, NOT an id cursor, and keep the sort.
+    fireEvent.click(screen.getByText('Berikutnya'));
+    await waitFor(() => {
+      const url = lastListUrl();
+      expect(url).toContain('cursor=100');
+      expect(url).toContain('sort=status');
+    });
+    expect(lastListUrl()).not.toContain('next_cursor');
+  });
+
+  it('resets to cursor=0 when sorting while on a later page', async () => {
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/admin/orders?')) return { ok: true, status: 200, json: async () => listResponse({ total: 250, hasMore: true, cursor: 0 }) } as Response;
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
+    const { default: Page } = await import('@/app/admin/orders/page');
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText('ORD-002')).toBeInTheDocument());
+
+    // Move to page 2 (offset 100).
+    fireEvent.click(screen.getByText('Berikutnya'));
+    await waitFor(() => expect(lastListUrl()).toContain('cursor=100'));
+
+    // Sorting must jump back to page 1 while carrying the new sort.
+    fireEvent.click(screen.getByText('Dibuat'));
+    await waitFor(() => {
+      const url = lastListUrl();
+      expect(url).toContain('cursor=0');
+      expect(url).toContain('sort=created_at');
+    });
+  });
+
+  it('keeps the Aksi header inert', async () => {
+    const { default: Page } = await import('@/app/admin/orders/page');
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText('ORD-002')).toBeInTheDocument());
+
+    const aksi = screen.getByText('Aksi').closest('th') as HTMLElement;
+    expect(aksi).not.toHaveAttribute('aria-sort');
+
+    const before = listCallCount();
+    fireEvent.click(aksi);
+    expect(listCallCount()).toBe(before);
+  });
+
+  it('shows aria-sort on the active header only', async () => {
+    const { default: Page } = await import('@/app/admin/orders/page');
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText('ORD-002')).toBeInTheDocument());
+
+    // Default sort column is created_at (desc) → "Dibuat" descending.
+    expect(screen.getByText('Dibuat').closest('th')).toHaveAttribute('aria-sort', 'descending');
+
+    fireEvent.click(screen.getByText('Status'));
+    await waitFor(() => {
+      expect(screen.getByText('Status').closest('th')).toHaveAttribute('aria-sort', 'descending');
+    });
+    expect(screen.getByText('Dibuat').closest('th')).toHaveAttribute('aria-sort', 'none');
+  });
+});

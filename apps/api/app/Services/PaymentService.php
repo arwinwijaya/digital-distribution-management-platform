@@ -57,7 +57,9 @@ class PaymentService
      */
     private function recordInTransaction(array $data, User $user): array
     {
-        ConcurrencyTestBarrier::await('payment');
+        if (config('orders.concurrency_barrier_enabled', false)) {
+            ConcurrencyTestBarrier::await('payment');
+        }
         $order = $this->lockOrderForPayment($data['order_id']);
         $existing = $this->findPaymentForUpdate($data['idempotency_key']);
 

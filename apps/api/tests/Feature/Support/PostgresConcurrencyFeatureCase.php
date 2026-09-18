@@ -152,11 +152,12 @@ abstract class PostgresConcurrencyFeatureCase extends TestCase
             $environment['WHATSAPP_WEBHOOK_SECRET'] = $this->prefix;
             $environment['WHATSAPP_CONCURRENCY_BARRIER_ENABLED'] = $whatsappBarrier ? 'true' : 'false';
             if ($whatsappBarrier) {
+                $environment['ORDER_CONCURRENCY_BARRIER_ENABLED'] = 'true';
                 $environment['ORDER_CONCURRENCY_BARRIER_DIR'] = $this->barrierDirectory;
                 $environment['ORDER_CONCURRENCY_BARRIER_NAME'] = $this->prefix;
                 $environment['ORDER_CONCURRENCY_BARRIER_PARTICIPANT'] = $participant;
             } else {
-                unset($environment['ORDER_CONCURRENCY_BARRIER_DIR'], $environment['ORDER_CONCURRENCY_BARRIER_NAME'], $environment['ORDER_CONCURRENCY_BARRIER_PARTICIPANT']);
+                unset($environment['ORDER_CONCURRENCY_BARRIER_ENABLED'], $environment['ORDER_CONCURRENCY_BARRIER_DIR'], $environment['ORDER_CONCURRENCY_BARRIER_NAME'], $environment['ORDER_CONCURRENCY_BARRIER_PARTICIPANT']);
             }
             $environment['ORDER_CONCURRENCY_BARRIER_SECTIONS'] = $sections;
             $process = proc_open([PHP_BINARY, '-S', '127.0.0.1:'.$port, $router], [0 => ['pipe', 'r'], 1 => ['file', $this->barrierDirectory.'/'.$participant.'.log', 'ab'], 2 => ['file', $this->barrierDirectory.'/'.$participant.'.log', 'ab']], $pipes, base_path(), $environment);
@@ -215,6 +216,7 @@ abstract class PostgresConcurrencyFeatureCase extends TestCase
             $environment['WHATSAPP_ACCESS_TOKEN'] = 'test-provider-token';
             $environment['WHATSAPP_PHONE_NUMBER_ID'] = 'test-phone-number';
             $environment['WHATSAPP_CONCURRENCY_BARRIER_ENABLED'] = 'true';
+            $environment['ORDER_CONCURRENCY_BARRIER_ENABLED'] = 'true';
             $environment['ORDER_CONCURRENCY_BARRIER_DIR'] = $this->barrierDirectory;
             $environment['ORDER_CONCURRENCY_BARRIER_NAME'] = $this->prefix;
             $environment['ORDER_CONCURRENCY_BARRIER_PARTICIPANT'] = $participant;

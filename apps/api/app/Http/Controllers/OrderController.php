@@ -199,8 +199,10 @@ class OrderController extends Controller
     private function approveInTransaction(int $id): array
     {
         // Both the status transition and invoice creation occur in this same
-        // lock-protected transaction.
-        ConcurrencyTestBarrier::await('approval');
+        // lock-protected transaction. Guarded so production never pauses inside it.
+        if (config('orders.concurrency_barrier_enabled', false)) {
+            ConcurrencyTestBarrier::await('approval');
+        }
         $order = Order::with('items.product')->lockForUpdate()->findOrFail($id);
 
         if ($order->status === 'New') {

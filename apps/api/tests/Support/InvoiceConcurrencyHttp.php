@@ -123,6 +123,7 @@ final class InvoiceConcurrencyHttp
         $environment['CACHE_DRIVER'] = 'array';
         $environment['SESSION_DRIVER'] = 'array';
         $environment['QUEUE_CONNECTION'] = 'sync';
+        $environment['ORDER_CONCURRENCY_BARRIER_ENABLED'] = 'true';
         $environment['ORDER_CONCURRENCY_BARRIER_DIR'] = $this->barrierDirectory;
         $environment['ORDER_CONCURRENCY_BARRIER_NAME'] = 'approval';
         $environment['ORDER_CONCURRENCY_BARRIER_PARTICIPANT'] = $participant;

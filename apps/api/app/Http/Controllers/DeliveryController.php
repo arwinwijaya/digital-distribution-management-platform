@@ -120,9 +120,11 @@ class DeliveryController extends Controller
             $order = null;
             if ($data['status'] === Delivery::DELIVERED) {
                 // Keep the order lock in this transaction before changing either
-                // delivery state or the order status history. The barrier is inert
-                // outside explicitly configured race tests.
-                ConcurrencyTestBarrier::await('payment');
+                // delivery state or the order status history. Gated so production
+                // never pauses inside this critical section.
+                if (config('orders.concurrency_barrier_enabled', false)) {
+                    ConcurrencyTestBarrier::await('payment');
+                }
                 $order = Order::lockForUpdate()->findOrFail($delivery->order_id);
             }
 

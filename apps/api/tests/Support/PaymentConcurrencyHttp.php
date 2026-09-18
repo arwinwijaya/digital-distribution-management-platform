@@ -140,6 +140,7 @@ final class PaymentConcurrencyHttp
         $environment['QUEUE_CONNECTION'] = 'sync';
         $environment['MAIL_MAILER'] = 'array';
         $environment['TELESCOPE_ENABLED'] = 'false';
+        $environment['ORDER_CONCURRENCY_BARRIER_ENABLED'] = 'true';
         $environment['ORDER_CONCURRENCY_BARRIER_DIR'] = $this->barrierDirectory;
         $environment['ORDER_CONCURRENCY_BARRIER_NAME'] = 'payment';
         $environment['ORDER_CONCURRENCY_BARRIER_PARTICIPANT'] = $participant;

@@ -40,7 +40,10 @@ class OrderCreationService
 
                     // Test-only barrier: both public requests enter this transaction
                     // immediately before the idempotency/product critical section.
-                    ConcurrencyTestBarrier::await('order');
+                    // Gated so production never pauses inside this transaction.
+                    if (config('orders.concurrency_barrier_enabled', false)) {
+                        ConcurrencyTestBarrier::await('order');
+                    }
                     $existingOrder = Order::where('idempotency_key', $requestIdentity)->first();
                     if ($existingOrder) {
                         // Same key with a different canonical payload is a 422

@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Outlet;
+use App\Http\Requests\Concerns\CanonicalizesOutletPhone;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RegisterOutletRequest extends FormRequest
 {
+    use CanonicalizesOutletPhone;
+
     public function authorize(): bool
     {
         return true;
@@ -26,15 +28,5 @@ class RegisterOutletRequest extends FormRequest
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
         ];
-    }
-
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator): void {
-            $canonical = Outlet::canonicalizePhone((string) $this->input('phone'));
-            if ($canonical === '' || Outlet::where('canonical_phone', $canonical)->exists()) {
-                $validator->errors()->add('phone', 'The phone has already been taken or is invalid.');
-            }
-        });
     }
 }

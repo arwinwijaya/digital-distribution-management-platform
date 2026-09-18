@@ -16,6 +16,8 @@ import {
   fetchAdminOutlets,
   fetchOutletOrders,
   fetchOutletSummary,
+  createOutlet,
+  updateOutlet,
   type AdminOutlet,
 } from '@/app/admin/outlets/api';
 import { fetchAdminUsers } from '@/app/admin/users/api';
@@ -159,6 +161,143 @@ describe('admin outlet reads — dummy OFF (no regression)', () => {
 
     await expect(fetchAdminOutlets('t-token')).rejects.toThrow('backend down');
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Step 6: Dummy write round-trip — create / edit / deactivate with zero fetch
+//         and deep-merge semantics that preserve synthesized row fields.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('admin outlet writes — dummy round-trip', () => {
+  const baseInput = {
+    name: 'Warung Uji Baru',
+    phone: '081234000111',
+    category: 'kafe',
+    address: 'Jl. Uji No. 1',
+    city: 'Bekasi',
+    district: 'Bekasi Selatan',
+    territory_id: 2,
+    is_active: true,
+  };
+
+  it('creates, lists, edits, and deactivates an outlet with zero network', async () => {
+    turnDummyOn();
+
+    const created = await createOutlet('t-token', baseInput);
+    expect(created.id).toBeLessThan(0);
+    expect(created.name).toBe('Warung Uji Baru');
+    expect(created.category).toBe('kafe');
+    expect(created.territory_id).toBe(2);
+    expect(created.is_active).toBe(true);
+
+    // The created row must land on page 1 (created_at newer than every seed row).
+    const page1 = await fetchAdminOutlets('t-token', { limit: 15 });
+    expect(page1.outlets.map((o: AdminOutlet) => o.id)).toContain(created.id);
+
+    // Edit by name only — the row must keep its category / territory.
+    const edited = await updateOutlet('t-token', created.id, { name: 'Warung Uji Diubah' });
+    expect(edited.id).toBe(created.id);
+    expect(edited.name).toBe('Warung Uji Diubah');
+
+    const afterEdit = await fetchAdminOutlets('t-token', { limit: 500 });
+    const editedRow = afterEdit.outlets.find((o: AdminOutlet) => o.id === created.id);
+    expect(editedRow).toBeDefined();
+    expect(editedRow?.name).toBe('Warung Uji Diubah');
+    expect(editedRow?.category).toBe('kafe');
+    expect(editedRow?.territory_id).toBe(2);
+
+    // Deactivate (soft) — row stays listed, marked inactive, fields preserved.
+    const deactivated = await updateOutlet('t-token', created.id, { is_active: false });
+    expect(deactivated.is_active).toBe(false);
+
+    const afterDeactivate = await fetchAdminOutlets('t-token', { limit: 500 });
+    const deactivatedRow = afterDeactivate.outlets.find((o: AdminOutlet) => o.id === created.id);
+    expect(deactivatedRow?.is_active).toBe(false);
+    expect(deactivatedRow?.category).toBe('kafe');
+    expect(deactivatedRow?.territory_id).toBe(2);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('editing a BASE outlet deep-merges and preserves its synthesized fields', async () => {
+    turnDummyOn();
+
+    const before = await fetchAdminOutlets('t-token', { limit: 500 });
+    const target = before.outlets[0];
+    expect(target).toBeDefined();
+
+    const updated = await updateOutlet('t-token', target.id, { name: 'Nama Baru Base' });
+    expect(updated.id).toBe(target.id);
+    expect(updated.name).toBe('Nama Baru Base');
+
+    const after = await fetchAdminOutlets('t-token', { limit: 500 });
+    const row = after.outlets.find((o: AdminOutlet) => o.id === target.id);
+    expect(row?.name).toBe('Nama Baru Base');
+    // The partial edit must NOT blank the synthesized fields (W1 regression).
+    expect(row?.category).toBe(target.category);
+    expect(row?.territory_id).toBe(target.territory_id);
+    expect(row?.score).toBe(target.score);
+    expect(row?.is_active).toBe(target.is_active);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a duplicate phone on dummy create with zero network', async () => {
+    turnDummyOn();
+
+    await createOutlet('t-token', baseInput);
+    await expect(
+      createOutlet('t-token', { ...baseInput, name: 'Warung Duplikat' }),
+    ).rejects.toThrow();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('resolves orders + summary for a newly created outlet', async () => {
+    turnDummyOn();
+
+    const created = await createOutlet('t-token', {
+      ...baseInput,
+      name: 'Outlet Ringkasan',
+      phone: '081234000333',
+      category: 'grosir',
+    });
+
+    const summary = await fetchOutletSummary('t-token', created.id);
+    expect(summary.outlet_id).toBe(created.id);
+    expect(summary.outlet_name).toBe('Outlet Ringkasan');
+    expect(summary.total_orders).toBe(0);
+
+    const orders = await fetchOutletOrders('t-token', created.id);
+    expect(orders.orders).toEqual([]);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('POSTs to the real endpoint when dummy is OFF', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({ status: 'success', data: { id: 7, name: 'Outlet Nyata', category: 'warung' } }),
+    } as unknown as Response);
+
+    const created = await createOutlet('t-token', baseInput);
+    expect(created.id).toBe(7);
+    expect(created.name).toBe('Outlet Nyata');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/admin/outlets');
+    expect((fetchMock.mock.calls[0][1] as { method?: string }).method).toBe('POST');
+  });
+
+  it('surfaces the backend error message when the real create fails', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: async () => ({ message: 'Nomor telepon sudah terdaftar.' }),
+    } as unknown as Response);
+
+    await expect(createOutlet('t-token', baseInput)).rejects.toThrow('Nomor telepon sudah terdaftar.');
   });
 });
 

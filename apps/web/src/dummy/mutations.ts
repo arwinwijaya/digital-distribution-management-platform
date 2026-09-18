@@ -104,7 +104,12 @@ export interface DummyAdminOutlet {
   latitude?: number | null;
   longitude?: number | null;
   phone?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
+
+/** Overlay entry: a full row for created outlets, or a sparse patch for edits. */
+export type DummyAdminOutletEntry = Partial<DummyAdminOutlet> & { id: number };
 
 export interface DummyDeliveryRecord {
   id: number;
@@ -168,9 +173,25 @@ export interface DummyPromotionInput {
 export interface DummyOutletInput {
   name?: string;
   category?: string;
+  phone?: string;
+  territory_id?: number | null;
   address?: string;
   city?: string;
   district?: string;
+  is_active?: boolean;
+}
+
+/** Full payload for admin outlet creation. */
+export interface DummyAdminOutletInput {
+  name: string;
+  phone: string;
+  category: string;
+  address: string;
+  city: string;
+  district: string;
+  territory_id?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
   is_active?: boolean;
 }
 
@@ -199,6 +220,8 @@ export interface DummyGraph {
   users?: DummyAdminUser[];
   visits?: DummyVisit[];
   funnel_events?: DummyFunnelEventPayload[];
+  /** Outlet overlay: created rows + sparse edit patches, keyed by numeric id. */
+  admin_outlets?: DummyAdminOutletEntry[];
   [key: string]: unknown;
 }
 
@@ -210,6 +233,7 @@ const NUMERIC_KEYS = [
   'promotions',
   'users',
   'visits',
+  'admin_outlets',
 ] as const;
 
 function getGraph(): DummyGraph {
@@ -571,30 +595,87 @@ export function assignDummyUserRole(userId: number, role: string): DummyAdminUse
 
 // ─── Outlets ─────────────────────────────────────────────────────────────────
 
-/** Store-bound wrapper for `PATCH /admin/outlets/:id`. */
-export function updateDummyOutlet(outletId: number, payload: DummyOutletInput): DummyAdminOutlet {
-  const graph = getGraph();
-  const outlets = graph.outlets ?? [];
-  const existing = outlets[outletId - 1];
+/**
+ * Normalize a phone number to a comparable canonical form.
+ * Mirrors the backend `Outlet::canonicalizePhone` intent closely enough for the
+ * dummy duplicate guard: strip separators, then map local `0…` / bare `8…` to
+ * the `+62…` country form.
+ */
+export function canonicalizeDummyPhone(phone: string): string {
+  let digits = String(phone ?? '').replace(/\D/g, '');
+  if (digits.startsWith('0')) digits = `62${digits.slice(1)}`;
+  else if (digits.startsWith('8')) digits = `62${digits}`;
+  return digits ? `+${digits}` : '';
+}
 
-  if (existing && payload.name !== undefined) {
-    setGraph({
-      ...graph,
-      outlets: outlets.map((outlet, index) =>
-        index === outletId - 1 ? { ...outlet, name: payload.name as string } : outlet,
-      ),
-    });
+/** Fixed, deterministic `created_at` for created rows — newer than every seed row. */
+const DUMMY_OUTLET_CREATED_AT = new Date(Date.UTC(2026, 1, 14)).toISOString();
+
+/** Store-bound wrapper for `POST /admin/outlets`. */
+export function createDummyOutlet(payload: DummyAdminOutletInput): DummyAdminOutlet {
+  const graph = getGraph();
+  const overlay = graph.admin_outlets ?? [];
+
+  const canonical = canonicalizeDummyPhone(payload.phone);
+  if (canonical && overlay.some((o) => o.phone && canonicalizeDummyPhone(String(o.phone)) === canonical)) {
+    throw new Error('Nomor telepon sudah terdaftar.');
   }
 
-  return {
-    id: outletId,
-    name: payload.name ?? existing?.name ?? `Outlet #${outletId}`,
-    category: payload.category ?? null,
-    city: payload.city ?? existing?.city,
+  const outlet: DummyAdminOutlet = {
+    id: nextDummyNumericId(graph),
+    name: payload.name,
+    phone: payload.phone,
+    category: payload.category,
+    territory_id: payload.territory_id ?? null,
+    territory: null,
+    is_active: payload.is_active ?? true,
+    score: 0,
+    city: payload.city,
     district: payload.district,
     address: payload.address,
-    is_active: payload.is_active ?? true,
+    latitude: payload.latitude ?? null,
+    longitude: payload.longitude ?? null,
+    created_at: DUMMY_OUTLET_CREATED_AT,
+    updated_at: DUMMY_OUTLET_CREATED_AT,
   };
+  setGraph({ ...graph, admin_outlets: [...overlay, outlet] });
+  return outlet;
+}
+
+/**
+ * Store-bound wrapper for `PATCH /admin/outlets/:id`.
+ *
+ * Writes an upsert-by-id patch into the `admin_outlets` overlay. Sparse patches
+ * (e.g. a rename or `{is_active:false}`) are deep-merged onto the resolved base
+ * row at READ time, so synthesized fields (category/score/territory/…) are never
+ * blanked by a partial edit.
+ */
+export function updateDummyOutlet(outletId: number, payload: DummyOutletInput): DummyAdminOutlet {
+  const graph = getGraph();
+  const overlay = graph.admin_outlets ?? [];
+  const existing = overlay.find((o) => o.id === outletId);
+
+  const patch: DummyAdminOutletEntry = {
+    ...(existing ?? {}),
+    ...(payload.name !== undefined ? { name: payload.name } : {}),
+    ...(payload.category !== undefined ? { category: payload.category } : {}),
+    ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
+    ...(payload.territory_id !== undefined ? { territory_id: payload.territory_id } : {}),
+    ...(payload.address !== undefined ? { address: payload.address } : {}),
+    ...(payload.city !== undefined ? { city: payload.city } : {}),
+    ...(payload.district !== undefined ? { district: payload.district } : {}),
+    ...(payload.is_active !== undefined ? { is_active: payload.is_active } : {}),
+    updated_at: DUMMY_OUTLET_CREATED_AT,
+    id: outletId,
+  };
+
+  setGraph({
+    ...graph,
+    admin_outlets: existing
+      ? overlay.map((o) => (o.id === outletId ? patch : o))
+      : [...overlay, patch],
+  });
+  return patch as DummyAdminOutlet;
 }
 
 // ─── Funnel tracking ─────────────────────────────────────────────────────────

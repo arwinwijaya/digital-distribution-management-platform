@@ -16,6 +16,7 @@ class AdminOutletTest extends TestCase
     use RefreshDatabase;
 
     private string $adminEmail = 'admin-outlet-test@example.com';
+
     private string $adminPassword = 'password123';
 
     private function loginAsAdmin(): string
@@ -533,5 +534,321 @@ class AdminOutletTest extends TestCase
             ->getJson("/api/admin/outlets/{$outlet->id}/orders");
 
         $response->assertStatus(403);
+    }
+
+    // =====================================================================
+    // 5) Admin Outlet Create (POST /admin/outlets)
+    // =====================================================================
+
+    /**
+     * GWT: Given admin, When POST /admin/outlets with valid payload,
+     * Then 201 with the created outlet (territory loaded), category/territory persisted.
+     */
+    public function test_admin_can_create_outlet(): void
+    {
+        $token = $this->loginAsAdmin();
+        $territory = Territory::create(['name' => 'Bekasi', 'code' => 'bekasi']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/admin/outlets', [
+                'name' => 'Warung Baru',
+                'phone' => '081234567890',
+                'address' => 'Jl. Merdeka No. 10',
+                'city' => 'Bekasi',
+                'district' => 'Bekasi Selatan',
+                'category' => 'warung',
+                'territory_id' => $territory->id,
+                'is_active' => true,
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.name', 'Warung Baru')
+            ->assertJsonPath('data.category', 'warung')
+            ->assertJsonPath('data.territory_id', $territory->id)
+            ->assertJsonPath('data.territory.id', $territory->id)
+            ->assertJsonPath('data.is_active', true);
+
+        $this->assertDatabaseHas('outlets', [
+            'name' => 'Warung Baru',
+            'category' => 'warung',
+            'territory_id' => $territory->id,
+        ]);
+    }
+
+    /**
+     * GWT: Given admin, When POST /admin/outlets with a duplicate phone,
+     * Then 422 with a phone validation error (canonical uniqueness).
+     */
+    public function test_admin_cannot_create_outlet_with_duplicate_phone(): void
+    {
+        $token = $this->loginAsAdmin();
+        Outlet::factory()->create(['phone' => '081234567890']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/admin/outlets', [
+                'name' => 'Warung Duplikat',
+                'phone' => '+62 812-3456-7890',
+                'address' => 'Jl. Merdeka No. 11',
+                'city' => 'Bekasi',
+                'district' => 'Bekasi Selatan',
+                'category' => 'warung',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['phone']);
+    }
+
+    /**
+     * GWT: Given admin, When POST /admin/outlets with an invalid category, Then 422.
+     */
+    public function test_admin_cannot_create_outlet_with_invalid_category(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/admin/outlets', [
+                'name' => 'Warung Invalid',
+                'phone' => '081298765432',
+                'address' => 'Jl. Merdeka No. 12',
+                'city' => 'Bekasi',
+                'district' => 'Bekasi Selatan',
+                'category' => 'invalid_category',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['category']);
+    }
+
+    /**
+     * GWT: Given admin, When POST /admin/outlets with a non-existent territory_id,
+     * Then 422 (never a raw FK 500).
+     */
+    public function test_admin_cannot_create_outlet_with_unknown_territory(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/admin/outlets', [
+                'name' => 'Warung Tanpa Wilayah',
+                'phone' => '081311223344',
+                'address' => 'Jl. Merdeka No. 13',
+                'city' => 'Bekasi',
+                'district' => 'Bekasi Selatan',
+                'category' => 'warung',
+                'territory_id' => 999999,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['territory_id']);
+    }
+
+    /**
+     * GWT: Given admin, When POST /admin/outlets without required fields, Then 422.
+     */
+    public function test_admin_cannot_create_outlet_without_required_fields(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/admin/outlets', []);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['name', 'phone', 'address', 'city', 'district', 'category']);
+    }
+
+    /**
+     * GWT: Given a client-supplied user_id, When POST /admin/outlets,
+     * Then 422 (ownership is server-assigned; client may not inject it).
+     */
+    public function test_admin_create_outlet_rejects_client_supplied_user_id(): void
+    {
+        $token = $this->loginAsAdmin();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/admin/outlets', [
+                'name' => 'Warung Injected',
+                'phone' => '081355667788',
+                'address' => 'Jl. Merdeka No. 14',
+                'city' => 'Bekasi',
+                'district' => 'Bekasi Selatan',
+                'category' => 'warung',
+                'user_id' => 1,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['user_id']);
+    }
+
+    /**
+     * GWT: Given outlet user, When POST /admin/outlets, Then 403.
+     */
+    public function test_non_admin_cannot_create_outlet(): void
+    {
+        $token = $this->loginAsOutletUser();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/admin/outlets', [
+                'name' => 'Warung Nakal',
+                'phone' => '081399887766',
+                'address' => 'Jl. Merdeka No. 15',
+                'city' => 'Bekasi',
+                'district' => 'Bekasi Selatan',
+                'category' => 'warung',
+            ]);
+
+        $response->assertStatus(403);
+    }
+
+    // =====================================================================
+    // 6) Outlet Deactivate via PATCH + phone/territory edit
+    // =====================================================================
+
+    /**
+     * GWT: Given admin, When PATCH /admin/outlets/{id} with is_active=false,
+     * Then the outlet is deactivated (soft) and its orders are preserved.
+     */
+    public function test_admin_can_deactivate_outlet_and_orders_are_preserved(): void
+    {
+        $token = $this->loginAsAdmin();
+        $outlet = Outlet::factory()->create(['is_active' => true]);
+
+        Order::create([
+            'order_id' => 'ORD-DEACT-001',
+            'outlet_id' => $outlet->id,
+            'status' => 'Delivered',
+            'total_amount' => 150000,
+            'idempotency_key' => 'deact-001',
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/outlets/{$outlet->id}", ['is_active' => false]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.is_active', false);
+
+        $this->assertDatabaseHas('outlets', ['id' => $outlet->id, 'is_active' => false]);
+        $this->assertDatabaseHas('orders', ['outlet_id' => $outlet->id, 'order_id' => 'ORD-DEACT-001']);
+    }
+
+    /**
+     * GWT: Given admin, When PATCH /admin/outlets/{id} WITHOUT a phone key,
+     * Then 200 (the canonical-phone guard must not fire on phone-less updates).
+     */
+    public function test_admin_can_update_outlet_without_phone_key(): void
+    {
+        $token = $this->loginAsAdmin();
+        $outlet = Outlet::factory()->create(['name' => 'Original Name']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/outlets/{$outlet->id}", ['name' => 'Renamed Without Phone']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.name', 'Renamed Without Phone');
+    }
+
+    /**
+     * GWT: Given admin, When PATCH /admin/outlets/{id} with a new unique phone,
+     * Then the phone (and its canonical form) is updated.
+     */
+    public function test_admin_can_update_outlet_phone(): void
+    {
+        $token = $this->loginAsAdmin();
+        $outlet = Outlet::factory()->create(['phone' => '081200000001']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/outlets/{$outlet->id}", ['phone' => '081200000099']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.phone', '081200000099');
+
+        $this->assertDatabaseHas('outlets', [
+            'id' => $outlet->id,
+            'phone' => '081200000099',
+            'canonical_phone' => '+6281200000099',
+        ]);
+    }
+
+    /**
+     * GWT: Given admin, When PATCH /admin/outlets/{id} with an empty-string phone,
+     * Then 422 (not a 500 from the model's phone mutator).
+     */
+    public function test_admin_cannot_update_outlet_with_empty_phone(): void
+    {
+        $token = $this->loginAsAdmin();
+        $outlet = Outlet::factory()->create();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/outlets/{$outlet->id}", ['phone' => '']);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['phone']);
+    }
+
+    /**
+     * GWT: Given admin, When PATCH /admin/outlets/{id} with another outlet's phone,
+     * Then 422 (uniqueness excludes self).
+     */
+    public function test_admin_cannot_update_outlet_to_duplicate_phone(): void
+    {
+        $token = $this->loginAsAdmin();
+        Outlet::factory()->create(['phone' => '081200000002']);
+        $outlet = Outlet::factory()->create(['phone' => '081200000003']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/outlets/{$outlet->id}", ['phone' => '081200000002']);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['phone']);
+    }
+
+    /**
+     * GWT: Given admin, When PATCH /admin/outlets/{id} keeping its own phone,
+     * Then 200 (uniqueness must not reject the row's current phone).
+     */
+    public function test_admin_can_keep_own_phone_on_update(): void
+    {
+        $token = $this->loginAsAdmin();
+        $outlet = Outlet::factory()->create(['phone' => '081200000004']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/outlets/{$outlet->id}", ['phone' => '081200000004']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.phone', '081200000004');
+    }
+
+    /**
+     * GWT: Given admin, When PATCH /admin/outlets/{id} with a valid territory_id,
+     * Then the territory is persisted and returned loaded.
+     */
+    public function test_admin_can_update_outlet_territory(): void
+    {
+        $token = $this->loginAsAdmin();
+        $territory = Territory::create(['name' => 'Depok', 'code' => 'depok']);
+        $outlet = Outlet::factory()->create(['territory_id' => null]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/outlets/{$outlet->id}", ['territory_id' => $territory->id]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.territory_id', $territory->id)
+            ->assertJsonPath('data.territory.id', $territory->id);
+    }
+
+    /**
+     * GWT: Given admin, When PATCH /admin/outlets/{id} with an unknown territory_id,
+     * Then 422.
+     */
+    public function test_admin_cannot_update_outlet_with_unknown_territory(): void
+    {
+        $token = $this->loginAsAdmin();
+        $outlet = Outlet::factory()->create();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/outlets/{$outlet->id}", ['territory_id' => 999999]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['territory_id']);
     }
 }

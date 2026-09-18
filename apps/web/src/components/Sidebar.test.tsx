@@ -92,6 +92,24 @@ describe('Sidebar admin menu visibility', () => {
     expect(hrefFor('Performa sales')).toBe('/admin/sales-performance');
   });
 
+  it('points the Outlet menu at /admin/outlets for admin (not the public /outlets)', async () => {
+    mockRole('admin');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Outlet')).toBeInTheDocument());
+    expect(screen.getByText('Outlet').closest('a')?.getAttribute('href')).toBe('/admin/outlets');
+    // The public registration form must NOT be the admin destination.
+    expect(screen.queryByText('Outlet')?.closest('a')?.getAttribute('href')).not.toBe('/outlets');
+  });
+
+  it('keeps the Outlet menu on the public /outlets route for non-admin roles', async () => {
+    mockRole('outlet');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Outlet')).toBeInTheDocument());
+    expect(screen.getByText('Outlet').closest('a')?.getAttribute('href')).toBe('/outlets');
+  });
+
   it.each(['outlet', 'sales', 'driver'])('hides every admin menu from %s', async (role) => {
     mockRole(role);
     await renderSidebar();

@@ -44,6 +44,11 @@ const updateResponse = {
   data: { id: 1, name: 'Warung Asri Baru', category: 'warung', score: 12, is_active: true },
 };
 
+const createResponse = {
+  status: 'success',
+  data: { id: 3, name: 'Outlet Baru', category: 'kafe', score: 0, is_active: true, territory_id: 1, created_at: '2026-09-20T08:00:00Z', updated_at: '2026-09-20T08:00:00Z' },
+};
+
 describe('admin outlets page', () => {
   let originalFetch: typeof fetch | undefined;
   let fetchMock: jest.Mock;
@@ -57,6 +62,7 @@ describe('admin outlets page', () => {
       const urlString = String(url);
       if (urlString.includes('/admin/outlets/') && urlString.includes('/summary')) return { ok: true, status: 200, json: async () => summaryResponse } as Response;
       if (urlString.includes('/admin/outlets/') && urlString.includes('/orders')) return { ok: true, status: 200, json: async () => ordersResponse } as Response;
+      if (urlString.includes('/admin/outlets') && (options?.method === 'POST' || options?.method === 'post')) return { ok: true, status: 201, json: async () => createResponse } as Response;
       if (urlString.includes('/admin/outlets') && (options?.method === 'PATCH' || options?.method === 'patch')) return { ok: true, status: 200, json: async () => updateResponse } as Response;
       if (urlString.includes('/admin/outlets')) return { ok: true, status: 200, json: async () => outletsResponse } as Response;
       return { ok: true, status: 200, json: async () => ({}) } as Response;
@@ -138,6 +144,65 @@ describe('admin outlets page', () => {
     fireEvent.click(screen.getAllByText('Ubah')[0]);
     await waitFor(() => expect(screen.getByText(/Ubah outlet/)).toBeInTheDocument());
     expect(screen.getByDisplayValue('Warung Asri')).toBeInTheDocument();
+  });
+
+  it('creates an outlet through the Tambah outlet modal (POST + row prepended)', async () => {
+    const { default: Page } = await import('@/app/admin/outlets/page');
+    render(<Page />);
+
+    await waitFor(() => expect(screen.getByText('Warung Asri')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /tambah outlet/i }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Tambah outlet' })).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('Nama'), { target: { value: 'Outlet Baru' } });
+    fireEvent.change(screen.getByLabelText('Telepon'), { target: { value: '081234567890' } });
+    fireEvent.change(screen.getByLabelText('Alamat'), { target: { value: 'Jl. Baru No. 1' } });
+    fireEvent.change(screen.getByLabelText('Kota'), { target: { value: 'Bekasi' } });
+    fireEvent.change(screen.getByLabelText('Kecamatan'), { target: { value: 'Bekasi Selatan' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^simpan$/i }));
+
+    await waitFor(() => {
+      const postCall = fetchMock.mock.calls.find((c) => (c[1] as { method?: string } | undefined)?.method === 'POST');
+      expect(postCall).toBeDefined();
+    });
+    const postCall = fetchMock.mock.calls.find((c) => (c[1] as { method?: string } | undefined)?.method === 'POST');
+    const body = JSON.parse(String((postCall?.[1] as { body?: string }).body));
+    expect(body.name).toBe('Outlet Baru');
+    expect(body.phone).toBe('081234567890');
+
+    await waitFor(() => expect(screen.getByText('Outlet Baru')).toBeInTheDocument());
+  });
+
+  it('deactivates an outlet via the Nonaktifkan confirm modal (PATCH is_active=false)', async () => {
+    const { default: Page } = await import('@/app/admin/outlets/page');
+    render(<Page />);
+
+    await waitFor(() => expect(screen.getByText('Warung Asri')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByText('Nonaktifkan')[0]);
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Nonaktifkan outlet' })).toBeInTheDocument());
+
+    // Confirm inside the modal.
+    const confirmButtons = screen.getAllByRole('button', { name: /^nonaktifkan$/i });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+
+    await waitFor(() => {
+      const patchCall = fetchMock.mock.calls.find((c) => (c[1] as { method?: string } | undefined)?.method === 'PATCH');
+      expect(patchCall).toBeDefined();
+      const body = JSON.parse(String((patchCall?.[1] as { body?: string }).body));
+      expect(body.is_active).toBe(false);
+    });
+  });
+
+  it('links to the public Daftar outlet registration page', async () => {
+    const { default: Page } = await import('@/app/admin/outlets/page');
+    render(<Page />);
+
+    await waitFor(() => expect(screen.getByText('Warung Asri')).toBeInTheDocument());
+    const link = screen.getByRole('link', { name: /daftar outlet/i });
+    expect(link).toHaveAttribute('href', '/outlets');
   });
 
   describe('sort header click + reset cursor + paging', () => {

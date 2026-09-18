@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { useDummyStore } from '@/dummy/store';
 
-type NavItem = { href: string; label: string; icon: string; finance?: boolean; adminOnly?: boolean };
+type NavItem = { href: string; label: string; icon: string; finance?: boolean; adminOnly?: boolean; adminHref?: string };
 type SidebarAuth = { role: string | null; authResolved: boolean; authenticated: boolean };
 type AuthChangeDetail = { token?: string | null; role?: string | null };
 
@@ -15,7 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/invoices',      label: 'Invoice',       icon: '🧾', finance: true },
   { href: '/orders',        label: 'Pesanan',       icon: '🛒' },
   { href: '/products',      label: 'Produk',        icon: '📦' },
-  { href: '/outlets',       label: 'Outlet',        icon: '🏪' },
+  { href: '/outlets',       label: 'Outlet',        icon: '🏪', adminHref: '/admin/outlets' },
   { href: '/marketplace',   label: 'Marketplace',   icon: '🌐' },
   { href: '/payments',      label: 'Pembayaran',    icon: '💳', finance: true },
   { href: '/delivery',      label: 'Pengiriman',    icon: '🚚' },
@@ -134,7 +134,11 @@ function SidebarNavigation({ pathname, role, authResolved, authenticated, onClos
         ? NAV_ITEMS
         : NAV_ITEMS.filter((item) => !item.adminOnly);
   return <nav className="flex-1 overflow-y-auto slim-scroll px-3 py-4 space-y-1">
-    {visibleItems.map(({ href, label, icon }) => {
+    {visibleItems.map((item) => {
+      const { label, icon } = item;
+      // Admins manage outlets on the admin page; other roles keep the public
+      // registration form. Other items simply use their declared href.
+      const href = item.adminHref && role === 'admin' ? item.adminHref : item.href;
       const isActive = pathname === href || pathname.startsWith(href + '/');
       return <Link key={href} href={href} onClick={onClose} className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] font-medium transition-colors duration-100 ${isActive ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
         <span className="text-base" aria-hidden>{icon}</span>

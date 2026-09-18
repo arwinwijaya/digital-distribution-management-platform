@@ -18,7 +18,8 @@ import {
   broadcastPromotion,
 } from '@/app/admin/promotions/api';
 import { assignUserRole } from '@/app/admin/users/api';
-import { updateOutlet } from '@/app/admin/outlets/api';
+import { updateOutlet, createOutlet } from '@/app/admin/outlets/api';
+import { createDummyOutlet, updateDummyOutlet } from '@/dummy/mutations';
 import { sendFunnelEvent } from '@/lib/data-intelligence-api';
 import { updateDeliveryStatus } from '@/app/delivery/page';
 import { recordPayment } from '@/app/payments/page';
@@ -211,5 +212,65 @@ describe('write guards stop network + mutations stay ephemeral', () => {
     expect((fresh.orders ?? []).some((o) => o.order_id === salesOrder.order_id)).toBe(false);
     expect((fresh.orders ?? []).some((o) => o.order_id === outletOrder.order_id)).toBe(false);
     expect((fresh.orders ?? []).some((o) => String(o.order_id).startsWith('dummy-'))).toBe(false);
+  });
+});
+
+describe('outlet mutators — upsert-by-id deep merge', () => {
+  it('createDummyOutlet appends a full row with a negative id; updateDummyOutlet merges by id', () => {
+    useDummyStore.getState().toggle(); // ON
+
+    const created = createDummyOutlet({
+      name: 'Outlet Mutator',
+      phone: '081299900011',
+      category: 'restoran',
+      address: 'Jl. Mutator No. 1',
+      city: 'Depok',
+      district: 'Depok Utara',
+      territory_id: 3,
+      is_active: true,
+    });
+    expect(created.id).toBeLessThan(0);
+    expect(created.name).toBe('Outlet Mutator');
+    expect(created.category).toBe('restoran');
+    expect(created.territory_id).toBe(3);
+
+    // Partial edit must not blank the other fields.
+    const renamed = updateDummyOutlet(created.id, { name: 'Outlet Mutator v2' });
+    expect(renamed.id).toBe(created.id);
+    expect(renamed.name).toBe('Outlet Mutator v2');
+    expect(renamed.category).toBe('restoran');
+    expect(renamed.territory_id).toBe(3);
+
+    // Deactivate (soft) preserves identity + fields.
+    const off = updateDummyOutlet(created.id, { is_active: false });
+    expect(off.is_active).toBe(false);
+    expect(off.name).toBe('Outlet Mutator v2');
+    expect(off.category).toBe('restoran');
+  });
+
+  it('createDummyOutlet rejects a duplicate canonical phone', () => {
+    useDummyStore.getState().toggle(); // ON
+
+    createDummyOutlet({
+      name: 'Outlet A',
+      phone: '081299900022',
+      category: 'warung',
+      address: 'Jl. A',
+      city: 'Depok',
+      district: 'Depok',
+      is_active: true,
+    });
+
+    expect(() =>
+      createDummyOutlet({
+        name: 'Outlet B',
+        phone: '+62 812-999-00022',
+        category: 'warung',
+        address: 'Jl. B',
+        city: 'Depok',
+        district: 'Depok',
+        is_active: true,
+      }),
+    ).toThrow();
   });
 });

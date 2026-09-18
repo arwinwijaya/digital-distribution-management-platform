@@ -2,7 +2,7 @@ import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { JABODETABEK_TERRITORIES } from '@/dummy/seed';
-import { updateDummyOutlet } from '@/dummy/mutations';
+import { updateDummyOutlet, createDummyOutlet } from '@/dummy/mutations';
 import { compareRows, paginate } from '@/lib/admin-table';
 
 // ── Dummy-mode entity shapes (subset of the T5/T6 relational graph) ─────────
@@ -76,7 +76,7 @@ function toAdminOutlet(entity: DummyOutletEntity, index: number): AdminOutlet {
 }
 
 function listDummyOutlets(filters: OutletFilters): OutletsListResult {
-  let outlets = dummyState().outlets.map((o, i) => toAdminOutlet(o, i));
+  let outlets = resolveDummyOutlets();
 
   if (filters.search) {
     const q = filters.search.toLowerCase();
@@ -115,11 +115,64 @@ function listDummyOutlets(filters: OutletFilters): OutletsListResult {
   };
 }
 
-function resolveOutletId(outletId: number): number {
+function overlayEntries(): Array<Partial<AdminOutlet> & { id: number }> {
+  const entities = useDummyStore.getState().dummyEntities as
+    | Partial<{ admin_outlets: Array<Partial<AdminOutlet> & { id: number }> }>
+    | null;
+  return entities?.admin_outlets ?? [];
+}
+
+/**
+ * Merge the synthesized base outlets with the `admin_outlets` write overlay.
+ *
+ * Base rows are resolved through `toAdminOutlet` (which synthesizes
+ * category/is_active/score/…) and then have any sparse edit patch deep-merged
+ * on top BY ID, so a partial edit (e.g. a rename or `{is_active:false}`) never
+ * blanks the synthesized fields. Overlay entries with no matching base id are
+ * created rows and are appended in full.
+ */
+function resolveDummyOutlets(): AdminOutlet[] {
   const { outlets } = dummyState();
-  const found = outlets.find((o) => numericOutletId(o.id) === outletId);
+  const overlay = overlayEntries();
+  const overlayById = new Map(overlay.map((o) => [o.id, o]));
+  const baseIds = new Set<number>();
+
+  const merged: AdminOutlet[] = outlets.map((o, i) => {
+    const base = toAdminOutlet(o, i);
+    baseIds.add(base.id);
+    const patch = overlayById.get(base.id);
+    return patch ? { ...base, ...patch } : base;
+  });
+
+  for (const entry of overlay) {
+    if (baseIds.has(entry.id)) continue;
+    merged.push({
+      id: entry.id,
+      name: entry.name ?? `Outlet #${entry.id}`,
+      category: entry.category ?? null,
+      territory_id: entry.territory_id ?? null,
+      territory: entry.territory ?? null,
+      is_active: entry.is_active ?? true,
+      score: entry.score ?? 0,
+      city: entry.city,
+      district: entry.district,
+      address: entry.address,
+      latitude: entry.latitude ?? null,
+      longitude: entry.longitude ?? null,
+      phone: entry.phone ?? null,
+      created_at: entry.created_at ?? null,
+      updated_at: entry.updated_at ?? null,
+    });
+  }
+
+  return merged;
+}
+
+function resolveOutletId(outletId: number): number {
+  const resolved = resolveDummyOutlets();
+  const found = resolved.find((o) => o.id === outletId);
   if (found) return outletId;
-  return outlets.length > 0 ? numericOutletId(outlets[0].id) : outletId;
+  return resolved.length > 0 ? resolved[0].id : outletId;
 }
 
 function dummyOutletOrders(
@@ -142,8 +195,8 @@ function dummyOutletOrders(
 
 function dummyOutletSummary(outletId: number): OutletSummary {
   const resolvedId = resolveOutletId(outletId);
-  const { outlets, orders } = dummyState();
-  const outlet = outlets.find((o) => numericOutletId(o.id) === resolvedId);
+  const { orders } = dummyState();
+  const outlet = resolveDummyOutlets().find((o) => o.id === resolvedId);
   const outletOrders = orders.filter((o) => o.outlet_id === resolvedId);
   const total = outletOrders.reduce(
     (sum, o) => sum + (Number(String(o.total_amount).replace(/[^0-9.]/g, '')) || 0),
@@ -219,6 +272,19 @@ export interface OutletSummary {
   last_order_date?: string | null;
 }
 
+export interface OutletInput {
+  name: string;
+  phone: string;
+  category: string;
+  address: string;
+  city: string;
+  district: string;
+  territory_id?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  is_active?: boolean;
+}
+
 function parseError(data: unknown, fallback: string): string {
   if (data && typeof data === 'object' && data !== null && 'message' in data) {
     const v = (data as { message?: unknown }).message;
@@ -259,7 +325,21 @@ async function fetchAdminOutletsReal(token: string, filters: OutletFilters): Pro
   return { outlets, hasMore, limit, cursor, total, summary };
 }
 
-export async function updateOutlet(token: string, outletId: number, payload: Partial<AdminOutlet> & { name?: string; category?: string; address?: string; city?: string; district?: string; is_active?: boolean }): Promise<AdminOutlet> {
+export async function createOutlet(token: string, payload: OutletInput): Promise<AdminOutlet> {
+  if (useDummyStore.getState().isDummy) {
+    return createDummyOutlet(payload) as unknown as AdminOutlet;
+  }
+  const response = await fetch(apiUrl('/admin/outlets'), {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(parseError(data, 'Outlet tidak dapat dibuat.'));
+  return (data.data ?? data) as AdminOutlet;
+}
+
+export async function updateOutlet(token: string, outletId: number, payload: Partial<AdminOutlet> & { name?: string; category?: string; phone?: string; territory_id?: number | null; address?: string; city?: string; district?: string; is_active?: boolean }): Promise<AdminOutlet> {
   if (useDummyStore.getState().isDummy) {
     return updateDummyOutlet(outletId, payload) as unknown as AdminOutlet;
   }

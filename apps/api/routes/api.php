@@ -62,6 +62,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Admin outlet management (CRUD, purchase history, scoring)
     Route::get('/admin/outlets', [AdminOutletController::class, 'index']);
+    Route::post('/admin/outlets', [AdminOutletController::class, 'store']);
     Route::patch('/admin/outlets/{id}', [AdminOutletController::class, 'update']);
     Route::get('/admin/outlets/{outletId}/orders', [AdminOutletController::class, 'orders']);
     Route::get('/admin/outlets/{outletId}/summary', [AdminOutletController::class, 'summary']);

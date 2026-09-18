@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreAdminOutletRequest;
 use App\Http\Requests\UpdateOutletRequest;
 use App\Models\Order;
 use App\Models\Outlet;
@@ -126,6 +127,27 @@ class AdminOutletController extends Controller
             'active' => $active,
             'inactive' => $inactive,
         ]);
+    }
+
+    /**
+     * Admin outlet creation (POST).
+     *
+     * Ownership (user_id) is never accepted from the client; the outlet is
+     * created without a linked login identity (nullable FK), matching the
+     * legacy `POST /outlets` path.
+     */
+    public function store(StoreAdminOutletRequest $request): JsonResponse
+    {
+        $this->authorization->assertAdmin($request->user());
+
+        $outlet = Outlet::create(array_merge($request->validated(), [
+            'is_active' => $request->boolean('is_active', true),
+        ]));
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $outlet->load('territory'),
+        ], 201);
     }
 
     /**

@@ -3,26 +3,26 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\CanonicalizesOutletPhone;
-use Illuminate\Contracts\Validation\ValidationRule;
+use App\Models\Outlet;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class StoreOutletRequest extends FormRequest
+/**
+ * Admin-facing outlet creation.
+ *
+ * Distinct from the public `StoreOutletRequest` (self-registration) because the
+ * admin path accepts category / territory / is_active and must NOT leak those
+ * fields onto the public route.
+ */
+class StoreAdminOutletRequest extends FormRequest
 {
     use CanonicalizesOutletPhone;
 
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
@@ -31,9 +31,12 @@ class StoreOutletRequest extends FormRequest
             'address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'district' => 'required|string|max:255',
+            'category' => ['required', 'string', Rule::in(Outlet::VALID_CATEGORIES)],
+            'territory_id' => 'nullable|integer|exists:territories,id',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
-            // Ownership is assigned by the server. Client supplied user_id is never accepted.
+            'is_active' => 'sometimes|boolean',
+            // Ownership is server-assigned; the client may never inject it.
             'user_id' => 'prohibited',
         ];
     }

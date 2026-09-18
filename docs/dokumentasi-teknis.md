@@ -83,7 +83,12 @@ Pola arsitektur backend: **Controller (tipis) → Service (logika bisnis) → El
 │   │   ├── config/                 # app, auth, database, jwt, orders, whatsapp
 │   │   ├── database/migrations/    # 35 migrasi
 │   │   ├── routes/api.php          # ±60 route
-│   │   └── tests/Feature/          # 13 test suite
+│   │   ├── tests/Feature/          # Feature test suite (auth, order, payment, dll.)
+│   │   │   ├── Concurrency/        # Race suite: PaymentConcurrencyTest,
+│   │   │   │                       #   DeliveryConcurrencyTest, OrderConcurrencyTest,
+│   │   │   │                       #   InvoiceConcurrencyTest, PrePilotConcurrencyCompatibilityTest,
+│   │   │   │                       #   WhatsAppPostgresConcurrencyTest, InvoiceReminderPostgresConcurrencyTest
+│   │   │   └── Support/            # Fixture & skenario test bersama
 │   ├── web/                  # Next.js 14 frontend
 │   │   └── src/
 │   │       ├── app/                # 13 route halaman (lihat §11)
@@ -294,7 +299,7 @@ Contoh respons login dan bentuk error mengikuti tipe di `packages/shared` (`Logi
 `config/orders.php → commission_percentage` (default `2.00`, env `ORDER_COMMISSION_PERCENTAGE`) di-**snapshot ke setiap order** saat dibuat, sehingga perubahan konfigurasi tidak mengubah histori transaksi.
 
 ### 8.4 Stok & konk(TYPE) kurensi
-`OrderCreationService::create()` berjalan dalam transaksi DB: validasi → `prepareProducts` → `reservePreparedProducts` → persist. Ada `ConcurrencyTestBarrier` (test-only) untuk menguji race condition order/pembayaran/delivery konkuren — terbukti oleh suite `DeliveryTest`, `PaymentTest`, `WhatsAppPostgresConcurrencyTest`.
+`OrderCreationService::create()` berjalan dalam transaksi DB: validasi → `prepareProducts` → `reservePreparedProducts` → persist. Ada `ConcurrencyTestBarrier` (test-only) untuk menguji race condition order/pembayaran/delivery konkuren — terbukti oleh suite Concurrency (`OrderConcurrencyTest`, `PaymentConcurrencyTest`, `DeliveryConcurrencyTest`, `WhatsAppPostgresConcurrencyTest`, `InvoiceReminderPostgresConcurrencyTest`).
 
 ### 8.5 AI deterministik & bounded
 `ForecastService`, `RecommendationService`, `SegmentationService` bersifat **deterministik** (output sama untuk input sama — mudah di-test, lihat `AITest`) dan **bounded** (limit jumlah, histori sparse → fallback aman yang explainable, bukan halusinasi). Outlet hanya boleh mengakses sinyal AI miliknya; admin boleh lintas outlet (diuji di `AITest`).
@@ -398,7 +403,7 @@ Fakta penting: skema mendukung **multi-supplier marketplace** (produk ↔ suppli
 
 ## 15. Testing & CI/CD
 
-Suite backend (`apps/api/tests/Feature/`, 13 file): `AuthTest`, `OutletTest`, `ProductTest`, `MarketplaceTest`, `OrderTest`, `PaymentTest`, `DeliveryTest` (termasuk race konkuren multi-server), `SalesTest`, `AITest`, `AnalyticsTest`, `WhatsAppTest`, `WhatsAppPostgresConcurrencyTest`, `Phase1IntegrationTest` (+ `LoadTest` performa).
+Suite backend dipecah per kategori: **Unit** (`apps/api/tests/Unit/`), **Feature** (`apps/api/tests/Feature/` — `AuthTest`, `OutletTest`, `ProductTest`, `MarketplaceTest`, `OrderTest`, `OrderQueryTest`, `PaymentTest`, `DeliveryTest`, `SalesTest`, `AITest`, `AnalyticsTest`, `WhatsAppTest`, `Phase1IntegrationTest`, dll.), dan **Concurrency** (`apps/api/tests/Feature/Concurrency/` — `OrderConcurrencyTest`, `InvoiceConcurrencyTest`, `PaymentConcurrencyTest`, `DeliveryConcurrencyTest`, `PrePilotConcurrencyCompatibilityTest`, `WhatsAppPostgresConcurrencyTest`, `InvoiceReminderPostgresConcurrencyTest`; test SQLite HTTP race pakai trait `Support/SqliteHttpRaceCase`, test PostgreSQL di-skip via `PostgresRaceProbe` bila DB tak terjangkau). Ada juga suite **Performance** (`LoadTest`).
 
 Frontend: `apps/web/jest.config.js` (config Jest dengan Babel — `@babel/core`, `@babel/preset-env`, `@babel/preset-react`, `@babel/preset-typescript`); `order-flow.test.js` (E2E order flow); `data-intelligence-types.test.js` (validasi tipe data-intelligence).
 

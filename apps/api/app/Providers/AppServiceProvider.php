@@ -16,6 +16,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Telescope is a dev-only dependency (require-dev). Register its provider
+        // only when the package is actually installed and Telescope is enabled,
+        // so production images built with `composer install --no-dev` boot cleanly.
+        if (class_exists(\Laravel\Telescope\TelescopeApplicationServiceProvider::class)
+            && env('TELESCOPE_ENABLED', true)) {
+            $this->app->register(\App\Providers\TelescopeServiceProvider::class);
+        }
+
         $this->app->singleton(AuthService::class, function ($app) {
             return new AuthService;
         });

@@ -197,7 +197,7 @@ class OperationalDiagnosticsTest extends TestCase
             'idempotency_key' => 'ops-diag-reminder-1',
         ]);
         $failedPipeline = DataPipelineRun::create([
-            'run_uuid' => 'ops-diag-run-1',
+            'run_uuid' => '00000000-0000-4000-8000-0000000000d1',
             'status' => 'failed',
             'pipeline_version' => 'v1',
             'window_start' => '2026-09-01',
@@ -288,7 +288,7 @@ class OperationalDiagnosticsTest extends TestCase
     public function test_issue_detail_requires_admin_and_redacts_sensitive_fields(): void
     {
         $pipeline = DataPipelineRun::create([
-            'run_uuid' => 'ops-diag-detail-pipeline-1',
+            'run_uuid' => '00000000-0000-4000-8000-0000000000d2',
             'status' => 'completed',
             'pipeline_version' => 'v1',
             'window_start' => '2026-09-01',

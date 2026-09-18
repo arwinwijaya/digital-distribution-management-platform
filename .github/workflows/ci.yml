@@ -73,9 +73,26 @@ jobs:
           DB_DATABASE: ddp_test
           DB_USERNAME: ddp_user
           DB_PASSWORD: ddp_password
+          JWT_SECRET: testing-jwt-secret-min-32-characters!!
         run: |
           php artisan migrate --force
+          # phpunit.xml.dist pins the safe sqlite/:memory: defaults via BOTH
+          # <env force="true"> and <server> entries, so the suite is deterministic
+          # and can never touch the live database.
           php artisan test --without-tty
+
+      # Optional PostgreSQL parity run. Known-failing today due to pre-existing
+      # test-portability bugs (non-UUID fixtures into uuid columns, numeric
+      # precision). Kept non-blocking; see phpunit.pgsql.xml.
+      - name: Run Tests (PostgreSQL parity, non-blocking)
+        working-directory: apps/api
+        continue-on-error: true
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: ddp_user
+          DB_PASSWORD: ddp_password
+        run: php vendor/bin/phpunit -c phpunit.pgsql.xml --without-tty
 
   # Next.js Web Tests
   web-tests:
@@ -119,7 +136,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build API Image
-        run: docker build -t ddp-api:latest -f apps/api/Dockerfile .
+        run: docker build -t ddp-api:latest --target app -f apps/api/Dockerfile .
 
       - name: Build Web Image
         run: docker build -t ddp-web:latest -f apps/web/Dockerfile .

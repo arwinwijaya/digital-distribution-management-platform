@@ -172,7 +172,7 @@ return new class extends Migration
                         NEW.window_start IS DISTINCT FROM OLD.window_start OR
                         NEW.window_end IS DISTINCT FROM OLD.window_end OR
                         NEW.timezone IS DISTINCT FROM OLD.timezone OR
-                        NEW.lineage IS DISTINCT FROM OLD.lineage OR
+                        NEW.lineage::jsonb IS DISTINCT FROM OLD.lineage::jsonb OR
                         NEW.published_at IS DISTINCT FROM OLD.published_at
                     ) THEN
                         RAISE EXCEPTION 'published snapshots are immutable';

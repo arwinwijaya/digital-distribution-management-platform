@@ -38,7 +38,7 @@ Role source: `apps/api/app/Models/User.php`, `apps/api/app/Services/FinanceAutho
 - `GET /api/invoices`: admin, finance, and outlet access with outlet scoping where applicable. `data` is paginated and `meta` contains `page`, `limit`, `total`, `has_more`.
 - `PUT /api/orders/{id}/cancel`: successful cancellation returns formatted invoice; payment-row or incompatible invoice/order state returns `409`.
 
-Relevant implementation: `apps/api/app/Http/Controllers/OrderController.php`, `apps/api/app/Services/OrderCreationService.php`, `apps/api/app/Services/InvoiceService.php`, `apps/api/app/Http/Controllers/InvoiceController.php`, `apps/api/tests/Feature/OrderTest.php`, `apps/api/tests/Feature/InvoiceTest.php`, and `apps/api/tests/Feature/OperationalReadinessTest.php`.
+Relevant implementation: `apps/api/app/Http/Controllers/OrderController.php`, `apps/api/app/Services/OrderCreationService.php`, `apps/api/app/Services/InvoiceService.php`, `apps/api/app/Http/Controllers/InvoiceController.php`, `apps/api/tests/Feature/OrderTest.php`, `apps/api/tests/Feature/OrderQueryTest.php`, `apps/api/tests/Feature/InvoiceTest.php`, and `apps/api/tests/Feature/OperationalReadinessTest.php`.
 
 ### Delivery
 
@@ -46,7 +46,7 @@ Relevant implementation: `apps/api/app/Http/Controllers/OrderController.php`, `a
 - Assignment returns `201` and includes delivery/order/driver/assigner/status history. Missing order is `404`; non-`Confirmed` order, duplicate assignment, or inactive/non-driver is `422`.
 - Status updates return `200` with status timestamps, proof, route data, related order, and history. Ownership denial is `403`; invalid transition is `422`.
 
-Relevant implementation/tests: `apps/api/app/Http/Controllers/DeliveryController.php`, `apps/api/app/Models/Delivery.php`, `apps/api/tests/Feature/DeliveryTest.php`, `apps/api/tests/Feature/DeliveryAuthorizationTest.php`, `apps/api/tests/Feature/DeliveryConcurrencyTest.php`, and `apps/api/tests/Feature/OperationalReadinessTest.php`.
+Relevant implementation/tests: `apps/api/app/Http/Controllers/DeliveryController.php`, `apps/api/app/Models/Delivery.php`, `apps/api/tests/Feature/DeliveryTest.php`, `apps/api/tests/Feature/DeliveryAuthorizationTest.php`, `apps/api/tests/Feature/Concurrency/DeliveryConcurrencyTest.php`, and `apps/api/tests/Feature/OperationalReadinessTest.php`.
 
 ### Payment
 
@@ -54,7 +54,7 @@ Relevant implementation/tests: `apps/api/app/Http/Controllers/DeliveryController
 - `GET /api/payments`: paginated with `page`, `limit`, `total`, and `has_more`; outlet users see only their outlet, while admin/finance can query the broader history.
 - Payments require delivered or partially-paid order state. Overpayment, cancelled/paid invoice, invalid amount, or invalid request is `422`; unauthorized access is `403`.
 
-Relevant implementation/tests: `apps/api/app/Http/Controllers/PaymentController.php`, `apps/api/app/Services/PaymentService.php`, `apps/api/tests/Feature/PaymentTest.php`, `apps/api/tests/Feature/PaymentConcurrencyTest.php`, `apps/api/tests/Feature/DeliveryConcurrencyTest.php`, and `apps/api/tests/Feature/OperationalReadinessTest.php`.
+Relevant implementation/tests: `apps/api/app/Http/Controllers/PaymentController.php`, `apps/api/app/Services/PaymentService.php`, `apps/api/tests/Feature/PaymentTest.php`, `apps/api/tests/Feature/Concurrency/PaymentConcurrencyTest.php`, `apps/api/tests/Feature/Concurrency/DeliveryConcurrencyTest.php`, and `apps/api/tests/Feature/OperationalReadinessTest.php`.
 
 ### WhatsApp
 
@@ -63,7 +63,7 @@ Relevant implementation/tests: `apps/api/app/Http/Controllers/PaymentController.
 - `POST /api/whatsapp/orders/{orderId}/notification`: admin-only; non-confirmed order `409`, disabled integration `202`, provider failure `503`, success `200`.
 - `POST /api/whatsapp/messages/{messageId}/retry`: admin-only; provider failure `503`, successful state response `200`.
 
-Relevant implementation/config/tests: `apps/api/app/Http/Controllers/WhatsAppController.php`, `apps/api/app/Services/WhatsAppService.php`, `apps/api/app/Services/WhatsAppOutboundService.php`, `apps/api/config/whatsapp.php`, `apps/api/tests/Feature/WhatsAppTest.php`, and `apps/api/tests/Feature/WhatsAppPostgresConcurrencyTest.php`.
+Relevant implementation/config/tests: `apps/api/app/Http/Controllers/WhatsAppController.php`, `apps/api/app/Services/WhatsAppService.php`, `apps/api/app/Services/WhatsAppOutboundService.php`, `apps/api/config/whatsapp.php`, `apps/api/tests/Feature/WhatsAppTest.php`, and `apps/api/tests/Feature/Concurrency/WhatsAppPostgresConcurrencyTest.php`.
 
 ### Analytics/finance/pipeline
 
@@ -82,15 +82,15 @@ Relevant implementation/tests: `apps/api/app/Http/Controllers/AnalyticsControlle
 | Case | Existing guarantee/evidence |
 |---|---|
 | Order retry | `StoreOrderRequest` requires or derives a stable identity from outlet plus canonical items. `orders.idempotency_key` is unique. `OrderCreationService` retries expected unique-key races and reads back the winner. Same request returns `201` then `200`, one order, one item set, and one stock decrement. |
-| Order/stock/credit concurrency | Order creation uses an outlet row lock, stable product locks, one transaction, stock reservation, and credit validation. `OrderTest::test_concurrent_same_identity_submissions_return_one_order_result` verifies `[200, 201]` and one persisted order. |
+| Order/stock/credit concurrency | Order creation uses an outlet row lock, stable product locks, one transaction, stock reservation, and credit validation. `OrderConcurrencyTest::test_concurrent_same_identity_submissions_return_one_order_result` verifies `[200, 201]` and one persisted order. |
 | Approval/invoice retry | Approval locks the order and calls invoice creation in the same transaction. `invoices.order_id` is unique and `InvoiceService` locks/reuses an existing invoice. `InvoiceTest` and `OperationalReadinessTest` verify one invoice and one `Confirmed` history row after retries. |
-| Concurrent approval | `OrderController` has bounded transaction retry; `InvoiceConcurrencyTest` verifies two HTTP workers converge on one invoice/history record. The SQLite race harness documents serialization limits; it is not evidence of production database locking semantics. |
-| Payment replay/concurrency | `payments.idempotency_key` is unique. `PaymentService` locks outlet then order then payment/invoice rows, calculates money in cents, replays matching identity, and rejects identity reuse with changed order/amount/method. `PaymentConcurrencyTest` verifies `[200, 201]`, one payment, and consistent invoice/order balances. |
-| Delivery/payment race | Delivery completion locks delivery then order before changing order status/history. `DeliveryConcurrencyTest` verifies matching final status/history when delivery and payment contend. |
-| WhatsApp inbound idempotency | `provider_message_id` and service-level processing identity prevent duplicate inbound orders; repeated webhook returns duplicate behavior. PostgreSQL concurrency coverage is in `WhatsAppPostgresConcurrencyTest`. |
+| Concurrent approval | `OrderController` has bounded transaction retry; `Concurrency/InvoiceConcurrencyTest` verifies two HTTP workers converge on one invoice/history record. The SQLite race harness documents serialization limits; it is not evidence of production database locking semantics. |
+| Payment replay/concurrency | `payments.idempotency_key` is unique. `PaymentService` locks outlet then order then payment/invoice rows, calculates money in cents, replays matching identity, and rejects identity reuse with changed order/amount/method. `Concurrency/PaymentConcurrencyTest` verifies `[200, 201]`, one payment, and consistent invoice/order balances. |
+| Delivery/payment race | Delivery completion locks delivery then order before changing order status/history. `Concurrency/DeliveryConcurrencyTest` verifies matching final status/history when delivery and payment contend. |
+| WhatsApp inbound idempotency | `provider_message_id` and service-level processing identity prevent duplicate inbound orders; repeated webhook returns duplicate behavior. PostgreSQL concurrency coverage is in `Concurrency/WhatsAppPostgresConcurrencyTest`. |
 | WhatsApp outbound idempotency | `logical_key` is unique for order confirmation and `provider_idempotency_key` is stable. `insertOrIgnore` plus row lock converges concurrent notifications to one logical message. |
 | WhatsApp send lease | `claimed_at` and `whatsapp.send_lease_seconds` prevent a second provider request while a lease is fresh; stale `sending` rows are reclaimable. `WhatsAppTest::test_fresh_sending_lease_is_not_duplicated_but_stale_unknown_send_is_reclaimed` verifies this. |
-| Reminder retry | Invoice reminder identity is unique and retries reuse the same idempotency key. Existing operational tests verify bounded attempts, final failure state, and no invoice mutation. Dedicated PostgreSQL reminder concurrency coverage is `InvoiceReminderPostgresConcurrencyTest`. |
+| Reminder retry | Invoice reminder identity is unique and retries reuse the same idempotency key. Existing operational tests verify bounded attempts, final failure state, and no invoice mutation. Dedicated PostgreSQL reminder concurrency coverage is `Concurrency/InvoiceReminderPostgresConcurrencyTest`. |
 | Pipeline overlap/publication | `DataPipelineService` rejects active runs, publishes complete snapshots transactionally, and leaves the previous active snapshot when a run fails. `DataPipelineTriggerTest` verifies `409` overlap, `202` accepted trigger, and active snapshot/window behavior. |
 
 ## 5. Source-of-truth boundaries

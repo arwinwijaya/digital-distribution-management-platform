@@ -44,6 +44,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | Consumed by App\Http\Middleware\TrustProxies. "*" trusts every upstream
+    | proxy; a comma-separated list of IPs/CIDRs is stricter. Kept in config so
+    | it survives config:cache (env() returns null outside config files then).
+    |
+    */
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     */
@@ -116,7 +128,9 @@ return [
         App\Providers\AuthServiceProvider::class,
         App\Providers\AppServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
-        App\Providers\TelescopeServiceProvider::class,
+        // App\Providers\TelescopeServiceProvider::class — registered conditionally
+        // in AppServiceProvider so `--no-dev` production builds (no laravel/telescope)
+        // do not fail with "Class TelescopeApplicationServiceProvider not found".
 
     ],
 

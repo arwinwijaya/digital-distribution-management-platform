@@ -123,7 +123,12 @@ class InvoiceMetricsService
         $driver = DB::connection()->getDriverName();
         $difference = match ($driver) {
             'mysql', 'mariadb' => 'DATEDIFF(latest_payments.final_payment_at, invoices.issue_date)',
-            'pgsql' => "EXTRACT(EPOCH FROM (latest_payments.final_payment_at::timestamp - invoices.issue_date::timestamp)) / 86400",
+            // Date-only subtraction yields a whole number of days, matching the
+            // MySQL DATEDIFF and SQLite julianday() branches. The previous
+            // EXTRACT(EPOCH ...)/86400 form returned fractional days (e.g. 9.42)
+            // because it kept the time-of-day component, so the API contract
+            // (integer average_days) differed by driver.
+            'pgsql' => '(latest_payments.final_payment_at::date - invoices.issue_date::date)',
             default => 'julianday(date(latest_payments.final_payment_at)) - julianday(date(invoices.issue_date))',
         };
 

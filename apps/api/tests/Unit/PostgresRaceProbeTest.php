@@ -62,11 +62,12 @@ class PostgresRaceProbeTest extends TestCase
 
     public function test_probe_does_not_depend_on_the_default_connection(): void
     {
-        // phpunit pins the default connection to sqlite; the probe must still
-        // evaluate the pgsql connection instead of short-circuiting to false.
+        // The suite's default connection is sqlite (phpunit.xml.dist) or pgsql
+        // (phpunit.pgsql.xml); the probe must evaluate the pgsql connection
+        // itself instead of short-circuiting to false based on the default.
         config(['database.connections.pgsql.host' => '']);
 
-        $this->assertSame('sqlite', config('database.default'));
+        $this->assertContains(config('database.default'), ['sqlite', 'pgsql']);
         $this->assertFalse(PostgresRaceProbe::isAvailable());
     }
 }

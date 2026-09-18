@@ -10,9 +10,28 @@ class TrustProxies extends Middleware
     /**
      * The trusted proxies for this application.
      *
+     * Driven by TRUSTED_PROXIES so the app can sit behind nginx/a load balancer
+     * in production. "*" trusts all upstream proxies (fine when the app is only
+     * reachable through the proxy); a comma-separated list of IPs/CIDRs is
+     * safer when it is not.
+     *
      * @var array<int, string>|string|null
      */
     protected $proxies;
+
+    public function __construct()
+    {
+        // Read from config (not env()) so it keeps working after config:cache.
+        $trusted = config('app.trusted_proxies');
+
+        if ($trusted === null || $trusted === '') {
+            $this->proxies = null;
+        } elseif ($trusted === '*') {
+            $this->proxies = '*';
+        } else {
+            $this->proxies = array_values(array_filter(array_map('trim', explode(',', $trusted))));
+        }
+    }
 
     /**
      * The headers that should be used to detect proxies.

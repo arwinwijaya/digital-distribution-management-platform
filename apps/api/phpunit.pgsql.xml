@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    CI configuration: runs the suite against PostgreSQL for production parity.
+
+    It is intentionally SEPARATE from phpunit.xml.dist, which pins the safe
+    sqlite/:memory: defaults. Here the database is FORCED to the dedicated
+    `ddp_test` database so a CI or developer run can never touch a live
+    `ddp_database`. Host/port/credentials come from the environment (CI service
+    container); only the database NAME is hard-pinned for safety.
+-->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
@@ -27,39 +36,26 @@
         </include>
     </source>
     <php>
-        <!-- force="true" is REQUIRED: without it PHPUnit's PhpHandler leaves any
-             pre-existing container/CI env vars (DB_CONNECTION=pgsql,
-             DB_DATABASE=ddp_database, ...) in place, so RefreshDatabase runs
-             migrate:fresh against the LIVE database. See the validation report. -->
         <env name="APP_ENV" value="testing" force="true"/>
-        <env name="DB_CONNECTION" value="sqlite" force="true"/>
-        <env name="DB_DATABASE" value=":memory:" force="true"/>
-        <env name="DB_HOST" value="127.0.0.1" force="true"/>
-        <env name="DB_PORT" value="5432" force="true"/>
-        <env name="DB_USERNAME" value="" force="true"/>
-        <env name="DB_PASSWORD" value="" force="true"/>
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="ddp_test" force="true"/>
         <env name="CACHE_STORE" value="array" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>
         <env name="MAIL_MAILER" value="array" force="true"/>
         <env name="TELESCOPE_ENABLED" value="false" force="true"/>
-        <!-- HS256 needs a >= 32 byte secret; keep tests independent of APP_KEY. -->
         <env name="JWT_SECRET" value="testing-jwt-secret-min-32-characters!!" force="true"/>
         <env name="JWT_ALGO" value="HS256" force="true"/>
 
-        <!-- CRITICAL: force="true" above only writes $_ENV/putenv. PHP CLI seeds
-             $_SERVER from the real environment, and Laravel's Env reads $_SERVER
-             first — so without these <server> entries a container/CI env var
-             (DB_CONNECTION=pgsql, DB_DATABASE=ddp_database) would still win and
-             RefreshDatabase would migrate:fresh the LIVE database. PHPUnit's
-             <server> handler always overwrites $_SERVER. -->
+        <!-- PHPUnit's <server> handler always overwrites $_SERVER, which Laravel's
+             Env reads before $_ENV/getenv. Pinning connection + database NAME
+             here guarantees the suite can never run against a live ddp_database,
+             regardless of what the surrounding environment exports. Host, port
+             and credentials are intentionally left to the environment (the CI
+             service container). -->
         <server name="APP_ENV" value="testing"/>
-        <server name="DB_CONNECTION" value="sqlite"/>
-        <server name="DB_DATABASE" value=":memory:"/>
-        <server name="DB_HOST" value="127.0.0.1"/>
-        <server name="DB_PORT" value="5432"/>
-        <server name="DB_USERNAME" value=""/>
-        <server name="DB_PASSWORD" value=""/>
+        <server name="DB_CONNECTION" value="pgsql"/>
+        <server name="DB_DATABASE" value="ddp_test"/>
         <server name="CACHE_STORE" value="array"/>
         <server name="QUEUE_CONNECTION" value="sync"/>
         <server name="SESSION_DRIVER" value="array"/>

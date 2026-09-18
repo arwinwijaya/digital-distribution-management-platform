@@ -9,6 +9,7 @@ use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\DataPipelineController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\FinanceRoleController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\FinanceMetricsController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\InvoiceController;
@@ -210,10 +211,5 @@ Route::middleware('auth:api')->group(function () {
 
 Route::middleware(['auth:api', 'reject.stale_jwt'])->get('/finance/access', [FinanceRoleController::class, 'access']);
 
-// Health check
-Route::get('/health', function () {
-    return response()->json([
-        'status' => 'healthy',
-        'timestamp' => now()->toIso8601String(),
-    ]);
-});
+// Health check (invokable controller so `route:cache` works in production).
+Route::get('/health', HealthController::class);

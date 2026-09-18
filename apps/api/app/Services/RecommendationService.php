@@ -108,8 +108,13 @@ class RecommendationService
             ->when($outletId !== null, fn ($query) => $query->where('outlet_id', $outletId))
             ->whereHas('items', fn ($items) => $items->where('quantity', '>', 0))
             ->where('created_at', '>=', $windowStart)
-            ->selectRaw('COUNT(DISTINCT DATE(created_at))')
-            ->value(DB::raw('COUNT(DISTINCT DATE(created_at))'));
+            // NOTE: an explicit alias is required. On PostgreSQL + Eloquent,
+            // value(DB::raw('COUNT(...)')) resolves the column name from the
+            // expression text and returns NULL (PostgreSQL names the column
+            // "count"). SQLite happened to tolerate the un-aliased form, which
+            // is why this only surfaced on the pgsql suite.
+            ->selectRaw('COUNT(DISTINCT DATE(created_at)) as distinct_days')
+            ->value('distinct_days');
     }
 
     private function format(Collection $rows, ?int $outletId): array

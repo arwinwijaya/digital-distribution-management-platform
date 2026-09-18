@@ -46,7 +46,7 @@ class DataPipelineTriggerTest extends TestCase
     {
         // Arrange: create an active (running) pipeline run
         DataPipelineRun::create([
-            'run_uuid' => 'active-run-00000000-0000-4000-8000-000000000001',
+            'run_uuid' => '00000000-0000-4000-8000-0000000000a1',
             'status' => 'running',
             'pipeline_version' => 'v1',
             'window_start' => '2026-09-13',
@@ -80,7 +80,7 @@ class DataPipelineTriggerTest extends TestCase
     {
         // Arrange: create a failed run with error recorded
         $failedRun = DataPipelineRun::create([
-            'run_uuid' => 'failed-run-00000000-0000-4000-8000-000000000001',
+            'run_uuid' => '00000000-0000-4000-8000-0000000000f1',
             'status' => 'failed',
             'pipeline_version' => 'v1',
             'window_start' => '2026-09-12',
@@ -175,7 +175,7 @@ class DataPipelineTriggerTest extends TestCase
     {
         // Arrange: create a completed run with a published active snapshot
         $run = DataPipelineRun::create([
-            'run_uuid' => 'status-run-00000000-0000-4000-8000-000000000001',
+            'run_uuid' => '00000000-0000-4000-8000-0000000000c1',
             'status' => 'completed',
             'pipeline_version' => 'v1',
             'window_start' => '2026-08-15',
@@ -185,7 +185,7 @@ class DataPipelineTriggerTest extends TestCase
 
         $snapshot = DataSnapshot::create([
             'run_id' => $run->id,
-            'snapshot_uuid' => 'status-snap-00000000-0000-4000-8000-000000000001',
+            'snapshot_uuid' => '00000000-0000-4000-8000-0000000000c2',
             'version' => 3,
             'status' => 'staged',
             'is_active' => false,

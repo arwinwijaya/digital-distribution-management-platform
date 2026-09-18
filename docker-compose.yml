@@ -1,30 +1,32 @@
+# Production stack for the Digital Distribution Management Platform.
+#
+#   docker compose -f docker-compose.yml up -d --build      # production
+#   docker compose up -d --build                            # dev (override auto-merged)
+#
+# Images are immutable (no bind mounts). Secrets and connection settings come
+# from the root .env file (see .env.example) — never hardcoded here.
+#
+# Traffic flow:  browser → nginx:80 → ( /api/* → api:9000 php-fpm
+#                                      \ /*     → web:3000 Next standalone )
 services:
-  # PostgreSQL Database
   db:
     image: postgres:16-alpine
-    container_name: ddp_db
     restart: unless-stopped
-    ports:
-      - "5432:5432"
     environment:
-      POSTGRES_DB: ddp_database
-      POSTGRES_USER: ddp_user
-      POSTGRES_PASSWORD: ddp_password
+      POSTGRES_DB: ${DB_DATABASE:-ddp_database}
+      POSTGRES_USER: ${DB_USERNAME:-ddp_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ddp_user -d ddp_database"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-ddp_user} -d ${DB_DATABASE:-ddp_database}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: ddp_redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -32,106 +34,146 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # Mail catcher (dev only) — MAIL_HOST=mailpit in apps/api/.env points here.
-  # Web UI: http://localhost:8025
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: ddp_mailpit
-    restart: unless-stopped
-    ports:
-      - "1025:1025" # SMTP
-      - "8025:8025" # Web UI
-    environment:
-      MP_MAX_MESSAGES: 500
-      MP_SMTP_AUTH_ACCEPT_ANY: 1
-      MP_SMTP_AUTH_ALLOW_INSECURE: 1
-    healthcheck:
-      test: ["CMD", "/mailpit", "readyz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Laravel API
+  # Laravel API (php-fpm). Only this service runs migrations.
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: ddp_api
-    command: php artisan serve --host=0.0.0.0 --port=8000
+      target: app
     restart: unless-stopped
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./apps/api:/var/www/html
+    env_file:
+      - .env
     environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_LEVEL: warning
+      RUN_MIGRATIONS: "1"
+      WAIT_FOR_DB: "1"
+      WARM_CACHES: "1"
+      TELESCOPE_ENABLED: "false"
       DB_CONNECTION: pgsql
       DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: ddp_database
-      DB_USERNAME: ddp_user
-      DB_PASSWORD: ddp_password
+      DB_PORT: "5432"
       REDIS_CLIENT: phpredis
       REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_PORT: "6379"
       CACHE_STORE: redis
       SESSION_DRIVER: redis
-      QUEUE_CONNECTION: database
-      APP_KEY: "base64:IW7FET2cdWfbubYon2CM8vcWw9coOh6imBe0qWuNp3w="
-      JWT_SECRET: "jwt-secret-for-local"
-      JWT_ALGO: HS256
-      JWT_TTL: 60
-      # JWT API (tymon/jwt-auth) is stateless: never treat the browser origin as a
-      # stateful Sanctum frontend, otherwise Sanctum injects CSRF validation into
-      # /api/* and login fails with 419 "CSRF token mismatch". See app/Http/Kernel.php.
-      SANCTUM_STATEFUL_DOMAINS: ""
+      SESSION_SECURE_COOKIE: "true"
+      QUEUE_CONNECTION: redis
+      TRUSTED_PROXIES: "*"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mailpit:
-        condition: service_healthy
-    healthcheck:
-      # Full HTTP check (proves the app boots and serves, not just that the port
-      # is bound). Bootstrap is slow over a bind-mounted source tree on Windows
-      # (~7s), so the timeout must be generous or the check flaps locally.
-      test: ["CMD-SHELL", "curl -fsS --max-time 15 http://localhost:8000/api/health || exit 1"]
-      interval: 30s
-      timeout: 20s
-      retries: 5
-      start_period: 60s
+    expose:
+      - "9000"
 
-  # Next.js Web Application
+  # Queue worker (Redis driver).
+  queue-worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_LEVEL: warning
+      RUN_MIGRATIONS: "0"
+      WAIT_FOR_DB: "1"
+      WARM_CACHES: "0"
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+    command: ["php", "artisan", "queue:work", "redis", "--sleep=3", "--tries=3", "--max-time=3600", "--verbose"]
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  # Scheduler (invoices:reminders every minute, data:pipeline daily).
+  scheduler:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_LEVEL: warning
+      RUN_MIGRATIONS: "0"
+      WAIT_FOR_DB: "1"
+      WARM_CACHES: "0"
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+    command: ["php", "artisan", "schedule:work", "--verbose"]
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  # Next.js standalone server.
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: ddp_web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api}
     restart: unless-stopped
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./apps/web:/app/apps/web
-      - ./packages/shared:/app/packages/shared
-      - /app/apps/web/node_modules
-      - /app/apps/web/.next
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    expose:
+      - "3000"
     depends_on:
       api:
-        condition: service_healthy
+        condition: service_started
+
+  # Reverse proxy: single public entrypoint on APP_PORT (default 8080).
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      web:
+        condition: service_started
+      api:
+        condition: service_started
     healthcheck:
-      # node:20-alpine ships wget (no curl). The Next dev server compiles on
-      # first request, so allow a long start_period before it is judged.
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      # Use 127.0.0.1 explicitly: busybox wget resolves `localhost` to ::1 first,
+      # but nginx only listens on IPv4 (0.0.0.0:80), so it would report refused.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 30s
 
 volumes:
   postgres_data:

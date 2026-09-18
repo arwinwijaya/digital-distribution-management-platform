@@ -1,0 +1,59 @@
+# Development override: hot reload, bind mounts, debug on.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# (The root `.gitignore` ignores `docker-compose.override.yml`, so this file is
+# named explicitly instead and must be passed with -f.)
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: base
+    # Bind-mounted source is used as-is, so skip the entrypoint's migrate/cache
+    # warm-up (host `php artisan` works directly).
+    entrypoint: []
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      LOG_LEVEL: debug
+      RUN_MIGRATIONS: "0"
+      WARM_CACHES: "0"
+      SESSION_SECURE_COOKIE: "false"
+      TELESCOPE_ENABLED: "true"
+    volumes:
+      - ./apps/api:/var/www/html
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    volumes:
+      - ./apps/web:/app/apps/web
+      - ./packages/shared:/app/packages/shared
+      - /app/apps/web/.next
+    ports:
+      - "3000:3000"
+
+  nginx:
+    ports:
+      - "8080:80"
+
+  # Dev-only mail catcher. Web UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1

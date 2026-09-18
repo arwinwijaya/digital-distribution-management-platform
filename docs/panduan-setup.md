@@ -292,7 +292,7 @@ Seeder skala (dipakai load-test T9): `ScaleFixtureSeeder` — membuat 500 outlet
 
 ## 7. Menjalankan testing
 
-### 7.1 Backend — PHPUnit (13 suite Feature + Unit + Performance)
+### 7.1 Backend — PHPUnit (testsuite: Unit + Feature + Concurrency + Performance)
 
 ```bash
 cd apps/api
@@ -300,9 +300,10 @@ php artisan test
 # atau spesifik:
 php artisan test --filter=OrderTest
 php artisan test --testsuite=Feature
+php artisan test --testsuite=Concurrency
 ```
 
-Catatan: `phpunit.xml.dist` meng-overrides DB ke **SQLite in-memory** saat testing (`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`), jadi **test backend tidak butuh Postgres menyala** — kecuali race suite Postgres (`WhatsAppPostgresConcurrencyTest`, skenario di `DeliveryTest`/`PaymentTest`) yang butuh DB sungguhan + barrier env (`ORDER_CONCURRENCY_BARRIER_*`, `WHATSAPP_CONCURRENCY_BARRIER_ENABLED`). Lihat CI untuk contoh env Postgres (`ddp_test`).
+Catatan: `phpunit.xml.dist` meng-overrides DB ke **SQLite in-memory** saat testing (`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`), jadi **test backend tidak butuh Postgres menyala** — kecuali race suite Postgres (`tests/Feature/Concurrency/WhatsAppPostgresConcurrencyTest`, `InvoiceReminderPostgresConcurrencyTest`, serta `PaymentConcurrencyTest`/`InvoiceConcurrencyTest`) yang butuh DB sungguhan + barrier env (`ORDER_CONCURRENCY_BARRIER_*`, `WHATSAPP_CONCURRENCY_BARRIER_ENABLED`). Test PostgreSQL di-skip otomatis via `PostgresRaceProbe` bila DB tak terjangkau. Lihat CI untuk contoh env Postgres (`ddp_test`).
 
 ### 7.2 Frontend — Jest + E2E
 

@@ -2,6 +2,7 @@ import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { assignDummyUserRole } from '@/dummy/mutations';
+import { compareRows, paginate } from '@/lib/admin-table';
 
 // ── Dummy-mode helpers ──────────────────────────────────────────────────────
 const DUMMY_USERS: AdminUser[] = [
@@ -15,10 +16,38 @@ const DUMMY_USERS: AdminUser[] = [
   { id: 8, name: 'Eko Sales 2', email: 'eko.sales@ddp.local', role: 'sales', created_at: '2026-01-09T10:00:00+07:00' },
 ];
 
+/**
+ * Dummy parity for the admin users table: same sort/pagination/summary contract
+ * as the real `GET /admin/users` list. Default `created_at DESC` with the
+ * shared `compareRows` comparator (id DESC fallback for equal/missing dates).
+ */
 function listDummyUsers(params: UsersListParams): UsersListResult {
-  const filtered = params.role ? DUMMY_USERS.filter((u) => u.role === params.role) : DUMMY_USERS;
+  let list = DUMMY_USERS;
+  if (params.role) list = list.filter((u) => u.role === params.role);
+  if (params.search) {
+    const q = params.search.toLowerCase();
+    list = list.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  }
+
+  const total = list.length;
+
+  const sortCol = params.sort || 'created_at';
+  const sortOrder = params.order === 'asc' ? 'asc' : 'desc';
+  list = [...list].sort((a, b) =>
+    compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, sortCol, sortOrder),
+  );
+
   const limit = params.limit ?? 20;
-  return { users: filtered.slice(0, limit), hasMore: filtered.length > limit, limit };
+  const cursor = params.cursor ?? 0;
+  const paginated = paginate(list, cursor, limit);
+  return {
+    users: paginated.page,
+    hasMore: paginated.hasMore,
+    limit,
+    cursor,
+    total,
+    summary: { total },
+  };
 }
 
 export interface AdminUser {
@@ -26,18 +55,26 @@ export interface AdminUser {
   name: string;
   email: string;
   role: string;
-  created_at?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface UsersListParams {
   role?: string;
   limit?: number;
+  cursor?: number;
+  sort?: string;
+  order?: string;
+  search?: string;
 }
 
 export interface UsersListResult {
   users: AdminUser[];
   hasMore: boolean;
   limit: number;
+  cursor: number;
+  total?: number;
+  summary?: { total: number };
 }
 
 function parseError(data: unknown, fallback: string): string {
@@ -59,12 +96,25 @@ export async function fetchAdminUsers(token: string, params: UsersListParams = {
 async function fetchAdminUsersReal(token: string, params: UsersListParams): Promise<UsersListResult> {
   const query = new URLSearchParams();
   if (params.role) query.set('role', params.role);
+  if (params.search) query.set('search', params.search);
   query.set('limit', String(params.limit ?? 20));
+  query.set('cursor', String(params.cursor ?? 0));
+  // Sort defaults: created_at DESC.
+  query.set('sort', params.sort || 'created_at');
+  query.set('order', params.order || 'desc');
   const response = await fetch(apiUrl(`/admin/users?${query.toString()}`), { headers: authHeaders(token) });
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Daftar pengguna tidak dapat dimuat.'));
   const users: AdminUser[] = Array.isArray(data.data) ? data.data : [];
-  return { users, hasMore: Boolean(data.meta?.has_more), limit: Number(data.meta?.limit ?? params.limit ?? 20) };
+  const meta = (data.meta ?? {}) as { has_more?: boolean; limit?: number; cursor?: number; total?: number; summary?: { total: number } };
+  return {
+    users,
+    hasMore: Boolean(meta.has_more),
+    limit: Number(meta.limit ?? params.limit ?? 20),
+    cursor: Number(meta.cursor ?? params.cursor ?? 0),
+    total: meta.total !== undefined ? Number(meta.total) : undefined,
+    summary: meta.summary,
+  };
 }
 
 export async function assignUserRole(token: string, userId: number, role: string): Promise<AdminUser> {

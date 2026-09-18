@@ -1,13 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminUsers, assignUserRole, type AdminUser } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Select, Table } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Select, Table, TableSummary, TablePagination, TableDensityToggle } from '@/components/ui';
+import { useTableDensity } from '@/hooks/useTableDensity';
+import { toggleSort, formatDateTime, type ColumnSort } from '@/lib/admin-table';
 
 const ROLE_OPTIONS = ['', 'admin', 'supplier', 'outlet', 'sales', 'driver', 'finance', 'platform_owner'] as const;
+
+const PAGE_LIMIT = 20;
 
 export default function AdminUsersPage() {
   const [token, setToken] = useState<string | null>(null);
@@ -21,36 +25,60 @@ export default function AdminUsersPage() {
   const [selectedRole, setSelectedRole] = useState<string>('admin');
   const [hasMore, setHasMore] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Table state
+  const [sort, setSort] = useState<ColumnSort>({ column: 'created_at', order: 'desc' });
+  const [cursor, setCursor] = useState(0);
+  const [total, setTotal] = useState<number>();
+  const { density, setDensity } = useTableDensity();
+
+  // Latest sort/cursor readable inside `loadUsers` WITHOUT adding them to its
+  // dependency list (which would otherwise re-run the mount effect and reset the
+  // page on every sort/page change).
+  const sortRef = useRef(sort);
+  sortRef.current = sort;
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
 
   const loadUsers = useCallback(
-    async (authToken: string, role?: string) => {
+    async (authToken: string, opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort }) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await fetchAdminUsers(authToken, { role: role || undefined, limit: 20 });
+        const nextSort = opts?.sort ?? sortRef.current;
+        const nextCursor = opts?.cursor ?? (opts?.resetCursor ? 0 : cursorRef.current);
+        const result = await fetchAdminUsers(authToken, {
+          role: roleFilter || undefined,
+          search: search || undefined,
+          limit: PAGE_LIMIT,
+          cursor: nextCursor,
+          sort: nextSort.column,
+          order: nextSort.order,
+        });
         setUsers(result.users);
         setHasMore(result.hasMore);
+        setCursor(nextCursor);
+        if (result.total !== undefined) setTotal(result.total);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : 'Daftar pengguna tidak dapat dimuat.');
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [roleFilter, search],
   );
 
   useEffect(() => {
     const stored = getStoredToken();
     setToken(stored);
     setReady(true);
-    if (stored) loadUsers(stored);
+    if (stored) loadUsers(stored, { resetCursor: true });
   }, [loadUsers]);
 
-  useDummyRefresh(() => { if (token) void loadUsers(token); });
+  useDummyRefresh(() => { if (token) void loadUsers(token, { resetCursor: true }); });
 
   function handleFilterApply() {
     if (!token) return;
-    loadUsers(token, roleFilter);
+    loadUsers(token, { resetCursor: true });
   }
 
   async function handleAssignRole(userId: number) {
@@ -65,12 +93,6 @@ export default function AdminUsersPage() {
     }
   }
 
-  const filteredBySearch = users.filter((u) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
-  });
-
   if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
   if (!token)
     return (
@@ -79,7 +101,7 @@ export default function AdminUsersPage() {
         <div className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-700">
           Masuk sebagai administrator untuk mengelola pengguna.
         </div>
-        <LoginForm expectedRole="admin" onLogin={(nextToken) => { setToken(nextToken); loadUsers(nextToken); }} />
+        <LoginForm expectedRole="admin" onLogin={(nextToken) => { setToken(nextToken); loadUsers(nextToken, { resetCursor: true }); }} />
       </div>
     );
 
@@ -94,6 +116,16 @@ export default function AdminUsersPage() {
           {u.role}
         </span>
       ),
+    },
+    {
+      key: 'created_at',
+      header: 'Dibuat',
+      render: (u: AdminUser) => <span className="text-xs text-gray-600">{formatDateTime(u.created_at ?? null)}</span>,
+    },
+    {
+      key: 'updated_at',
+      header: 'Diperbarui',
+      render: (u: AdminUser) => <span className="text-xs text-gray-600">{formatDateTime(u.updated_at ?? null)}</span>,
     },
     {
       key: 'action',
@@ -142,16 +174,31 @@ export default function AdminUsersPage() {
         {hasMore && <p className="mt-3 text-xs text-gray-500">Ada data lebih lanjut — hubungi dukungan jika diperlukan.</p>}
       </Card>
       <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+          <TableSummary total={total ?? users.length} noun="pengguna" />
+          <TableDensityToggle value={density} onChange={setDensity} />
+        </div>
         {loading ? (
           <p className="p-8 text-sm text-gray-500">Memuat pengguna...</p>
         ) : (
           <Table
             columns={columns}
-            rows={filteredBySearch}
+            rows={users}
             rowKey={(u) => u.id}
+            density={density}
             empty={<EmptyState icon={<span>👤</span>} title="Belum ada pengguna" description="Pengguna baru akan muncul di sini." />}
           />
         )}
+        <TablePagination
+          cursor={cursor}
+          limit={PAGE_LIMIT}
+          total={total}
+          hasMore={hasMore}
+          onPageChange={(nextCursor) => {
+            setCursor(nextCursor);
+            if (token) void loadUsers(token, { cursor: nextCursor });
+          }}
+        />
       </Card>
     </div>
   );

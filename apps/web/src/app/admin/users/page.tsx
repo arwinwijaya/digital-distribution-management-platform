@@ -93,6 +93,12 @@ export default function AdminUsersPage() {
     }
   }
 
+  const filteredBySearch = users.filter((u) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+  });
+
   if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
   if (!token)
     return (
@@ -171,7 +177,6 @@ export default function AdminUsersPage() {
           <Input label="Cari (nama/email)" placeholder="Ketik nama atau email" value={search} onChange={(e) => setSearch(e.target.value)} />
           <Button onClick={handleFilterApply} disabled={loading}>Terapkan filter</Button>
         </div>
-        {hasMore && <p className="mt-3 text-xs text-gray-500">Ada data lebih lanjut — hubungi dukungan jika diperlukan.</p>}
       </Card>
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
@@ -183,7 +188,7 @@ export default function AdminUsersPage() {
         ) : (
           <Table
             columns={columns}
-            rows={users}
+            rows={filteredBySearch}
             rowKey={(u) => u.id}
             density={density}
             sortableColumns={['name', 'email', 'role', 'created_at', 'updated_at']}

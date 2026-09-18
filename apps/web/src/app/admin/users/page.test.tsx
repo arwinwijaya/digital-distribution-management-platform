@@ -135,6 +135,42 @@ describe('admin users page', () => {
     });
   });
 
+  // ── Fix round: real-mode client-side search filter ───────────────────────
+  describe('client-side search filter (real mode)', () => {
+    beforeEach(() => {
+      // Real (non-dummy) backend: the users API has no search support, so the
+      // same unfiltered page is returned regardless of the `search` query param.
+      fetchMock.mockImplementation(async (url: unknown) => {
+        if (String(url).includes('/admin/users')) {
+          return jsonResponse(usersListResponse({
+            data: [
+              { id: 1, name: 'Admin Satu', email: 'admin@example.com', role: 'admin', created_at: '2026-09-01T08:00:00Z', updated_at: '2026-09-02T08:00:00Z' },
+              { id: 2, name: 'Petugas Toko', email: 'outlet@example.com', role: 'outlet', created_at: '2026-09-05T08:00:00Z', updated_at: '2026-09-06T08:00:00Z' },
+            ],
+            total: 2,
+          }));
+        }
+        return jsonResponse({});
+      });
+    });
+
+    it('narrows the rendered rows when a search term is applied', async () => {
+      const { default: Page } = await import('@/app/admin/users/page');
+      render(<Page />);
+
+      await waitFor(() => expect(screen.getByText('Admin Satu')).toBeInTheDocument());
+      expect(screen.getByText('Petugas Toko')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText('Ketik nama atau email'), { target: { value: 'admin' } });
+      fireEvent.click(screen.getByText('Terapkan filter'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Admin Satu')).toBeInTheDocument();
+        expect(screen.queryByText('Petugas Toko')).not.toBeInTheDocument();
+      });
+    });
+  });
+
   // ── Cycle 1: default sort + summary + timestamps ─────────────────────────
   describe('default sort, summary strip and timestamp columns', () => {
     beforeEach(() => {

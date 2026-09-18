@@ -207,4 +207,160 @@ describe('admin sales performance page', () => {
     }
   });
 });
+
+  // ── Cycle 2: server name sort + offset paging + period reset ─────────────
+  describe('server sort + offset paging + period reset', () => {
+    let fetchMock: jest.Mock;
+
+    /** T10 offset-cursor contract: rows in `data`, paging in `meta`. */
+    function salesResponse(overrides?: { data?: unknown[]; total?: number; hasMore?: boolean; cursor?: number }) {
+      const data = overrides?.data ?? [
+        { user_id: 1, name: 'Zeta Sales', email: 'zeta@example.com', period: '2026-09', target: '20000000.00', achievement: '1000000.00', percentage: '5.00', order_count: 1 },
+        { user_id: 2, name: 'Alpha Sales', email: 'alpha@example.com', period: '2026-09', target: '20000000.00', achievement: '9000000.00', percentage: '45.00', order_count: 4 },
+        { user_id: 3, name: 'Mika Sales', email: 'mika@example.com', period: '2026-09', target: '20000000.00', achievement: '5000000.00', percentage: '25.00', order_count: 2 },
+      ];
+      const total = overrides?.total ?? data.length;
+      return {
+        status: 'success',
+        data,
+        meta: {
+          has_more: overrides?.hasMore ?? false,
+          limit: 15,
+          cursor: overrides?.cursor ?? 0,
+          total,
+        },
+      };
+    }
+
+    function lastUrl(): string {
+      const calls = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/admin/sales/performance'));
+      return String(calls[calls.length - 1][0]);
+    }
+
+    function renderedNames(): string[] {
+      return screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.querySelector('td')?.textContent ?? '');
+    }
+
+    const now = new Date();
+    const expectedPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    beforeEach(() => {
+      fetchMock = jest.fn(async (url: unknown) => {
+        const urlString = String(url);
+        if (urlString.includes('/admin/sales/performance')) {
+          return { ok: true, status: 200, json: async () => salesResponse({ total: 100, hasMore: true }) } as Response;
+        }
+        return { ok: true, status: 200, json: async () => ({}) } as Response;
+      });
+      (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+    });
+
+    it('sorts by the Sales header on the server: desc then asc, always cursor=0', async () => {
+      const { default: Page } = await import('@/app/admin/sales-performance/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Zeta Sales')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Sales'));
+      await waitFor(() => {
+        const url = lastUrl();
+        expect(url).toContain('sort=name');
+        expect(url).toContain('order=desc');
+        expect(url).toContain('cursor=0');
+      });
+
+      fireEvent.click(screen.getByText('Sales'));
+      await waitFor(() => {
+        const url = lastUrl();
+        expect(url).toContain('sort=name');
+        expect(url).toContain('order=asc');
+        expect(url).toContain('cursor=0');
+      });
+
+      const allUrls = fetchMock.mock.calls.map((c) => String(c[0]));
+      for (const url of allUrls) {
+        expect(url).not.toContain('sort=achievement');
+      }
+    });
+
+    it('renders the server order (not the client-side achievement order) after sorting by Sales', async () => {
+      const { default: Page } = await import('@/app/admin/sales-performance/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Zeta Sales')).toBeInTheDocument());
+
+      // Default client-side achievement DESC would be [Alpha, Mika, Zeta].
+      expect(renderedNames()).toEqual(['Alpha Sales', 'Mika Sales', 'Zeta Sales']);
+
+      fireEvent.click(screen.getByText('Sales'));
+      await waitFor(() => expect(lastUrl()).toContain('sort=name'));
+
+      // Server returned [Zeta, Alpha, Mika] (name DESC) — it MUST win.
+      await waitFor(() => {
+        expect(renderedNames()).toEqual(['Zeta Sales', 'Alpha Sales', 'Mika Sales']);
+      });
+    });
+
+    it('pages with an OFFSET cursor and preserves sort + period', async () => {
+      const { default: Page } = await import('@/app/admin/sales-performance/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Zeta Sales')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Sales'));
+      await waitFor(() => expect(lastUrl()).toContain('sort=name'));
+
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => {
+        const url = lastUrl();
+        expect(url).toContain('cursor=15');
+        expect(url).toContain('sort=name');
+        expect(url).toContain(`period=${expectedPeriod}`);
+      });
+      expect(lastUrl()).not.toContain('next_cursor');
+      expect(lastUrl()).not.toContain('sort=achievement');
+    });
+
+    it('resets to cursor=0 when the period changes and preserves the active sort', async () => {
+      const { default: Page } = await import('@/app/admin/sales-performance/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Zeta Sales')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Sales'));
+      await waitFor(() => expect(lastUrl()).toContain('sort=name'));
+
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => expect(lastUrl()).toContain('cursor=15'));
+
+      fireEvent.change(screen.getByLabelText('Periode (YYYY-MM)'), { target: { value: '2026-08' } });
+
+      await waitFor(() => {
+        const url = lastUrl();
+        expect(url).toContain('cursor=0');
+        expect(url).toContain('sort=name');
+        expect(url).toContain('period=2026-08');
+      });
+      expect(lastUrl()).not.toContain('sort=achievement');
+    });
+
+    it('keeps inertness: only the Sales header is sortable', async () => {
+      const { default: Page } = await import('@/app/admin/sales-performance/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Zeta Sales')).toBeInTheDocument());
+
+      for (const header of ['Email', 'Target', 'Pencapaian', 'Persentase', 'Pesanan']) {
+        expect(screen.getByText(header).closest('th')).not.toHaveAttribute('aria-sort');
+      }
+
+      const salesTh = screen.getByText('Sales').closest('th') as HTMLElement;
+      expect(salesTh).toHaveAttribute('aria-sort', 'none');
+
+      fireEvent.click(screen.getByText('Sales'));
+      await waitFor(() => expect(salesTh).toHaveAttribute('aria-sort', 'descending'));
+
+      for (const header of ['Email', 'Target', 'Pencapaian', 'Persentase', 'Pesanan']) {
+        expect(screen.getByText(header).closest('th')).not.toHaveAttribute('aria-sort');
+      }
+    });
+  });
 });

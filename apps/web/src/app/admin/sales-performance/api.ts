@@ -138,7 +138,7 @@ async function fetchAdminSalesPerformanceReal(
   const query = new URLSearchParams();
   if (opts?.period) query.set('period', opts.period);
   query.set('limit', String(opts?.limit ?? 15));
-  if (opts?.cursor) query.set('cursor', String(opts.cursor));
+  query.set('cursor', String(opts?.cursor ?? 0));
   if (opts?.sort) query.set('sort', opts.sort);
   if (opts?.order) query.set('order', opts.order);
   const response = await fetch(apiUrl(`/admin/sales/performance?${query.toString()}`), {

@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminSalesPerformance, formatPercentage, formatRupiah, parseMoney, type SalesPerformanceRow } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Table, TableSummary } from '@/components/ui';
+import { Button, Card, EmptyState, Input, PageHeader, Table, TablePagination, TableSummary } from '@/components/ui';
+import { toggleSort, type ColumnSort } from '@/lib/admin-table';
 
 /** Rows fetched per page (offset pagination). */
 const PAGE_LIMIT = 15;
@@ -26,28 +27,55 @@ export default function AdminSalesPerformancePage() {
   const [period, setPeriod] = useState('');
   const [rows, setRows] = useState<SalesPerformanceRow[]>([]);
   const [hasMore, setHasMore] = useState(false);
-  const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [total, setTotal] = useState<number>();
+  // Table state — `achievement` is the CLIENT-SIDE default display order; it is
+  // never a server-sortable column (server allowlist is only `['name','id']`).
+  const [sort, setSort] = useState<ColumnSort>({ column: 'achievement', order: 'desc' });
+  const [cursor, setCursor] = useState(0);
 
-  const load = useCallback(async (authToken: string, targetPeriod: string, cursor?: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await fetchAdminSalesPerformance(authToken, {
-        period: targetPeriod,
-        limit: PAGE_LIMIT,
-        cursor,
-      });
-      setRows((prev) => (cursor ? [...prev, ...result.rows] : result.rows));
-      setHasMore(result.hasMore);
-      setNextCursor(result.nextCursor);
-      if (result.total !== undefined) setTotal(result.total);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Kinerja sales tidak dapat dimuat.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Latest sort/cursor readable inside `load` WITHOUT adding them to its
+  // dependency list (which would otherwise re-run the mount effect and reset the
+  // page on every sort/page change).
+  const sortRef = useRef(sort);
+  sortRef.current = sort;
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
+
+  const load = useCallback(
+    async (
+      authToken: string,
+      targetPeriod: string,
+      opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort },
+    ) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const nextSort = opts?.sort ?? sortRef.current;
+        const nextCursor = opts?.cursor ?? (opts?.resetCursor ? 0 : cursorRef.current);
+        // `achievement` is CLIENT-SIDE only — never send it to the server (the
+        // allowlist is just `name`/`id`). Omit sort/order entirely so the server
+        // keeps its own default order.
+        const serverSort = nextSort.column === 'achievement' ? undefined : nextSort;
+        const result = await fetchAdminSalesPerformance(authToken, {
+          period: targetPeriod,
+          limit: PAGE_LIMIT,
+          cursor: nextCursor,
+          sort: serverSort?.column,
+          order: serverSort?.order,
+        });
+        // Offset paging REPLACES the page (never appends).
+        setRows(result.rows);
+        setHasMore(result.hasMore);
+        setCursor(nextCursor);
+        if (result.total !== undefined) setTotal(result.total);
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : 'Kinerja sales tidak dapat dimuat.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const stored = getStoredToken();
@@ -56,11 +84,11 @@ export default function AdminSalesPerformancePage() {
     if (stored) {
       const cp = currentPeriod();
       setPeriod(cp);
-      load(stored, cp);
+      load(stored, cp, { resetCursor: true });
     }
   }, [load]);
 
-  useDummyRefresh(() => { if (token && period) void load(token, period); });
+  useDummyRefresh(() => { if (token && period) void load(token, period, { resetCursor: true }); });
 
   const sortedMonths = useMemo(() => {
     const months: string[] = [];
@@ -74,18 +102,20 @@ export default function AdminSalesPerformancePage() {
 
   function handlePeriodChange(value: string) {
     setPeriod(value);
-    if (token) load(token, value);
-  }
-
-  function handleLoadMore() {
-    if (token && nextCursor) load(token, period, nextCursor);
+    // Period change resets the offset cursor but PRESERVES the active sort.
+    if (token) load(token, value, { resetCursor: true, sort: sortRef.current });
   }
 
   // Default DISPLAY order is `achievement DESC` — a DERIVED value compared
   // NUMERICALLY via `parseMoney` (never string compare, never sent to server).
-  const sortedRows = useMemo(
-    () => [...rows].sort((a, b) => parseMoney(b.achievement) - parseMoney(a.achievement)),
-    [rows],
+  // Applied ONLY while `achievement` is the active column so a server sort by
+  // `name` is never overridden by this client-side order.
+  const displayRows = useMemo(
+    () =>
+      sort.column === 'achievement'
+        ? [...rows].sort((a, b) => parseMoney(b.achievement) - parseMoney(a.achievement))
+        : rows,
+    [rows, sort.column],
   );
 
   if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
@@ -102,7 +132,7 @@ export default function AdminSalesPerformancePage() {
             setToken(nextToken);
             const cp = currentPeriod();
             setPeriod(cp);
-            load(nextToken, cp);
+            load(nextToken, cp, { resetCursor: true });
           }}
         />
       </div>
@@ -153,7 +183,7 @@ export default function AdminSalesPerformancePage() {
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
-            <Button variant="secondary" onClick={() => token && load(token, period)} disabled={loading}>
+            <Button variant="secondary" onClick={() => token && load(token, period, { resetCursor: true, sort: sortRef.current })} disabled={loading}>
               Terapkan
             </Button>
           </div>
@@ -169,18 +199,28 @@ export default function AdminSalesPerformancePage() {
         ) : (
           <Table
             columns={columns}
-            rows={sortedRows}
+            rows={displayRows}
             rowKey={(r) => r.user_id}
+            sortableColumns={['name']}
+            sort={sort}
+            onSort={(column) => {
+              const next = toggleSort(sortRef.current, column);
+              setSort(next);
+              if (token) void load(token, period, { resetCursor: true, sort: next });
+            }}
             empty={<EmptyState icon={<span>📊</span>} title="Belum ada data kinerja" description="Kinerja sales akan tampil di sini." />}
           />
         )}
-        {hasMore && (
-          <div className="border-t border-gray-100 px-5 py-3">
-            <Button variant="secondary" size="sm" onClick={handleLoadMore} disabled={loading}>
-              Muat lebih banyak
-            </Button>
-          </div>
-        )}
+        <TablePagination
+          cursor={cursor}
+          limit={PAGE_LIMIT}
+          total={total}
+          hasMore={hasMore}
+          onPageChange={(nextCursor) => {
+            setCursor(nextCursor);
+            if (token) void load(token, period, { cursor: nextCursor });
+          }}
+        />
       </Card>
     </div>
   );

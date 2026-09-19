@@ -27,6 +27,11 @@ jest.mock('next/link', () => {
 jest.mock('@/lib/api', () => ({
   getStoredToken: jest.fn(() => null),
   apiUrl: (p: string) => `http://localhost:8000/api${p}`,
+  authHeaders: (token: string) => ({ Authorization: `Bearer ${token}` }),
+}));
+
+jest.mock('@/dummy/store', () => ({
+  useDummyStore: { getState: () => ({ isDummy: false }) },
 }));
 
 let mockGetStoredToken: jest.Mock;
@@ -62,8 +67,21 @@ describe('Worktree page — unauthenticated', () => {
 });
 
 describe('Worktree page — authenticated', () => {
+  let originalFetch: typeof fetch | undefined;
+
   beforeEach(() => {
     mockGetStoredToken.mockReturnValue('dummy-token');
+    // Mock fetch for /auth/me so usePageRole doesn't fail
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn(async () =>
+      ({ ok: true, status: 200, json: async () => ({ data: { role: 'admin' } }) }) as Response,
+    );
+  });
+
+  afterEach(() => {
+    if (originalFetch !== undefined) {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it('renders PageHeader with Worktree title', async () => {

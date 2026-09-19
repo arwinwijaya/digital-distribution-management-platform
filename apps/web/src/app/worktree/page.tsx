@@ -1,18 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getStoredToken } from '@/lib/api';
 import LoginForm from '@/components/LoginForm';
 import { PageHeader } from '@/components/ui';
 
 export default function WorktreePage() {
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setToken(getStoredToken());
+    const t = getStoredToken();
+    setToken(t);
     setReady(true);
-  }, []);
+    if (!t) router.replace('/login');
+  }, [router]);
 
   if (!ready) return <p className="text-sm text-gray-500">Memuat...</p>;
 

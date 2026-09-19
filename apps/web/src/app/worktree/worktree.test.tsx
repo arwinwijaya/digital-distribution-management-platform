@@ -60,3 +60,34 @@ describe('Worktree page — unauthenticated', () => {
     expect(screen.queryByTestId('worktree-flow-placeholder')).not.toBeInTheDocument();
   });
 });
+
+describe('Worktree page — authenticated', () => {
+  beforeEach(() => {
+    mockGetStoredToken.mockReturnValue('dummy-token');
+  });
+
+  it('renders PageHeader with Worktree title', async () => {
+    await renderWorktreePage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Worktree/i })).toBeInTheDocument();
+    });
+  });
+
+  it('shows the worktree flow placeholder', async () => {
+    await renderWorktreePage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('worktree-flow-placeholder')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show login prompt', async () => {
+    await renderWorktreePage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('worktree-flow-placeholder')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Masuk/i)).not.toBeInTheDocument();
+  });
+});

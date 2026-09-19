@@ -128,6 +128,53 @@ describe('Sidebar admin menu visibility', () => {
   });
 });
 
+describe('Sidebar Worktree visibility', () => {
+  it('shows Worktree for outlet role', async () => {
+    mockRole('outlet');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
+    expect(screen.getByText('🌳')).toBeInTheDocument();
+    expect(screen.getByText('Worktree').closest('a')?.getAttribute('href')).toBe('/worktree');
+  });
+
+  it('shows Worktree for finance role (not filtered out)', async () => {
+    mockRole('finance');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
+    expect(screen.getByText('Worktree').closest('a')?.getAttribute('href')).toBe('/worktree');
+  });
+
+  it('shows Worktree for admin role', async () => {
+    mockRole('admin');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
+  });
+
+  it('shows Worktree for sales role', async () => {
+    mockRole('sales');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
+  });
+
+  it('shows Worktree for driver role', async () => {
+    mockRole('driver');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
+  });
+
+  it('shows Worktree for supplier role', async () => {
+    mockRole('supplier');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
+  });
+});
+
 describe('Sidebar Analitik gate (admin + platform_owner)', () => {
   it('hides Analitik from outlet users', async () => {
     mockRole('outlet');

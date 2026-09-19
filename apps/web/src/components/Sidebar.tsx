@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/payments',      label: 'Pembayaran',    icon: '💳', finance: true },
   { href: '/delivery',      label: 'Pengiriman',    icon: '🚚' },
   { href: '/sales',         label: 'Sales',         icon: '📋' },
+  { href: '/worktree',       label: 'Worktree',      icon: '🌳' },
   // Analitik & Insight (admin)
   { href: '/analytics',     label: 'Analitik',      icon: '📈', adminOnly: true },
   { href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️', adminOnly: true },
@@ -128,7 +129,7 @@ function useSidebarAuth(): SidebarAuth {
 }
 
 function visibleItemsFor(role: string | null): NavItem[] {
-  if (role === 'finance') return NAV_ITEMS.filter((item) => item.finance);
+  if (role === 'finance') return NAV_ITEMS.filter((item) => item.finance || item.href === '/worktree');
   // platform_owner is admin-equivalent so adminOnly menus (incl. Analitik) stay visible.
   if (role === 'admin' || role === 'platform_owner') return NAV_ITEMS;
   return NAV_ITEMS.filter((item) => !item.adminOnly);

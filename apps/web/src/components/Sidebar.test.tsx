@@ -173,9 +173,17 @@ describe('Sidebar Worktree visibility', () => {
 
     await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
   });
+
+  it('shows Worktree for platform_owner role', async () => {
+    mockRole('platform_owner');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
+    expect(screen.getByText('Worktree').closest('a')?.getAttribute('href')).toBe('/worktree');
+  });
 });
 
-describe('Sidebar Analitik gate (admin + platform_owner)', () => {
+describe('Sidebar Analitik gate', () => {
   it('hides Analitik from outlet users', async () => {
     mockRole('outlet');
     await renderSidebar();

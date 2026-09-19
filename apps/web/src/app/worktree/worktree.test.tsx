@@ -1,13 +1,15 @@
 /**
  * worktree.test.tsx — Worktree page integration tests.
  *
- * Verifies:
- *  - Unauthenticated access shows login prompt
- *  - Authenticated access renders PageHeader + placeholder for WorktreeFlow
+ * Verifies (Task 4 — integration tests + final verification):
+ *  - Unauthenticated access shows login prompt, no WorktreeFlow
+ *  - Authenticated access renders PageHeader + WorktreeFlow (6 stages + 2 terminals)
+ *  - No login prompt when authenticated
+ *  - Page passes resolved role to WorktreeFlow (highlight integration)
  */
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
@@ -107,5 +109,45 @@ describe('Worktree page — authenticated', () => {
       expect(screen.getByText('Pemesanan')).toBeInTheDocument();
     });
     expect(screen.queryByText(/Masuk/i)).not.toBeInTheDocument();
+  });
+
+  it('renders all 6 stages plus 2 terminal nodes', async () => {
+    await renderWorktreePage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Pemesanan')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Persetujuan')).toBeInTheDocument();
+    expect(screen.getByText('Penugasan')).toBeInTheDocument();
+    expect(screen.getByText('Pengiriman')).toBeInTheDocument();
+    expect(screen.getByText('Pembayaran')).toBeInTheDocument();
+    expect(screen.getAllByText('Selesai').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Dibatalkan')).toBeInTheDocument();
+    expect(screen.getByText('Gagal')).toBeInTheDocument();
+  });
+
+  it('wires page role into WorktreeFlow: admin highlight visible in page context', async () => {
+    await renderWorktreePage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Persetujuan')).toBeInTheDocument();
+    });
+
+    const approvalNode = screen.getByTestId('worktree-node-approval');
+    expect(approvalNode).toBeInTheDocument();
+    // Admin role (from mocked /auth/me) highlights Persetujuan.
+    expect(approvalNode.parentElement?.className).toMatch(/bg-primary-50/);
+  });
+
+  it('opens detail panel on node click in page context', async () => {
+    await renderWorktreePage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Persetujuan')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('worktree-node-approval'));
+    expect(screen.getByTestId('worktree-panel')).toBeInTheDocument();
   });
 });

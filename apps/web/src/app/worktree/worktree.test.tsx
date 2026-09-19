@@ -57,7 +57,7 @@ describe('Worktree page — unauthenticated', () => {
     await waitFor(() => {
       expect(screen.getAllByText(/Masuk/i).length).toBeGreaterThan(0);
     });
-    expect(screen.queryByTestId('worktree-flow-placeholder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pemesanan')).not.toBeInTheDocument();
   });
 });
 
@@ -74,11 +74,11 @@ describe('Worktree page — authenticated', () => {
     });
   });
 
-  it('shows the worktree flow placeholder', async () => {
+  it('renders the worktree flow', async () => {
     await renderWorktreePage();
 
     await waitFor(() => {
-      expect(screen.getByTestId('worktree-flow-placeholder')).toBeInTheDocument();
+      expect(screen.getByText('Pemesanan')).toBeInTheDocument();
     });
   });
 
@@ -86,7 +86,7 @@ describe('Worktree page — authenticated', () => {
     await renderWorktreePage();
 
     await waitFor(() => {
-      expect(screen.getByTestId('worktree-flow-placeholder')).toBeInTheDocument();
+      expect(screen.getByText('Pemesanan')).toBeInTheDocument();
     });
     expect(screen.queryByText(/Masuk/i)).not.toBeInTheDocument();
   });

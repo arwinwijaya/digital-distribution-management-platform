@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStoredToken } from '@/lib/api';
 import LoginForm from '@/components/LoginForm';
+import WorktreeFlow from '@/components/WorktreeFlow';
 import { PageHeader } from '@/components/ui';
 
 export default function WorktreePage() {
@@ -41,7 +42,7 @@ export default function WorktreePage() {
         title="Worktree"
         description="Alur proses pemesanan dari awal sampai selesai. Klik tahap untuk melihat detail."
       />
-      <div data-testid="worktree-flow-placeholder">Flow coming soon</div>
+      <WorktreeFlow />
     </div>
   );
 }

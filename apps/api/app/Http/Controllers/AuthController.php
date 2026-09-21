@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateProfileRequest;
 use App\Models\Outlet;
 use App\Models\User;
 use App\Services\AuthService;
+use App\Services\RbacMatrixService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ class AuthController extends Controller
 {
     protected AuthService $authService;
 
-    public function __construct(AuthService $authService)
+    public function __construct(AuthService $authService, private readonly RbacMatrixService $rbacMatrix)
     {
         $this->authService = $authService;
     }
@@ -123,6 +124,8 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'created_at' => $user->created_at,
+                // Full 19-key map for the caller's role; missing rows are `none`.
+                'rbac' => $this->rbacMatrix->mapForRole($user->role),
             ],
         ]);
     }

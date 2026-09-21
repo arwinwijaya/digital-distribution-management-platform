@@ -128,6 +128,26 @@ This is a monorepo containing:
 
 ### Authentication
 
+#### Default Login Credentials
+
+| Role | Email | Password |
+|---|---|---|
+| `platform_owner` | ahmad.wijaya@ddp.test | password123 |
+| `admin` | ratna.sari@ddp.test | password123 |
+| `admin` | dimas.pratama@ddp.test | password123 |
+| `outlet` | siti.nurhaliza@ddp.test | password123 |
+| `outlet` | budi.santoso@ddp.test | password123 |
+| `supplier` | hendra.kurniawan@ddp.test | password123 |
+| `supplier` | maya.indah@ddp.test | password123 |
+| `sales` | riko.firmansyah@ddp.test | password123 |
+| `sales` | anisa.putri@ddp.test | password123 |
+| `sales` | ferry.gunawan@ddp.test | password123 |
+| `driver` | joko.widodo@ddp.test | password123 |
+| `driver` | andi.saputra@ddp.test | password123 |
+| `driver` | rudi.hermawan@ddp.test | password123 |
+| `finance` | dewi.lestari@ddp.test | password123 |
+| `finance` | tono.sugiarto@ddp.test | password123 |
+
 #### Login
 ```
 POST /api/auth/login

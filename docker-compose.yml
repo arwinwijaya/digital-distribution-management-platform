@@ -1,13 +1,27 @@
 # Production stack for the Digital Distribution Management Platform.
 #
-#   docker compose -f docker-compose.yml up -d --build      # production
-#   docker compose up -d --build                            # dev (override auto-merged)
+# Usage:
+#   docker compose up -d --build                # production
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 #
-# Images are immutable (no bind mounts). Secrets and connection settings come
-# from the root .env file (see .env.example) — never hardcoded here.
+# Secrets and connection settings come from the root .env file (see .env.example).
+# Never commit the real .env.
 #
-# Traffic flow:  browser → nginx:80 → ( /api/* → api:9000 php-fpm
-#                                      \ /*     → web:3000 Next standalone )
+# Traffic flow:
+#   browser → nginx:80 → /api/* → api:9000 (Laravel php-fpm)
+#                        /*      → web:3000 (Next.js standalone)
+#
+# Seed / role credentials:
+#   Default password for all seeded users: password123
+#   Users:
+#     platform_owner : ahmad.wijaya@ddp.test
+#     admin          : ratna.sari@ddp.test, dimas.pratama@ddp.test
+#     outlet         : siti.nurhaliza@ddp.test, budi.santoso@ddp.test
+#     supplier       : hendra.kurniawan@ddp.test, maya.indah@ddp.test
+#     sales          : riko.firmansyah@ddp.test, anisa.putri@ddp.test, ferry.gunawan@ddp.test
+#     driver         : joko.widodo@ddp.test, andi.saputra@ddp.test, rudi.hermawan@ddp.test
+#     finance        : dewi.lestari@ddp.test, tono.sugiarto@ddp.test
+#
 services:
   db:
     image: postgres:16-alpine

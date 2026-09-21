@@ -17,6 +17,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // RBAC reference data + default role x menu matrix (idempotent).
+        $this->call(RbacMatrixSeeder::class);
+
         $users = $this->getUserConfigs();
 
         foreach ($users as $config) {

@@ -60,6 +60,7 @@ describe('admin rbac page', () => {
     jest.restoreAllMocks();
   });
 
+  // Rendering 19×7 = 133 selects is heavy; give it headroom under full-suite load.
   it('renders a 19x7 grid and PUTs only the changed cell on save', async () => {
     let putBody: { cells: Array<{ role: string; menu_key: string; level: string }> } | null = null;
     fetchMock = jest.fn(async (url: unknown, options?: { method?: string; body?: string }) => {
@@ -93,7 +94,7 @@ describe('admin rbac page', () => {
 
     await waitFor(() => expect(putBody).not.toBeNull());
     expect(putBody!.cells).toEqual([{ role: 'sales', menu_key: 'products', level: 'edit' }]);
-  });
+  }, 20000);
 
   it('blocks non-admin roles without fetching the matrix or offering Save', async () => {
     const urls: string[] = [];

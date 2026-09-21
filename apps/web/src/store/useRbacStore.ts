@@ -106,6 +106,14 @@ export const useRbacStore = create<RbacState>()((set, get) => ({
   },
 
   save: async (token, cells) => {
+    /** If the caller edited their OWN role's row, refresh their map so the
+     *  Sidebar reacts immediately (otherwise it would only update on re-login). */
+    const syncOwnMap = (matrix: RbacMatrix, currentRole: string | null) => {
+      if (!currentRole || !matrix[currentRole]) return;
+      const touched = cells.some((cell) => cell.role === currentRole);
+      if (touched) set({ map: { ...matrix[currentRole] } });
+    };
+
     if (isDummy()) {
       // Apply locally so the admin page reflects the edit without a network hop.
       const current = get().matrix ?? dummyFullMatrix();
@@ -116,6 +124,7 @@ export const useRbacStore = create<RbacState>()((set, get) => ({
         next[cell.role][cell.menu_key] = cell.level;
       }
       set({ matrix: next });
+      syncOwnMap(next, get().role);
       return;
     }
 
@@ -133,6 +142,7 @@ export const useRbacStore = create<RbacState>()((set, get) => ({
       matrix[role] = normalizeMap(raw[role]);
     }
     set({ matrix });
+    syncOwnMap(matrix, get().role);
   },
 
   levelFor: (menuKey) => {

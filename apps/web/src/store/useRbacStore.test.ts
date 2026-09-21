@@ -156,4 +156,43 @@ describe('network mode', () => {
       ]),
     ).rejects.toThrow('You cannot remove your own access to rbac_matrix.');
   });
+
+  it('refreshes the caller\'s own map when their role row is saved', async () => {
+    // Admin hydrates their own map, then saves a change to their own row.
+    useRbacStore.getState().hydrateFromMe({ dashboard: 'edit', admin_users: 'read' }, 'admin');
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'success',
+        data: { admin: { dashboard: 'edit', admin_users: 'none' } },
+      }),
+    } as Response);
+
+    await useRbacStore.getState().save('t-token', [
+      { role: 'admin', menu_key: 'admin_users', level: 'none' },
+    ]);
+
+    // The Sidebar reads `map`; it must reflect the change without a re-login.
+    expect(useRbacStore.getState().levelFor('admin_users')).toBe('none');
+    expect(useRbacStore.getState().canRead('admin_users')).toBe(false);
+  });
+
+  it('does not touch the caller\'s map when another role row is saved', async () => {
+    useRbacStore.getState().hydrateFromMe({ dashboard: 'edit', admin_users: 'read' }, 'admin');
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'success',
+        data: { admin: { dashboard: 'edit', admin_users: 'read' }, sales: { products: 'edit' } },
+      }),
+    } as Response);
+
+    await useRbacStore.getState().save('t-token', [
+      { role: 'sales', menu_key: 'products', level: 'edit' },
+    ]);
+
+    expect(useRbacStore.getState().levelFor('admin_users')).toBe('read');
+  });
 });

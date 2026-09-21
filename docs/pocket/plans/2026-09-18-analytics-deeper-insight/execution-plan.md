@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-18
 **Spec:** docs/pocket/spec/2026-09-18-analytics-deeper-insight/analytics-deeper-insight.md
-**Status:** draft
+**Status:** approved
 **Total tasks:** 7
 
 ---

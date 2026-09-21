@@ -1,0 +1,89 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-18-analytics-deeper-insight",
+    "plan_type": "flat",
+    "status": "DONE",
+    "date_started": "2026-09-18",
+    "date_completed": "2026-09-18",
+    "baseline_sha": "63e5d75aff3c40a2359d7bd021cd02067bc7e54e",
+    "final_sha": "065bf3b7a92e61291157f32649c0716d59f2e32e",
+    "pipeline": 4,
+    "plan_file": "execution-plan.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Backend AnalyticsService::insight() composition",
+          "status": "DONE",
+          "done_sha": "59cbc52184d04d9634ca5cf494e8b40e7c07e09d"
+        },
+        {
+          "id": "T2",
+          "name": "Endpoint + route + isAdminOrOwner gate",
+          "status": "DONE",
+          "depends": "T1",
+          "done_sha": "7e6e4ece3f54ea07631185c4c041ac7d13303fd2"
+        },
+        {
+          "id": "T3",
+          "name": "Dummy analyticsInsight fixture + window split",
+          "status": "DONE",
+          "done_sha": "448b86b109b1c9415a96f6c1769faaa26219bbaf"
+        },
+        {
+          "id": "T4",
+          "name": "Frontend insight contract types + presentation helpers",
+          "status": "DONE",
+          "done_sha": "897c57be7c3510cfb52e3fde76560eee8f81961f"
+        },
+        {
+          "id": "T5",
+          "name": "Frontend insight loader with dummy guard",
+          "status": "DONE",
+          "depends": "T2, T3, T4",
+          "done_sha": "68a6572b57dd1a0c4c0f8f85263f26a5835e74a4"
+        },
+        {
+          "id": "T6",
+          "name": "Analytics page composition + scoped degradation + AI trust labels",
+          "status": "DONE",
+          "depends": "T5",
+          "done_sha": "065bf3b7a92e61291157f32649c0716d59f2e32e"
+        },
+        {
+          "id": "T7",
+          "name": "Sidebar adminOnly + platform_owner full nav",
+          "status": "DONE",
+          "done_sha": "432c2467aa236f4aebb9bbcb2745a20007b9df8f"
+        }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "K-A",
+      "summary": "Option A — extend AnalyticsService + a new controller action rather than a new service/route surface. Dashboard path (dashboard()/salesTrends()/outletPerformance()) kept byte-for-byte; money arithmetic stays on the existing integer-cents path (decimalToCents/moneyFromCents) with no second rounding path."
+    },
+    {
+      "id": "K-B",
+      "summary": "Insight window is FIXED at 30 days: /analytics/insight ignores start_date/end_date query params (end = today). Comparison window = current 30d vs immediately-preceding 30d; delta direction derived from the unrounded ratio, previous==0 → null."
+    },
+    {
+      "id": "K-C",
+      "summary": "Access gate is isAdminOrOwner (admin + platform_owner) at the controller/route level; outlet user → 403 with {status:'error'} envelope, no token → 401, inactive platform_owner → 403."
+    },
+    {
+      "id": "K-D",
+      "summary": "needs_attention is server-qualified (sales_decline ≥20% on unrounded cents, or point-in-time outstanding > 0), collapse both-reason outlets to a single sales_decline row, capped at 5, declines ranked before outstanding with deterministic name/id tie-break."
+    },
+    {
+      "id": "K-E",
+      "summary": "Page uses two independent loads (loadAnalyticsInsight + loadAnalytics) so each section degrades alone; useDummyRefresh re-drives BOTH loaders on a dummy-flag flip (previously only loadAnalytics). platform_owner treated admin-equivalent for adminOnly nav visibility."
+    }
+  ]
+}

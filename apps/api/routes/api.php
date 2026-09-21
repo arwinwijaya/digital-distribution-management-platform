@@ -20,6 +20,7 @@ use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PromotionBroadcastController;
+use App\Http\Controllers\RbacMatrixController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\GeographicAnalyticsController;
@@ -98,6 +99,11 @@ Route::middleware('auth:api')->group(function () {
     // General user listing + role assignment (F1 — platform_owner is superset of admin).
     Route::get('/admin/users', [UserRoleController::class, 'index']);
     Route::patch('/admin/users/{userId}/role', [UserRoleController::class, 'assignRole']);
+
+    // RBAC menu matrix (owner+admin). Authorized at controller level (K-A) —
+    // deliberately NOT guarded by `rbac:` middleware.
+    Route::get('/admin/rbac/matrix', [RbacMatrixController::class, 'index']);
+    Route::put('/admin/rbac/matrix', [RbacMatrixController::class, 'update']);
     // Payment terms are administrator-controlled and outlet-scoped.
     Route::get('/admin/outlets/{outletId}/payment-terms', [OutletController::class, 'showPaymentTerms']);
     Route::put('/admin/outlets/{outletId}/payment-terms', [OutletController::class, 'updatePaymentTerms']);

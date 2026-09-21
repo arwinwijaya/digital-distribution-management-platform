@@ -20,33 +20,6 @@ use Illuminate\Database\Seeder;
 class RbacMatrixSeeder extends Seeder
 {
     /**
-     * Menu reference data in display order.
-     *
-     * @var list<array{key:string, label:string, group:string, sort:int}>
-     */
-    private const MENUS = [
-        ['key' => 'dashboard',              'label' => 'Dasbor',            'group' => 'operasional', 'sort' => 1],
-        ['key' => 'orders',                 'label' => 'Pesanan',           'group' => 'operasional', 'sort' => 2],
-        ['key' => 'products',               'label' => 'Produk',            'group' => 'operasional', 'sort' => 3],
-        ['key' => 'outlets',                'label' => 'Outlet',            'group' => 'operasional', 'sort' => 4],
-        ['key' => 'marketplace',            'label' => 'Marketplace',       'group' => 'operasional', 'sort' => 5],
-        ['key' => 'payments',               'label' => 'Pembayaran',        'group' => 'operasional', 'sort' => 6],
-        ['key' => 'delivery',               'label' => 'Pengiriman',        'group' => 'operasional', 'sort' => 7],
-        ['key' => 'sales',                  'label' => 'Sales',             'group' => 'operasional', 'sort' => 8],
-        ['key' => 'invoices',               'label' => 'Invoice',           'group' => 'operasional', 'sort' => 9],
-        ['key' => 'worktree',               'label' => 'Worktree',          'group' => 'operasional', 'sort' => 10],
-        ['key' => 'analytics',              'label' => 'Analitik',          'group' => 'analitik',    'sort' => 11],
-        ['key' => 'data_intelligence',      'label' => 'Data Intelligence', 'group' => 'analitik',    'sort' => 12],
-        ['key' => 'operations',             'label' => 'Operasi',           'group' => 'analitik',    'sort' => 13],
-        ['key' => 'admin_orders',           'label' => 'Approval Pesanan',  'group' => 'admin',       'sort' => 14],
-        ['key' => 'admin_products',         'label' => 'Harga Produk',      'group' => 'admin',       'sort' => 15],
-        ['key' => 'admin_users',            'label' => 'Kelola Pengguna',   'group' => 'admin',       'sort' => 16],
-        ['key' => 'admin_promotions',       'label' => 'Kelola Promosi',    'group' => 'admin',       'sort' => 17],
-        ['key' => 'admin_sales_performance','label' => 'Performa Sales',    'group' => 'admin',       'sort' => 18],
-        ['key' => 'rbac_matrix',            'label' => 'Kelola Akses',      'group' => 'admin',       'sort' => 19],
-    ];
-
-    /**
      * Default matrix. Only non-`none` cells are listed; anything omitted is
      * `none` for that role. Column order matches the spec table.
      *
@@ -124,7 +97,7 @@ class RbacMatrixSeeder extends Seeder
 
     public function run(): void
     {
-        foreach (self::MENUS as $menu) {
+        foreach (MenuDefinition::CATALOG as $menu) {
             MenuDefinition::updateOrCreate(
                 ['key' => $menu['key']],
                 [

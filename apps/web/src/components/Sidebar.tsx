@@ -5,40 +5,44 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { useDummyStore } from '@/dummy/store';
+import { useRbacStore } from '@/store/useRbacStore';
 
-type NavItem = { href: string; label: string; icon: string; finance?: boolean; adminOnly?: boolean; adminHref?: string };
+type NavItem = { key: string; href: string; label: string; icon: string; adminHref?: string };
 type SidebarAuth = { role: string | null; authResolved: boolean; authenticated: boolean };
 type AuthChangeDetail = { token?: string | null; role?: string | null };
 
 const NAV_ITEMS: NavItem[] = [
   // Operasional Harian
-  { href: '/dashboard',     label: 'Dasbor',        icon: '📊', finance: true },
-  { href: '/invoices',      label: 'Invoice',       icon: '🧾', finance: true },
-  { href: '/orders',        label: 'Pesanan',       icon: '🛒' },
-  { href: '/products',      label: 'Produk',        icon: '📦' },
-  { href: '/outlets',       label: 'Outlet',        icon: '🏪', adminHref: '/admin/outlets' },
-  { href: '/marketplace',   label: 'Marketplace',   icon: '🌐' },
-  { href: '/payments',      label: 'Pembayaran',    icon: '💳', finance: true },
-  { href: '/delivery',      label: 'Pengiriman',    icon: '🚚' },
-  { href: '/sales',         label: 'Sales',         icon: '📋' },
-  { href: '/worktree',       label: 'Worktree',      icon: '🌳' },
+  { key: 'dashboard',    href: '/dashboard',     label: 'Dasbor',        icon: '📊' },
+  { key: 'invoices',     href: '/invoices',      label: 'Invoice',       icon: '🧾' },
+  { key: 'orders',       href: '/orders',        label: 'Pesanan',       icon: '🛒' },
+  { key: 'products',     href: '/products',      label: 'Produk',        icon: '📦' },
+  { key: 'outlets',      href: '/outlets',       label: 'Outlet',        icon: '🏪', adminHref: '/admin/outlets' },
+  { key: 'marketplace',  href: '/marketplace',   label: 'Marketplace',   icon: '🌐' },
+  { key: 'payments',     href: '/payments',      label: 'Pembayaran',    icon: '💳' },
+  { key: 'delivery',     href: '/delivery',      label: 'Pengiriman',    icon: '🚚' },
+  { key: 'sales',        href: '/sales',         label: 'Sales',         icon: '📋' },
+  { key: 'worktree',     href: '/worktree',      label: 'Worktree',      icon: '🌳' },
   // Analitik & Insight (admin)
-  { href: '/analytics',     label: 'Analitik',      icon: '📈', adminOnly: true },
-  { href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️', adminOnly: true },
-  { href: '/operations',        label: 'Operasi',       icon: '🔧', adminOnly: true },
+  { key: 'analytics',         href: '/analytics',         label: 'Analitik',         icon: '📈' },
+  { key: 'data_intelligence', href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️' },
+  { key: 'operations',        href: '/operations',        label: 'Operasi',          icon: '🔧' },
   // Admin Management
-  { href: '/admin/orders',             label: 'Approval Pesanan', icon: '⚙️', adminOnly: true },
-  { href: '/admin/products',           label: 'Harga Produk',  icon: '💰', adminOnly: true },
-  { href: '/admin/users',              label: 'Kelola pengguna', icon: '👥', adminOnly: true },
-  { href: '/admin/promotions',         label: 'Kelola promosi', icon: '🎁', adminOnly: true },
-  { href: '/admin/sales-performance',  label: 'Performa sales', icon: '🎯', adminOnly: true },
+  { key: 'admin_orders',            href: '/admin/orders',            label: 'Approval Pesanan', icon: '⚙️' },
+  { key: 'admin_products',          href: '/admin/products',          label: 'Harga Produk',     icon: '💰' },
+  { key: 'admin_users',             href: '/admin/users',             label: 'Kelola pengguna',  icon: '👥' },
+  { key: 'admin_promotions',        href: '/admin/promotions',        label: 'Kelola promosi',   icon: '🎁' },
+  { key: 'admin_sales_performance', href: '/admin/sales-performance', label: 'Performa sales',   icon: '🎯' },
+  { key: 'rbac_matrix',             href: '/admin/rbac',              label: 'Kelola Akses',     icon: '🔐' },
 ];
 
-async function fetchCurrentRole(token: string): Promise<string | null> {
+type MeResponse = { role: string | null; rbac: Record<string, string> | null };
+
+async function fetchCurrentMe(token: string): Promise<MeResponse> {
   const response = await fetch(apiUrl('/auth/me'), { headers: authHeaders(token) });
-  if (!response.ok) return null;
+  if (!response.ok) return { role: null, rbac: null };
   const body = await response.json();
-  return body?.data?.role ?? null;
+  return { role: body?.data?.role ?? null, rbac: body?.data?.rbac ?? null };
 }
 
 function authChangeDetail(event: Event): { token: string | null; hintedRole?: string | null } {
@@ -49,6 +53,12 @@ function authChangeDetail(event: Event): { token: string | null; hintedRole?: st
   };
 }
 
+/**
+ * Resolves the caller's role AND hydrates the RBAC store from `/auth/me`.
+ *
+ * The store is the single source of menu visibility; the server remains
+ * authoritative (a hinted role renders immediately, then is reconciled).
+ */
 function createRoleSynchronizer(
   setRole: (role: string | null) => void,
   setAuthResolved: (resolved: boolean) => void,
@@ -59,6 +69,7 @@ function createRoleSynchronizer(
     const currentRequest = ++requestId;
     if (!token) {
       setRole(null);
+      useRbacStore.getState().reset();
       setAuthResolved(true);
       return;
     }
@@ -66,16 +77,18 @@ function createRoleSynchronizer(
     // Show the login response immediately, then let the server remain authoritative.
     setRole(hintedRole ?? null);
     setAuthResolved(Boolean(hintedRole));
-    fetchCurrentRole(token)
-      .then((currentRole) => {
+    fetchCurrentMe(token)
+      .then(({ role, rbac }) => {
         if (isActive() && currentRequest === requestId) {
-          setRole(currentRole);
+          setRole(role);
+          useRbacStore.getState().hydrateFromMe(rbac, role);
           setAuthResolved(true);
         }
       })
       .catch(() => {
         if (isActive() && currentRequest === requestId) {
           setRole(null);
+          useRbacStore.getState().reset();
           setAuthResolved(true);
         }
       });
@@ -98,7 +111,10 @@ function useSidebarAuth(): SidebarAuth {
       if (!active) return;
       setAuthenticated(Boolean(token));
       if (isDummy) {
-        setRole(hintedRole ?? localStorage.getItem('ddp_role'));
+        const dummyRole = hintedRole ?? localStorage.getItem('ddp_role');
+        setRole(dummyRole);
+        // Dummy hydration is pure — `hydrateFromMe` reads the dummy matrix.
+        useRbacStore.getState().hydrateFromMe(null, dummyRole);
         setAuthResolved(true);
         return;
       }
@@ -128,15 +144,12 @@ function useSidebarAuth(): SidebarAuth {
   return { role, authResolved, authenticated };
 }
 
-function visibleItemsFor(role: string | null): NavItem[] {
-  if (role === 'finance') return NAV_ITEMS.filter((item) => item.finance || item.href === '/worktree');
-  // platform_owner is admin-equivalent so adminOnly menus (incl. Analitik) stay visible.
-  if (role === 'admin' || role === 'platform_owner') return NAV_ITEMS;
-  return NAV_ITEMS.filter((item) => !item.adminOnly);
-}
-
 function SidebarNavigation({ pathname, role, authResolved, authenticated, onClose }: { pathname: string; role: string | null; authResolved: boolean; authenticated: boolean; onClose?: () => void }) {
-  const visibleItems = !authResolved || !authenticated ? [] : visibleItemsFor(role);
+  // Subscribe to the store so visibility re-renders once hydration lands.
+  const map = useRbacStore((state) => state.map);
+  const visibleItems = !authResolved || !authenticated
+    ? []
+    : NAV_ITEMS.filter((item) => (map?.[item.key] ?? 'none') !== 'none');
   return <nav className="flex-1 overflow-y-auto slim-scroll px-3 py-4 space-y-1">
     {visibleItems.map((item) => {
       const { label, icon } = item;

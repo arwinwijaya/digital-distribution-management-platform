@@ -1,14 +1,17 @@
 /**
- * Sidebar.test.tsx — admin menu visibility.
+ * Sidebar.test.tsx — matrix-driven menu visibility.
  *
- * Regression guard for "admin can see all menus": the five `/admin/*`
- * management pages must be reachable from the sidebar for admin, and must
- * stay hidden from non-admin roles (outlet / sales / driver).
+ * The Sidebar no longer uses hardcoded `finance`/`adminOnly` flags: visibility
+ * comes from `useRbacStore.levelFor(item.key) !== 'none'`, hydrated from
+ * `GET /auth/me` (`data.rbac`) or the dummy matrix. This file guards the admin
+ * menus, the Outlet adminHref routing, Worktree, and the Analitik gate.
  */
 import React from 'react';
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import { useDummyStore } from '@/dummy/store';
+import { useRbacStore } from '@/store/useRbacStore';
+import { getDummyMatrix } from '@/dummy/rbac';
 
 jest.mock('next/navigation', () => ({ usePathname: () => '/dashboard' }));
 jest.mock('next/link', () => {
@@ -32,18 +35,23 @@ const ADMIN_MENUS = [
 
 let originalFetch: typeof fetch | undefined;
 
+/**
+ * Mock `/auth/me` to return BOTH the role and the full rbac map — visibility is
+ * now derived from the matrix, so a role-only response would hide every menu.
+ */
 function mockRole(role: string | null): void {
   originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
   (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async () =>
     role === null
       ? ({ ok: false, status: 401, json: async () => ({}) } as Response)
-      : ({ ok: true, status: 200, json: async () => ({ data: { role } }) } as Response),
+      : ({ ok: true, status: 200, json: async () => ({ data: { role, rbac: getDummyMatrix(role) } }) } as Response),
   );
 }
 
 beforeEach(() => {
   localStorage.clear();
   useDummyStore.getState().reset();
+  useRbacStore.getState().reset();
   localStorage.clear();
   localStorage.setItem('ddp_token', 't-token');
 });
@@ -52,6 +60,7 @@ afterEach(() => {
   if (originalFetch) (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
   else delete (globalThis as unknown as { fetch?: unknown }).fetch;
   useDummyStore.getState().reset();
+  useRbacStore.getState().reset();
 });
 
 async function renderSidebar(): Promise<void> {
@@ -86,6 +95,14 @@ describe('Sidebar admin menu visibility', () => {
     expect(hrefFor('Performa sales')).toBe('/admin/sales-performance');
   });
 
+  it('shows the Kelola Akses menu for admin', async () => {
+    mockRole('admin');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Kelola Akses')).toBeInTheDocument());
+    expect(screen.getByText('Kelola Akses').closest('a')?.getAttribute('href')).toBe('/admin/rbac');
+  });
+
   it('points the Outlet menu at /admin/outlets for admin (not the public /outlets)', async () => {
     mockRole('admin');
     await renderSidebar();
@@ -108,79 +125,42 @@ describe('Sidebar admin menu visibility', () => {
     mockRole(role);
     await renderSidebar();
 
-    // Wait until the role has resolved (a non-adminOnly item is visible).
+    // Wait until the role has resolved (a menu the role can see is visible).
     await waitFor(() => expect(screen.getByText('Pesanan')).toBeInTheDocument());
     for (const label of ADMIN_MENUS) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
+    expect(screen.queryByText('Kelola Akses')).not.toBeInTheDocument();
   });
 
-  it('still restricts finance to finance-flagged items only', async () => {
+  it('shows finance exactly the menus the default matrix grants', async () => {
     mockRole('finance');
     await renderSidebar();
 
+    // Visible: dashboard, orders, products, outlets, marketplace, payments,
+    // delivery, sales, invoices, worktree.
     await waitFor(() => expect(screen.getByText('Pembayaran')).toBeInTheDocument());
-    expect(screen.getByText('Dasbor')).toBeInTheDocument();
-    expect(screen.getByText('Invoice')).toBeInTheDocument();
-    for (const label of ADMIN_MENUS) {
+    for (const label of ['Dasbor', 'Invoice', 'Pesanan', 'Produk', 'Outlet', 'Marketplace', 'Pengiriman', 'Sales', 'Worktree']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    // Hidden: analytics / data_intelligence / operations / admin_*.
+    for (const label of ['Analitik', 'Data Intelligence', 'Operasi', ...ADMIN_MENUS, 'Kelola Akses']) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
 });
 
 describe('Sidebar Worktree visibility', () => {
-  it('shows Worktree for outlet role', async () => {
-    mockRole('outlet');
-    await renderSidebar();
+  it.each(['outlet', 'finance', 'admin', 'sales', 'driver', 'supplier', 'platform_owner'])(
+    'shows Worktree for %s role',
+    async (role) => {
+      mockRole(role);
+      await renderSidebar();
 
-    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
-    expect(screen.getByText('🌳')).toBeInTheDocument();
-    expect(screen.getByText('Worktree').closest('a')?.getAttribute('href')).toBe('/worktree');
-  });
-
-  it('shows Worktree for finance role (not filtered out)', async () => {
-    mockRole('finance');
-    await renderSidebar();
-
-    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
-    expect(screen.getByText('Worktree').closest('a')?.getAttribute('href')).toBe('/worktree');
-  });
-
-  it('shows Worktree for admin role', async () => {
-    mockRole('admin');
-    await renderSidebar();
-
-    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
-  });
-
-  it('shows Worktree for sales role', async () => {
-    mockRole('sales');
-    await renderSidebar();
-
-    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
-  });
-
-  it('shows Worktree for driver role', async () => {
-    mockRole('driver');
-    await renderSidebar();
-
-    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
-  });
-
-  it('shows Worktree for supplier role', async () => {
-    mockRole('supplier');
-    await renderSidebar();
-
-    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
-  });
-
-  it('shows Worktree for platform_owner role', async () => {
-    mockRole('platform_owner');
-    await renderSidebar();
-
-    await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
-    expect(screen.getByText('Worktree').closest('a')?.getAttribute('href')).toBe('/worktree');
-  });
+      await waitFor(() => expect(screen.getByText('Worktree')).toBeInTheDocument());
+      expect(screen.getByText('Worktree').closest('a')?.getAttribute('href')).toBe('/worktree');
+    },
+  );
 });
 
 describe('Sidebar Analitik gate', () => {
@@ -192,7 +172,7 @@ describe('Sidebar Analitik gate', () => {
     expect(screen.queryByText('Analitik')).not.toBeInTheDocument();
   });
 
-  it('shows Analitik and every adminOnly item to platform_owner', async () => {
+  it('shows Analitik and every admin item to platform_owner', async () => {
     mockRole('platform_owner');
     await renderSidebar();
 
@@ -209,5 +189,21 @@ describe('Sidebar Analitik gate', () => {
 
     await waitFor(() => expect(screen.getByText('Analitik')).toBeInTheDocument());
     expect(screen.getByText('Analitik').closest('a')?.getAttribute('href')).toBe('/analytics');
+  });
+});
+
+describe('Sidebar dummy parity', () => {
+  it('resolves menus from the dummy matrix with zero network', async () => {
+    useDummyStore.getState().toggle();
+    localStorage.setItem('ddp_role', 'outlet');
+
+    const fetchSpy = jest.fn();
+    (globalThis as unknown as { fetch: unknown }).fetch = fetchSpy;
+
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Produk')).toBeInTheDocument());
+    expect(screen.queryByText('Analitik')).not.toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

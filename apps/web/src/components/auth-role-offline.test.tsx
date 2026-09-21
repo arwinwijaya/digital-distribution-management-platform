@@ -10,6 +10,7 @@ import '@testing-library/jest-dom';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { useDummyStore } from '@/dummy/store';
 import { setDummyGenerator } from '@/dummy/store';
+import { useRbacStore } from '@/store/useRbacStore';
 
 /* ------------------------------------------------------------------ */
 /* Mock next/navigation so usePathname returns a stable pathname.     */
@@ -34,10 +35,12 @@ jest.mock('next/link', () => {
 beforeEach(() => {
   localStorage.clear();
   useDummyStore.getState().reset();
+  useRbacStore.getState().reset();
   localStorage.clear();
 });
 
 afterEach(() => {
+  useRbacStore.getState().reset();
   jest.restoreAllMocks();
 });
 
@@ -45,7 +48,7 @@ afterEach(() => {
 /* Cycle 1 — Sidebar skips /auth/me when Dummy ON                     */
 /* ------------------------------------------------------------------ */
 describe('Cycle 1 — Sidebar offline role when dummy ON', () => {
-  it('never calls /auth/me and renders finance nav items from localStorage ddp_role', async () => {
+  it('never calls /auth/me and renders the finance matrix menus from localStorage ddp_role', async () => {
     // Arrange: set up localStorage with token + finance role
     localStorage.setItem('ddp_token', 'test-token-123');
     localStorage.setItem('ddp_role', 'finance');
@@ -74,17 +77,20 @@ describe('Cycle 1 — Sidebar offline role when dummy ON', () => {
         expect(authMeCalls).toHaveLength(0);
       });
 
-      // Assert: finance-flagged nav items render
+      // Assert: the finance matrix row renders (read+edit menus).
       await waitFor(() => {
         expect(screen.getByText('Dasbor')).toBeInTheDocument();
         expect(screen.getByText('Invoice')).toBeInTheDocument();
         expect(screen.getByText('Pembayaran')).toBeInTheDocument();
       });
+      for (const label of ['Pesanan', 'Produk', 'Outlet', 'Marketplace', 'Pengiriman', 'Sales', 'Worktree']) {
+        expect(screen.getByText(label)).toBeInTheDocument();
+      }
 
-      // Assert: non-finance items do NOT render
-      expect(screen.queryByText('Pesanan')).not.toBeInTheDocument();
-      expect(screen.queryByText('Produk')).not.toBeInTheDocument();
-      expect(screen.queryByText('Outlet')).not.toBeInTheDocument();
+      // Assert: menus finance has `none` for do NOT render.
+      for (const label of ['Analitik', 'Data Intelligence', 'Operasi', 'Approval Pesanan', 'Harga Produk', 'Kelola pengguna', 'Kelola promosi', 'Performa sales', 'Kelola Akses']) {
+        expect(screen.queryByText(label)).not.toBeInTheDocument();
+      }
     } finally {
       global.fetch = originalFetch;
     }
@@ -158,7 +164,7 @@ describe('Cycle 3 — Regression guard: Sidebar calls /auth/me when dummy OFF', 
         ok: true,
         status: 200,
         json: async () => ({
-          data: { role: 'admin' },
+          data: { role: 'admin', rbac: { dashboard: 'edit', admin_users: 'read' } },
         }),
       } as Response;
     });

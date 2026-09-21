@@ -1,6 +1,6 @@
 # Roadmap Implementation Checklist
 
-**Audit date:** 2026-09-16
+**Audit date:** 2026-09-19
 **Source roadmap:** [`development-roadmap.md`](development-roadmap.md)  
 **Execution evidence:** [`docs/pocket/plans/2025-09-08-development-phasing/closeout.md`](docs/pocket/plans/2025-09-08-development-phasing/closeout.md), [`docs/pocket/plans/2026-09-10-operational-readiness/closeout.md`](docs/pocket/plans/2026-09-10-operational-readiness/closeout.md), [`docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md`](docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md)
 
@@ -13,13 +13,13 @@
 
 ## Overall status
 
-**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`. Business Validation Production Pilot (pre-pilot compatibility & readiness) dan Concierge Production Pilot Phase 6 Business Validation (`DONE`, lihat `docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md` + `docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md`) telah menambahkan infrastruktur pilot (kelayakan partner 10 outlet/30d, pengukuran lifecycle order→payment, pengawalan error<5%/delivery>95%/payment>90%, decision matrix Phase 6). Fase berikutnya adalah eksekusi lapangan sesungguhnya (partner/outlet nyata, order produksi) dan Phase 7–10.
+**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`. Business Validation Production Pilot (pre-pilot compatibility & readiness) dan Concierge Production Pilot Phase 6 Business Validation (`DONE`, lihat `docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md` + `docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md`) telah menambahkan infrastruktur pilot (kelayakan partner 10 outlet/30d, pengukuran lifecycle order→payment, pengawalan error<5%/delivery>95%/payment>90%, decision matrix Phase 6). RBAC menu matrix (19 menu × 7 role) telah ditutup (`docs/pocket/plans/2026-09-18-rbac-menu-matrix/closeout.md`), melengkapi role management, Platform Owner, price/promotion management, sales target/dashboard, dan WhatsApp promotion broadcast pada Phase 7. Fase berikutnya adalah eksekusi lapangan sesungguhnya (partner/outlet nyata, order produksi) dan Phase 8–10.
 
 | Roadmap phase | Status | Ringkasan |
 |---|---|---|
 | Phase 0 — Business Validation & Planning | `[~]` Partial | Dokumen planning ada, tetapi validasi bisnis, riset pengguna, BRD, dan partner database belum terbukti. Pre-pilot platform readiness sudah ditutup oleh `2026-09-14-business-validation-production-pilot` (`READY_FOR_PILOT=allow`), dan Phase 6 Business Validation tervalidasi secara teknikal oleh `2026-09-15-concierge-production-pilot` (`PilotQualificationService`, `PilotMetricsService`, `PilotEvaluationService`, 24 uji `Pilot*` PASS). |
-| Phase 1 — MVP Platform | `[~]` Partial | Core flow berjalan; role management, promosi, scoring, kategori outlet, dan beberapa analytics belum lengkap. |
-| Phase 2 — Sales & Distribution Automation | `[~]` Partial | Invoice, reminder, payment, delivery, sales visit, dan WhatsApp order tersedia; sales target, live tracking, dan broadcast promosi belum ada. |
+| Phase 1 — MVP Platform | `[~]` Partial | Core flow berjalan; role management + RBAC menu matrix, Platform Owner, promosi, dan harga produk sudah ada; outlet scoring/kategori dan beberapa analytics belum lengkap. |
+| Phase 2 — Sales & Distribution Automation | `[~]` Partial | Invoice, reminder, payment, delivery, sales visit, sales order collection, sales target/dashboard, dan WhatsApp order + broadcast promosi tersedia; live tracking dan GPS check-in belum ada. |
 | Phase 3 — Data Intelligence & AI | `[x]` Done | Foundation sudah selesai (pipeline, geographic/supplier BI, stock planning, measurement, admin UI/map, atomic publication) — lihat `docs/pocket/plans/2026-09-14-phase3-data-intelligence-foundation/closeout.md`. ML/LLM production dan action workflow tetap `[ ]` out-of-scope Phase 3. |
 | Phase 4 — Ecosystem Expansion | `[~]` Partial | Marketplace multi-supplier dasar tersedia; pricing, financial services, distributor network, dan automated replenishment belum tersedia. |
 
@@ -59,25 +59,26 @@
 ### User management
 
 - `[x]` Login/JWT — `apps/api/app/Http/Controllers/AuthController.php`, `apps/api/tests/Feature/AuthTest.php`.
-- `[~]` Role representation tersedia untuk admin, supplier, outlet, sales, dan driver; role Platform Owner belum ada.
-- `[ ]` Role management API/UI.
+- `[x]` Role representation tersedia untuk admin, supplier, outlet, sales, driver, finance, dan platform_owner (`apps/api/app/Models/User.php` — `isPlatformOwner()`; `apps/api/database/seeders/DatabaseSeeder.php`).
+- `[x]` Role management API/UI — `apps/api/app/Http/Controllers/UserRoleController.php` + `FinanceRoleController.php`, halaman `apps/web/src/app/admin/users/page.tsx`; diuji `apps/api/tests/Feature/RoleManagementTest.php`.
+- `[x]` RBAC menu matrix (19 menu × 7 role) — skema `menu_definitions`/`role_menu_access`, middleware `App\Http\Middleware\Rbac` (`rbac:<menu>:<level>`) di semua route terlindungi, endpoint `GET`/`PUT /admin/rbac/matrix`, map di `GET /auth/me`, Sidebar matrix-driven, dan halaman `/admin/rbac`; lihat `docs/pocket/plans/2026-09-18-rbac-menu-matrix/closeout.md`.
 - `[~]` Basic user profile melalui endpoint `auth/me`; update profile belum tersedia.
 
 ### Outlet management
 
 - `[x]` Outlet registration.
-- `[~]` Outlet profile dasar tersimpan; profile list/update lengkap belum tersedia.
+- `[x]` Outlet profile dasar tersimpan; list/update lengkap tersedia via `apps/api/app/Http/Controllers/AdminOutletController.php` (`GET /admin/outlets`, `PATCH /admin/outlets/{id}`) + halaman `apps/web/src/app/admin/outlets/page.tsx`.
 - `[~]` Latitude/longitude tersedia; map UI atau mapping service belum ada.
-- `[ ]` Outlet category.
+- `[x]` Outlet category — kolom `category` (`apps/api/database/migrations/2026_09_16_000003_add_category_and_score_to_outlets_table.php`), `Outlet::VALID_CATEGORIES`/`scopeOfCategory`.
 - `[~]` Purchase history tersedia melalui relasi/order scope; dedicated outlet history endpoint/UI belum ada.
-- `[ ]` Outlet scoring.
+- `[x]` Outlet scoring — kolom `score` (migration yang sama), default 0.
 
 ### Product catalog
 
 - `[x]` Product master.
 - `[x]` SKU management dan SKU lookup.
-- `[~]` Product price tersimpan/ditampilkan; workflow admin/supplier untuk mengelola harga belum lengkap.
-- `[ ]` Promotion.
+- `[x]` Product price admin workflow — `apps/api/app/Http/Controllers/AdminProductController.php` (`PATCH /admin/products/{id}`, `GET /admin/products/{id}/prices`) + halaman `apps/web/src/app/admin/products/page.tsx`.
+- `[x]` Promotion — `apps/api/app/Http/Controllers/PromotionController.php` + halaman `apps/web/src/app/admin/promotions/page.tsx`.
 - `[x]` Product availability: `is_active`, stock, dan supplier eligibility.
 - `[x]` Basic product search — `Product::scopeSearch()` dan `ProductCatalog.tsx`.
 
@@ -107,9 +108,9 @@
 
 - `[x]` Sales visit planning — `SalesController`, `SalesVisit`, dan `apps/web/src/app/sales/page.tsx`.
 - `[~]` Visit tracking/status/notes tersedia; GPS/check-in telemetry belum ada.
-- `[ ]` Sales-specific order collection.
-- `[~]` Field `target` pada sales visit ada; numeric quota, period, dan achievement belum ada.
-- `[ ]` Sales performance dashboard.
+- `[x]` Sales-specific order collection — `apps/api/app/Http/Controllers/SalesOrderController.php` (`POST /sales/orders`), halaman `apps/web/src/app/sales/orders/page.tsx`; diuji `apps/api/tests/Feature/SalesOrderTest.php`.
+- `[x]` Sales target quota/period/achievement — `apps/api/app/Http/Controllers/SalesTargetController.php` (CRUD `/admin/sales-targets`); diuji `SalesPerformanceTest.php`.
+- `[x]` Sales performance dashboard — `apps/api/app/Http/Controllers/SalesPerformanceController.php` (`GET /sales/my-performance`, `GET /admin/sales/performance`), halaman `apps/web/src/app/sales/performance/page.tsx` + `apps/web/src/app/admin/sales-performance/page.tsx`.
 
 ### Delivery
 
@@ -133,7 +134,7 @@
 - `[x]` Product catalog via WhatsApp.
 - `[x]` Order via signed WhatsApp webhook.
 - `[x]` Automated confirmed-order notification dengan retry/idempotency.
-- `[ ]` Promotion broadcast.
+- `[x]` Promotion broadcast — `apps/api/app/Http/Controllers/PromotionBroadcastController.php`, route `POST /admin/promotions/{id}/broadcast`, halaman `apps/web/src/app/admin/promotions/page.tsx`.
 - `[~]` Provider integration/configuration tersedia; approval, credentials, dan PostgreSQL concurrency production belum terverifikasi di environment ini.
 
 - `[?]` Target Phase 2: 1,000+ active outlets, >70% digital ordering, dan reduced manual processing belum memiliki bukti produksi.
@@ -213,6 +214,7 @@
 
 - **Scope:** role management, Platform Owner, outlet profile/category/scoring/history, price/promotion management, sales order collection, sales dashboard/target, dan WhatsApp promotion broadcast.
 - **Exit criteria:** admin dapat mengelola role, outlet, harga, promosi, dan target sales dengan authorization serta audit yang sesuai.
+- **Status:** `[~]` Partial. Role management + RBAC menu matrix, Platform Owner, price/promotion management, sales order collection, sales dashboard/target, dan WhatsApp promotion broadcast sudah `[x]`. Outlet profile/category/scoring/history masih `[~]`/`[ ]` (lihat bagian Outlet management).
 
 ### Phase 8 — Mobile Field Operations
 

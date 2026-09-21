@@ -41,6 +41,16 @@ export type {
   DummyTerritory,
 } from './factory';
 
+// ── RBAC dummy matrix (pure, zero-network) ───────────────────────────────────
+
+export {
+  DUMMY_RBAC_MATRIX,
+  MENU_KEYS,
+  ROLES,
+  getDummyMatrix,
+} from './rbac';
+export type { RbacLevel, RbacRole, MenuKey } from './rbac';
+
 export { buildTransactions } from './factory-transactions';
 export type {
   Transactions,

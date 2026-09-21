@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { useDummyStore } from '@/dummy/store';
 import { useRbacStore } from '@/store/useRbacStore';
+import type { RbacLevel } from '@/dummy/rbac';
 
 type NavItem = { key: string; href: string; label: string; icon: string; adminHref?: string };
 type SidebarAuth = { role: string | null; authResolved: boolean; authenticated: boolean };
@@ -36,7 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'rbac_matrix',             href: '/admin/rbac',              label: 'Kelola Akses',     icon: '🔐' },
 ];
 
-type MeResponse = { role: string | null; rbac: Record<string, string> | null };
+type MeResponse = { role: string | null; rbac: Record<string, RbacLevel> | null };
 
 async function fetchCurrentMe(token: string): Promise<MeResponse> {
   const response = await fetch(apiUrl('/auth/me'), { headers: authHeaders(token) });

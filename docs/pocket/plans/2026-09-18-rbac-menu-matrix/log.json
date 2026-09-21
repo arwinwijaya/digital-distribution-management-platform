@@ -1,0 +1,48 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-18-rbac-menu-matrix",
+    "plan_type": "flat",
+    "status": "DONE",
+    "date_started": "2026-09-19",
+    "date_completed": "2026-09-19",
+    "baseline_sha": "9cb3c61a8ee7f8bd41ddb35099e3fe040e76c041",
+    "pipeline": 4,
+    "plan_file": "execution-plan.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan.md",
+      "status": "DONE",
+      "tasks": [
+        { "id": "T1", "name": "RBAC schema + models + seeder", "status": "DONE", "commit": "6662ee2" },
+        { "id": "T2", "name": "Seed default matrix in base TestCase", "status": "DONE", "commit": "37e0417", "depends": "T1" },
+        { "id": "T3", "name": "Rbac middleware + Kernel alias", "status": "DONE", "commit": "579c448", "depends": "T1" },
+        { "id": "T4", "name": "Matrix GET/PUT endpoint", "status": "DONE", "commit": "c7233c9", "depends": "T1, T3" },
+        { "id": "T5", "name": "/auth/me rbac map", "status": "DONE", "commit": "4c50211", "depends": "T1" },
+        { "id": "T6", "name": "Full route enforcement + remove deny.finance", "status": "DONE", "commit": "5adc9db", "depends": "T3" },
+        { "id": "T7", "name": "Align existing tests with new matrix", "status": "DONE", "commit": "5adc9db", "depends": "T6", "note": "Alignment (FinanceAccessTest split + RbacRouteEnforcementTest K-C cases) was inseparable from T6 and landed in the T6 commit. Verified RoleManagementTest/SalesOrderTest/SalesPerformanceTest/PrePilotCompatibilityTest/AdminProductPriceTest stay green." },
+        { "id": "T8", "name": "Dummy RBAC fixture", "status": "DONE", "commit": "8ece397" },
+        { "id": "T9", "name": "useRbacStore (Zustand)", "status": "DONE", "commit": "3eaa03d", "depends": "T5, T8" },
+        { "id": "T10", "name": "Sidebar matrix-driven", "status": "DONE", "commit": "b54433f", "depends": "T9" },
+        { "id": "T11", "name": "Admin /admin/rbac page", "status": "DONE", "commit": "3174be5", "depends": "T9" },
+        { "id": "T12", "name": "Integration + dummy parity", "status": "DONE", "commit": "422a261", "depends": "T6, T7, T10, T11", "note": "Integration suite surfaced a real gap: useRbacStore.save only updated `matrix`, so an admin editing their OWN role row would not see the Sidebar change until re-login. Fixed the store to also refresh the caller's `map` when their role row is touched (no-op for other roles); 2 new store unit tests." }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "K-A",
+      "summary": "RBAC matrix endpoints (GET/PUT /admin/rbac/matrix) are guarded at controller level (assertAdminOrOwner), not by `rbac:` middleware."
+    },
+    {
+      "id": "K-B",
+      "summary": "Admin mutation routes gated by `rbac:admin_users:read` as menu gate; controller isPlatformOwner/isAdmin is the real mutation authorization."
+    },
+    {
+      "id": "K-C",
+      "summary": "Generalized K-B (user-approved Option A). Spec default matrix kept 100% intact. Route mapping adjusted: (1) /ai/* drops `rbac` gate — dual-audience authorized in AIController (isAdmin()||isOutlet()); (2) POST /admin/pipeline/manual-trigger, POST /admin/measurement/events, POST|PATCH /admin/territories* gate at `read` — controllers enforce the admin write boundary; (3) POST /outlets drops `rbac` gate — self-service, finance denied in StoreOutletRequest::authorize(). Race DB seeds RbacMatrixSeeder so HTTP race workers authenticate correctly. FinanceAccessTest + RbacRouteEnforcementTest aligned.",
+      "evidence": "Full suite 525 passed, 7 skipped (pgsql-only), 0 failed."
+    }
+  ]
+}

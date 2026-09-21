@@ -54,6 +54,14 @@ trait SqliteHttpRaceCase
         )]);
         DB::purge('race');
         $this->artisan('migrate:fresh', ['--database' => 'race', '--force' => true]);
+        // Race HTTP workers resolve authorization through the `rbac` middleware,
+        // which reads `role_menu_access`. Seed the default matrix on the race
+        // connection so those workers do not 403 every protected route.
+        $this->artisan('db:seed', [
+            '--class' => \Database\Seeders\RbacMatrixSeeder::class,
+            '--database' => 'race',
+            '--force' => true,
+        ]);
     }
 
     protected function createRaceUser(string $email, string $role = 'outlet', string $password = 'password123'): User

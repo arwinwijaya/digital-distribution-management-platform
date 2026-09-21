@@ -43,6 +43,26 @@ class FinanceAccessTest extends TestCase
         ]);
     }
 
+    public function test_finance_can_read_catalog_and_marketplace(): void
+    {
+        // Default matrix: finance -> products = read, marketplace = read.
+        // Before RBAC these routes were blocked by `deny.finance`.
+        $finance = User::factory()->create([
+            'role' => 'finance',
+            'email' => 'finance-catalog@example.test',
+            'password' => Hash::make('password'),
+        ]);
+        $token = $this->postJson('/api/auth/login', [
+            'email' => $finance->email,
+            'password' => 'password',
+        ])->assertOk()->json('data.token');
+        $headers = ['Authorization' => 'Bearer '.$token];
+
+        $this->withHeaders($headers)->getJson('/api/products')->assertOk();
+        $this->withHeaders($headers)->getJson('/api/marketplace/suppliers')->assertOk();
+        $this->withHeaders($headers)->getJson('/api/marketplace/products')->assertOk();
+    }
+
     public function test_finance_cannot_access_unrelated_administration(): void
     {
         $finance = User::factory()->create([
@@ -56,11 +76,11 @@ class FinanceAccessTest extends TestCase
         ])->assertOk()->json('data.token');
         $headers = ['Authorization' => 'Bearer '.$token];
 
+        // Still 403 after RBAC: either the matrix level is `none` for finance
+        // (data_intelligence, admin_orders) or the controller keeps a stricter
+        // allowlist than the matrix (deliveries, sales visits, orders, credit).
         $requests = [
             fn () => $this->withHeaders($headers)->postJson('/api/outlets', []),
-            fn () => $this->withHeaders($headers)->getJson('/api/products'),
-            fn () => $this->withHeaders($headers)->getJson('/api/marketplace/suppliers'),
-            fn () => $this->withHeaders($headers)->getJson('/api/marketplace/products'),
             fn () => $this->withHeaders($headers)->getJson('/api/credit-limit'),
             fn () => $this->withHeaders($headers)->getJson('/api/admin/outlets/1/credit-limit'),
             fn () => $this->withHeaders($headers)->getJson('/api/ai/recommendations'),

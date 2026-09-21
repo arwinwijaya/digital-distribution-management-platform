@@ -58,7 +58,6 @@ class Kernel extends HttpKernel
     protected $middlewareAliases = [
         'auth' => \App\Http\Middleware\Authenticate::class,
         'rbac' => \App\Http\Middleware\Rbac::class,
-        'deny.finance' => \App\Http\Middleware\DenyFinanceAdministration::class,
         'reject.stale_jwt' => \App\Http\Middleware\RejectStaleJwt::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'auth.session' => \Illuminate\Session\Middleware\AuthenticateSession::class,

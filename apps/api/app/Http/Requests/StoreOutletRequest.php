@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\CanonicalizesOutletPhone;
+use App\Services\FinanceAuthorizationService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -11,11 +12,17 @@ class StoreOutletRequest extends FormRequest
     use CanonicalizesOutletPhone;
 
     /**
-     * Determine if the user is authorized to make this request.
+     * Self-service outlet registration is open to every authenticated role
+     * EXCEPT finance (K-C: the `outlets` menu level cannot express this — the
+     * registering outlet role holds only `read` on `outlets`, and finance also
+     * holds `read`). Denying finance here runs before validation so an empty
+     * payload still yields 403 for finance rather than 422.
      */
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user !== null && ! app(FinanceAuthorizationService::class)->isFinance($user);
     }
 
     /**

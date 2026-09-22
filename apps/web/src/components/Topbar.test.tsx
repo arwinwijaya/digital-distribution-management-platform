@@ -165,3 +165,68 @@ describe('Cycle 3 — Topbar reacts to auth changes without remount', () => {
     expect(screen.queryByRole('button', { name: /keluar/i })).not.toBeInTheDocument();
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Cycle 4 — Online/offline indicator (Phase 8, T10)                   */
+/* Driven by useOnlineStatus: reads navigator.onLine on mount, then    */
+/* re-reads on window online/offline events, cleaning up on unmount.   */
+/* ------------------------------------------------------------------ */
+describe('Cycle 4 — Topbar online/offline indicator', () => {
+  function setOnline(value: boolean) {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      get: () => value,
+    });
+  }
+
+  beforeEach(() => {
+    setOnline(true);
+  });
+
+  it('shows the Online badge while the browser reports connectivity', () => {
+    render(<Topbar />);
+
+    expect(screen.getByText('Online')).toBeInTheDocument();
+    expect(screen.queryByText('Offline')).not.toBeInTheDocument();
+  });
+
+  it('shows the Offline badge when mounted without connectivity', () => {
+    setOnline(false);
+
+    render(<Topbar />);
+
+    expect(screen.getByText('Offline')).toBeInTheDocument();
+    expect(screen.queryByText('Online')).not.toBeInTheDocument();
+  });
+
+  it('switches to Offline on the offline event and back on the online event', () => {
+    render(<Topbar />);
+    expect(screen.getByText('Online')).toBeInTheDocument();
+
+    setOnline(false);
+    act(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+    expect(screen.getByText('Offline')).toBeInTheDocument();
+
+    setOnline(true);
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(screen.getByText('Online')).toBeInTheDocument();
+  });
+
+  it('removes its window listeners on unmount', () => {
+    const addSpy = jest.spyOn(window, 'addEventListener');
+    const removeSpy = jest.spyOn(window, 'removeEventListener');
+
+    const { unmount } = render(<Topbar />);
+    expect(addSpy).toHaveBeenCalledWith('online', expect.any(Function));
+    expect(addSpy).toHaveBeenCalledWith('offline', expect.any(Function));
+
+    unmount();
+
+    expect(removeSpy).toHaveBeenCalledWith('online', expect.any(Function));
+    expect(removeSpy).toHaveBeenCalledWith('offline', expect.any(Function));
+  });
+});

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
 import DummyBootstrap from '@/components/DummyBootstrap';
+import PwaBootstrap from '@/components/PwaBootstrap';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,6 +22,7 @@ export default function RootLayout({
     <html lang="id">
       <body className={inter.className}>
         <DummyBootstrap />
+        <PwaBootstrap />
         <AppShell>{children}</AppShell>
       </body>
     </html>

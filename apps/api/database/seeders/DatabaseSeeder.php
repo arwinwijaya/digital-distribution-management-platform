@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\DriverProfile;
 use App\Models\Outlet;
 use App\Models\Supplier;
 use App\Models\User;
@@ -67,6 +68,21 @@ class DatabaseSeeder extends Seeder
                 );
             }
 
+            if (isset($config['driver'])) {
+                $d = $config['driver'];
+                DriverProfile::firstOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'vehicle_type' => $d['vehicle_type'],
+                        'plate_number' => $d['plate_number'],
+                        'capacity_kg' => $d['capacity_kg'],
+                        'shift_start' => $d['shift_start'] ?? '08:00:00',
+                        'shift_end' => $d['shift_end'] ?? '17:00:00',
+                        'is_available' => $d['is_available'] ?? true,
+                    ]
+                );
+            }
+
             $this->command?->info("Seeded: {$config['name']} <{$config['email']}> [{$config['role']}]");
         }
     }
@@ -75,7 +91,7 @@ class DatabaseSeeder extends Seeder
      * Centralized user seed definitions. Each entry produces one User row,
      * and optionally associated Outlet / Supplier models.
      *
-     * @return list<array{email:string, name:string, role:string, phone:string, outlet?:array, supplier?:array}>
+     * @return list<array{email:string, name:string, role:string, phone:string, outlet?:array, supplier?:array, driver?:array}>
      */
     private function getUserConfigs(): array
     {
@@ -182,24 +198,39 @@ class DatabaseSeeder extends Seeder
                 'phone' => '081234567810',
             ],
 
-            // ── driver (3) ─────────────────────────────────────────
+            // ── driver (3) + associated DriverProfile ──────────────
             [
                 'email' => 'joko.widodo@ddp.test',
                 'name'  => 'Joko Widodo',
                 'role'  => 'driver',
                 'phone' => '081234567811',
+                'driver' => [
+                    'vehicle_type' => 'motor',
+                    'plate_number' => 'B 1201 KZZ',
+                    'capacity_kg'   => 60,
+                ],
             ],
             [
                 'email' => 'andi.saputra@ddp.test',
                 'name'  => 'Andi Saputra',
                 'role'  => 'driver',
                 'phone' => '081234567812',
+                'driver' => [
+                    'vehicle_type' => 'pickup',
+                    'plate_number' => 'B 1202 KZZ',
+                    'capacity_kg'   => 800,
+                ],
             ],
             [
                 'email' => 'rudi.hermawan@ddp.test',
                 'name'  => 'Rudi Hermawan',
                 'role'  => 'driver',
                 'phone' => '081234567813',
+                'driver' => [
+                    'vehicle_type' => 'van',
+                    'plate_number' => 'B 1203 KZZ',
+                    'capacity_kg'   => 1200,
+                ],
             ],
 
             // ── finance (2) ────────────────────────────────────────

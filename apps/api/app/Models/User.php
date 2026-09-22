@@ -127,6 +127,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(Delivery::class, 'driver_id');
     }
 
+    public function driverProfile(): HasOne
+    {
+        return $this->hasOne(DriverProfile::class);
+    }
+
     public function createdDeliveries(): HasMany
     {
         return $this->hasMany(Delivery::class, 'assigned_by_id');

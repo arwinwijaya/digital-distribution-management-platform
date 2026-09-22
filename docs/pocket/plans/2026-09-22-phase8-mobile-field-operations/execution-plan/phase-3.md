@@ -5,7 +5,7 @@
 **Prerequisite:** None (frontend-only; boleh jalan paralel dengan Phase 2)
 **Contains tasks:** {T10, T11, T12}
 **Unlocks next:** Phase 6
-**Status:** IN_PROGRESS (T10 DONE, 2026-09-22)
+**Status:** IN_PROGRESS (T10 DONE, T11 DONE, 2026-09-22)
 
 ---
 
@@ -21,6 +21,15 @@
 - `PwaBootstrap` registered in root layout.
 - Rollback: set `NEXT_PUBLIC_PWA_ENABLED=false` → registration no-op, delete `sw.js`.
 - Web suite 496 passed; `tsc --noEmit` clean; backend 592 passed.
+
+**T11 DONE** — `868e7f5`
+
+- `StorageAdapter` interface + `IndexedDbAdapter` (native, no deps) + `LocalStorageAdapter` fallback.
+- Queue API: `enqueue(payload)`, `list()`, `remove(id)`, `clear()`, `flushQueue(send)` → `{sent, failed}`.
+- Idempotency key: deterministic FNV-1a hash of payload JSON (32-char hex). Stable for identical payloads.
+- On flush: successful items removed, failed items retained for retry. Header `Idempotency-Key` sent.
+- 8 unit tests pass (in-memory adapter).
+- Web suite 504 passed; `tsc --noEmit` clean.
 
 ---
 

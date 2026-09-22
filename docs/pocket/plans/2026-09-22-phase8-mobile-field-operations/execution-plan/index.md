@@ -59,6 +59,13 @@ T12,T17 → T18
   - New: `sw.js` (app-shell cache-first + network-first nav, skip `/api/`), `/offline` page,
     `registerServiceWorker()` (idempotent, SSR-safe), `useOnlineStatus()` hook, Topbar badge.
   - Backend suite: 592 passed / 7 skipped (unchanged).
+- **2026-09-22 — Phase 3 T11 DONE.** T11 `868e7f5`.
+  - Web suite: 504 passed. `tsc --noEmit` clean.
+  - New: `StorageAdapter` interface + `IndexedDbAdapter` (native) + `LocalStorageAdapter`
+    fallback (no new npm deps). Queue API: `enqueue`, `list`, `remove`, `clear`, `flushQueue(send)`.
+  - Idempotency key: deterministic FNV-1a hash of JSON payload (stable for identical payloads).
+  - `flushQueue` returns `{sent, failed}`; failed items stay in queue, successes removed.
+  - Backend suite: 592 passed / 7 skipped (unchanged).
 
 ---
 

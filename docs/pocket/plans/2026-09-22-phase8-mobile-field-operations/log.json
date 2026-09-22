@@ -110,9 +110,10 @@
         {
           "id": "T11",
           "name": "Offline order queue (IndexedDB wrapper + flush)",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T10",
-          "file": "execution-plan/tasks/T11-offline-order-queue-indexeddb-flush.md"
+          "file": "execution-plan/tasks/T11-offline-order-queue-indexeddb-flush.md",
+          "commit": "868e7f5"
         },
         {
           "id": "T12",

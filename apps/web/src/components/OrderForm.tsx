@@ -8,6 +8,9 @@ import { createDummyOutletOrder } from '@/dummy/mutations';
 import type { FullDummy } from '@/dummy';
 import { Button, Card, EmptyState, Input, StatusBadge, Table, ViewModeToggle, useViewMode } from '@/components/ui';
 import { filterProducts } from '@/lib/product-filter';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { createOrderQueue, createDefaultAdapter, type OrderQueue } from '@/lib/offline/order-queue';
+
 
 export interface Product { id: number; name: string; price: string; stock_quantity: number; is_active: boolean; }
 export interface Order { id: number; order_id: string; status: string; total_amount: string; items: Array<{ product_name: string; quantity: number; subtotal: string }>; status_history?: Array<{ status: string; notes?: string; created_at: string }>; }
@@ -99,8 +102,47 @@ export default function OrderForm({ token }: { token: string }) {
   const [order, setOrder] = useState<Order | null>(null); const [trackingId, setTrackingId] = useState(''); const [tracked, setTracked] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true); const [submitting, setSubmitting] = useState(false); const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(''); const [minPrice, setMinPrice] = useState(''); const [maxPrice, setMaxPrice] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
   const { viewMode, setViewMode } = useViewMode();
   const idempotencyAttempt = useRef<{ signature: string; key: string } | null>(null);
+  const queueRef = useRef<OrderQueue | null>(null);
+  const isOnline = useOnlineStatus();
+  const isDummy = useDummyStore((s) => s.isDummy);
+
+  // Initialize queue once
+  useEffect(() => {
+    let mounted = true;
+    createDefaultAdapter().then((adapter) => {
+      if (mounted) queueRef.current = createOrderQueue(adapter);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  // Update pending count when online status changes
+  useEffect(() => {
+    if (queueRef.current) {
+      queueRef.current.list().then((items) => setPendingCount(items.length));
+    }
+  }, [isOnline]);
+
+  // Auto-flush when coming back online
+  useEffect(() => {
+    if (!isOnline || !queueRef.current || isDummy) return;
+    const flush = async () => {
+      const result = await queueRef.current!.flushQueue(async (payload, init) => {
+        const response = await fetch(apiUrl('/orders'), {
+          method: 'POST',
+          headers: { ...authHeaders(token), ...(init?.headers as Record<string, string>) },
+          body: JSON.stringify(payload),
+        });
+        return response;
+      });
+      if (result.sent > 0 || result.failed > 0) {
+        setPendingCount(result.failed);
+      }
+    };
+    flush();
+  }, [isOnline, token, isDummy]);
 
   useEffect(() => {
     loadOrderFormProducts(token)
@@ -133,6 +175,18 @@ export default function OrderForm({ token }: { token: string }) {
       const signature = JSON.stringify(items);
       if (!idempotencyAttempt.current || idempotencyAttempt.current.signature !== signature) { const key = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`; idempotencyAttempt.current = { signature, key }; }
       const idempotencyKey = idempotencyAttempt.current.key;
+
+      // Offline path: enqueue instead of direct submit
+      if (!isOnline && !isDummy && queueRef.current) {
+        await queueRef.current.enqueue({ items, idempotency_key: idempotencyKey });
+        const queued = await queueRef.current.list();
+        setPendingCount(queued.length);
+        idempotencyAttempt.current = null; // clear for next order
+        setCart({});
+        setSubmitting(false);
+        return;
+      }
+
       const data = await submitOutletOrder(token, items, idempotencyKey);
       setOrder(data); setTrackingId(String(data.id)); setCart({}); idempotencyAttempt.current = null;
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Pesanan tidak dapat dibuat.'); } finally { setSubmitting(false); }
@@ -147,6 +201,11 @@ export default function OrderForm({ token }: { token: string }) {
   if (loading) return <div className="space-y-3"><div className="skeleton h-6 w-40 rounded" /><div className="grid gap-4 sm:grid-cols-2"><div className="skeleton h-32 rounded-xl" /><div className="skeleton h-32 rounded-xl" /></div></div>;
   return <div className="space-y-6">
     {error && <p role="alert" className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
+    {pendingCount > 0 && (
+      <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+        {pendingCount} pesanan menunggu sinkronisasi {isOnline ? ' (menyinkronkan...)' : '(offline)'}
+      </p>
+    )}
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>

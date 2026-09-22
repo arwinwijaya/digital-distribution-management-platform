@@ -136,8 +136,12 @@ describe('Worktree page — authenticated', () => {
 
     const approvalNode = screen.getByTestId('worktree-node-approval');
     expect(approvalNode).toBeInTheDocument();
-    // Admin role (from mocked /auth/me) highlights Persetujuan.
-    expect(approvalNode.parentElement?.className).toMatch(/bg-primary-50/);
+    // Admin role (from mocked /auth/me) highlights Persetujuan. The role arrives
+    // asynchronously, so wait for the highlight instead of asserting immediately
+    // (avoids a race when the full suite is under load).
+    await waitFor(() => {
+      expect(approvalNode.parentElement?.className).toMatch(/bg-primary-50/);
+    });
   });
 
   it('opens detail panel on node click in page context', async () => {

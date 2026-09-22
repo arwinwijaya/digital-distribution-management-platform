@@ -18,7 +18,7 @@ class RbacTestInfraTest extends TestCase
 
     public function test_default_matrix_is_available_without_explicit_seeding(): void
     {
-        $this->assertSame(19, MenuDefinition::count());
+        $this->assertSame(21, MenuDefinition::count());
         $this->assertSame(
             'edit',
             RoleMenuAccess::where('role', 'admin')->where('menu_key', 'products')->value('level'),

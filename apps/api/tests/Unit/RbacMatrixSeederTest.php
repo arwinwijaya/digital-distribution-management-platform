@@ -12,7 +12,8 @@ use Tests\TestCase;
  * RBAC default matrix seeder.
  *
  * Locks the seed against the spec default matrix (18 menus) plus the
- * `worktree` menu added during planning (19 menus, 77 non-none cells).
+ * `worktree` menu added during planning and the Phase 8 `field_ops` +
+ * `driver_roster` menus (21 menus, 83 non-none cells).
  */
 class RbacMatrixSeederTest extends TestCase
 {
@@ -21,19 +22,19 @@ class RbacMatrixSeederTest extends TestCase
     /** Roles in the fixed order used by the spec table. */
     private const ROLES = ['platform_owner', 'admin', 'outlet', 'supplier', 'sales', 'driver', 'finance'];
 
-    public function test_seeder_creates_nineteen_menu_definitions(): void
+    public function test_seeder_creates_twenty_one_menu_definitions(): void
     {
         $this->seed(RbacMatrixSeeder::class);
 
-        $this->assertSame(19, MenuDefinition::count());
+        $this->assertSame(21, MenuDefinition::count());
     }
 
-    public function test_seeder_creates_seventy_seven_non_none_cells(): void
+    public function test_seeder_creates_eighty_three_non_none_cells(): void
     {
         $this->seed(RbacMatrixSeeder::class);
 
         $this->assertSame(
-            77,
+            83,
             RoleMenuAccess::where('level', '!=', 'none')->count(),
         );
     }
@@ -81,7 +82,7 @@ class RbacMatrixSeederTest extends TestCase
             ->where('menu_key', '!=', 'worktree')
             ->pluck('level', 'menu_key');
 
-        $this->assertCount(18, $ownerLevels);
+        $this->assertCount(20, $ownerLevels);
 
         foreach ($ownerLevels as $menuKey => $level) {
             $this->assertSame('edit', $level, "platform_owner should be edit on {$menuKey}");

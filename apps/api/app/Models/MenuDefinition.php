@@ -15,9 +15,9 @@ class MenuDefinition extends Model
 {
     /**
      * Canonical menu catalog in display order — the single source of truth for
-     * the 19 menu keys shared by the seeder, RbacMatrixService and the frontend
+     * the 21 menu keys shared by the seeder, RbacMatrixService and the frontend
      * NavItem list. Kept as a constant (not only DB rows) so the RBAC endpoints
-     * can render a full 19-key map even on a fresh DB where the seed has not run.
+     * can render a full 21-key map even on a fresh DB where the seed has not run.
      *
      * @var list<array{key:string, label:string, group:string, sort:int}>
      */
@@ -41,6 +41,8 @@ class MenuDefinition extends Model
         ['key' => 'admin_promotions',       'label' => 'Kelola Promosi',    'group' => 'admin',       'sort' => 17],
         ['key' => 'admin_sales_performance','label' => 'Performa Sales',    'group' => 'admin',       'sort' => 18],
         ['key' => 'rbac_matrix',            'label' => 'Kelola Akses',      'group' => 'admin',       'sort' => 19],
+        ['key' => 'field_ops',              'label' => 'Operasi Lapangan',  'group' => 'operasional', 'sort' => 20],
+        ['key' => 'driver_roster',          'label' => 'Roster Driver',     'group' => 'admin',       'sort' => 21],
     ];
 
     protected $primaryKey = 'key';

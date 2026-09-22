@@ -173,6 +173,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Admin live tracking (Phase 8, T7).
     Route::get('/admin/deliveries/{id}/track', [DeliveryController::class, 'track'])->middleware('rbac:field_ops:read');
+    Route::get('/admin/deliveries/{id}/route', [DeliveryController::class, 'route'])->middleware('rbac:field_ops:read');
 
     // Payment routes
     Route::post('/payments', [PaymentController::class, 'store'])->middleware('rbac:payments:edit');

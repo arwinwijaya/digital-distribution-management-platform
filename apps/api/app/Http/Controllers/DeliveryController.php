@@ -220,6 +220,30 @@ class DeliveryController extends Controller
     }
 
     /**
+     * Admin read of the scheduled route plan for a delivery (Phase 8, T9).
+     *
+     * `route_data` is a nullable snapshot; a null plan is a valid response.
+     */
+    public function route(Request $request, int $id): JsonResponse
+    {
+        $this->authorization->assertAdminOrOwner($request->user());
+
+        $delivery = Delivery::with(['driver:id,name', 'order.outlet:id,name,latitude,longitude'])->findOrFail($id);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'delivery_id' => $delivery->id,
+                'driver' => $delivery->driver ? [
+                    'id' => $delivery->driver->id,
+                    'name' => $delivery->driver->name,
+                ] : null,
+                'route_data' => $delivery->route_data,
+            ],
+        ]);
+    }
+
+    /**
      * Admin live-track read: latest position + newest-first bounded pings (T7).
      *
      * `field_ops:read` is also granted to sales/driver for their own surfaces, so

@@ -5,16 +5,22 @@
 **Prerequisite:** None (frontend-only; boleh jalan paralel dengan Phase 2)
 **Contains tasks:** {T10, T11, T12}
 **Unlocks next:** Phase 6
+**Status:** IN_PROGRESS (T10 DONE, 2026-09-22)
 
 ---
 
-## Task List
+## Status
 
-Total: 3 tasks
+**T10 DONE** — `e6c3bd6`
 
-- **T10:** Service worker + registrasi + halaman offline + indikator Topbar [prereq] → [tasks/T10-service-worker-offline-shell-topbar.md](tasks/T10-service-worker-offline-shell-topbar.md)
-- **T11:** Offline order queue (IndexedDB wrapper + flush) [depends: T10] → [tasks/T11-offline-order-queue-indexeddb-flush.md](tasks/T11-offline-order-queue-indexeddb-flush.md)
-- **T12:** Integrasi antrean offline ke form order + status UI [depends: T11] → [tasks/T12-offline-queue-order-form-integration.md](tasks/T12-offline-queue-order-form-integration.md)
+- `sw.js` precache: `/`, `/offline`, icons. Fetch: skip `/api/`, network-first nav, cache-first static, offline fallback `/offline`.
+- `registerServiceWorker()` idempotent, guards `NEXT_PUBLIC_PWA_ENABLED`, SSR-safe (`typeof navigator`).
+- `useOnlineStatus()` hook reads `navigator.onLine` + window `online`/`offline` events, cleans up listeners.
+- Topbar badge: green "Online" / red "Offline" (extends existing tests).
+- `/offline` page minimal, dependency-free.
+- `PwaBootstrap` registered in root layout.
+- Rollback: set `NEXT_PUBLIC_PWA_ENABLED=false` → registration no-op, delete `sw.js`.
+- Web suite 496 passed; `tsc --noEmit` clean; backend 592 passed.
 
 ---
 

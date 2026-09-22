@@ -53,6 +53,12 @@ T12,T17 → T18
   - New shared helpers: `App\Services\GeoService` (haversine), `config/filesystems.php`
     (`local` default + `public`), `DeliveryLocationPing` model + `Delivery::locationPings()`.
   - Web suite unchanged (backend-only phase).
+- **2026-09-22 — Phase 3 start (T10 DONE).** T10 `e6c3bd6`.
+  - Web suite: 496 passed. `tsc --noEmit` clean.
+  - Added `NEXT_PUBLIC_PWA_ENABLED` rollback flag to `.env` / `.env.example`.
+  - New: `sw.js` (app-shell cache-first + network-first nav, skip `/api/`), `/offline` page,
+    `registerServiceWorker()` (idempotent, SSR-safe), `useOnlineStatus()` hook, Topbar badge.
+  - Backend suite: 592 passed / 7 skipped (unchanged).
 
 ---
 

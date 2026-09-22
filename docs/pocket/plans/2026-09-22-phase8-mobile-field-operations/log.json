@@ -103,8 +103,9 @@
         {
           "id": "T10",
           "name": "Service worker + registrasi + halaman offline + indikator Topbar",
-          "status": "PENDING",
-          "file": "execution-plan/tasks/T10-service-worker-offline-shell-topbar.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T10-service-worker-offline-shell-topbar.md",
+          "commit": "e6c3bd6"
         },
         {
           "id": "T11",

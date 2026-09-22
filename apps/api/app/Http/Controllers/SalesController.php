@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreSalesVisitRequest;
+use App\Http\Requests\VisitCheckRequest;
 use App\Models\SalesVisit;
 use App\Services\CalendarService;
+use App\Services\GeoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,8 +15,10 @@ use Illuminate\Validation\ValidationException;
 
 class SalesController extends Controller
 {
-    public function __construct(private readonly CalendarService $calendar)
-    {
+    public function __construct(
+        private readonly CalendarService $calendar,
+        private readonly GeoService $geo,
+    ) {
     }
 
     public function index(Request $request): JsonResponse
@@ -113,5 +117,97 @@ class SalesController extends Controller
         $visit->update($validated);
 
         return response()->json(['status' => 'success', 'data' => $visit->fresh(['salesUser:id,name,email', 'outlet'])]);
+    }
+
+    /**
+     * GPS check-in for a visit (Phase 8, T6).
+     *
+     * The visit must belong to the authenticated sales rep (admins may act on
+     * any visit), must not already be checked in, and the supplied coordinates
+     * must fall within `orders.visit_radius_m` of the outlet.
+     */
+    public function checkIn(VisitCheckRequest $request, int $id): JsonResponse
+    {
+        $visit = SalesVisit::with('outlet')->findOrFail($id);
+
+        if (! $this->canActOnVisit($request, $visit)) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+        }
+
+        if ($visit->check_in_at !== null) {
+            return response()->json(['status' => 'error', 'message' => 'Visit is already checked in.'], 409);
+        }
+
+        $radius = (float) config('orders.visit_radius_m', 200);
+        if (! $this->withinOutletRadius($visit, (float) $request->float('latitude'), (float) $request->float('longitude'), $radius)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You must be within '.$radius.' meters of the outlet to check in.',
+            ], 422);
+        }
+
+        $visit->update([
+            'check_in_at' => now(),
+            'check_in_latitude' => $request->float('latitude'),
+            'check_in_longitude' => $request->float('longitude'),
+            'check_in_accuracy_m' => $request->integer('accuracy_m') ?: null,
+            'notes' => $request->input('notes', $visit->notes),
+        ]);
+
+        return response()->json(['status' => 'success', 'data' => $visit->fresh(['salesUser:id,name,email', 'outlet'])]);
+    }
+
+    /**
+     * GPS check-out for a visit; marks the visit `completed` (Phase 8, T6).
+     */
+    public function checkOut(VisitCheckRequest $request, int $id): JsonResponse
+    {
+        $visit = SalesVisit::with('outlet')->findOrFail($id);
+
+        if (! $this->canActOnVisit($request, $visit)) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+        }
+
+        if ($visit->check_in_at === null) {
+            return response()->json(['status' => 'error', 'message' => 'Visit must be checked in before checking out.'], 422);
+        }
+
+        $visit->update([
+            'check_out_at' => now(),
+            'check_out_latitude' => $request->float('latitude'),
+            'check_out_longitude' => $request->float('longitude'),
+            'status' => 'completed',
+        ]);
+
+        return response()->json(['status' => 'success', 'data' => $visit->fresh(['salesUser:id,name,email', 'outlet'])]);
+    }
+
+    /**
+     * A sales rep may act only on their own visits; admins on any visit.
+     */
+    private function canActOnVisit(Request $request, SalesVisit $visit): bool
+    {
+        $user = $request->user();
+
+        return $user->isAdmin() || ($user->isSales() && $visit->sales_user_id === $user->id);
+    }
+
+    /**
+     * Radius guard; visits without an outlet or coordinates cannot be checked in.
+     */
+    private function withinOutletRadius(SalesVisit $visit, float $latitude, float $longitude, float $radius): bool
+    {
+        $outlet = $visit->outlet;
+        if (! $outlet || $outlet->latitude === null || $outlet->longitude === null) {
+            return false;
+        }
+
+        return $this->geo->withinRadius(
+            $latitude,
+            $longitude,
+            (float) $outlet->latitude,
+            (float) $outlet->longitude,
+            $radius,
+        );
     }
 }

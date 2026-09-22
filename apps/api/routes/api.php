@@ -149,6 +149,8 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/sales/visits', [SalesController::class, 'store'])->middleware('rbac:sales:edit');
     Route::get('/sales/visits/{id}', [SalesController::class, 'show'])->middleware('rbac:sales:read');
     Route::patch('/sales/visits/{id}', [SalesController::class, 'update'])->middleware('rbac:sales:edit');
+    Route::post('/sales/visits/{id}/check-in', [SalesController::class, 'checkIn'])->middleware('rbac:sales:edit');
+    Route::post('/sales/visits/{id}/check-out', [SalesController::class, 'checkOut'])->middleware('rbac:sales:edit');
 
     // Driver roster (Phase 8, T5): admin-only CRUD over driver_profiles.
     Route::get('/admin/drivers', [DriverRosterController::class, 'index'])->middleware('rbac:driver_roster:read');

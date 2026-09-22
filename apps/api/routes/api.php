@@ -165,6 +165,10 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus'])->middleware('rbac:delivery:edit');
     Route::post('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus'])->middleware('rbac:delivery:edit');
     Route::put('/deliveries/{id}', [DeliveryController::class, 'updateStatus'])->middleware('rbac:delivery:edit');
+    Route::post('/deliveries/{id}/location', [DeliveryController::class, 'storeLocation'])->middleware('rbac:delivery:edit');
+
+    // Admin live tracking (Phase 8, T7).
+    Route::get('/admin/deliveries/{id}/track', [DeliveryController::class, 'track'])->middleware('rbac:field_ops:read');
 
     // Payment routes
     Route::post('/payments', [PaymentController::class, 'store'])->middleware('rbac:payments:edit');

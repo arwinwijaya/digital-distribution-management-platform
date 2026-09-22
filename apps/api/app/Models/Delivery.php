@@ -70,6 +70,14 @@ class Delivery extends Model
         return $this->hasMany(DeliveryStatusHistory::class)->oldest();
     }
 
+    /**
+     * GPS breadcrumbs emitted by the assigned driver (Phase 8, T7).
+     */
+    public function locationPings(): HasMany
+    {
+        return $this->hasMany(DeliveryLocationPing::class);
+    }
+
     public static function canTransition(string $from, string $to): bool
     {
         return match ($from) {

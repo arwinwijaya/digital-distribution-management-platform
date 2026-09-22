@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDeliveryRequest;
+use App\Http\Requests\StoreLocationPingRequest;
 use App\Http\Requests\UpdateDeliveryStatusRequest;
 use App\Models\Delivery;
+use App\Models\DeliveryLocationPing;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\FinanceAuthorizationService;
 use App\Services\OutletScoringService;
 use App\Services\RoutingService;
 use App\Support\ConcurrencyTestBarrier;
@@ -21,6 +24,7 @@ class DeliveryController extends Controller
     public function __construct(
         private readonly RoutingService $routing,
         private readonly OutletScoringService $scoring,
+        private readonly FinanceAuthorizationService $authorization,
     ) {
     }
 
@@ -144,6 +148,75 @@ class DeliveryController extends Controller
     }
 
     /**
+     * Driver GPS breadcrumb for their own delivery (Phase 8, T7).
+     */
+    public function storeLocation(StoreLocationPingRequest $request, int $id): JsonResponse
+    {
+        $delivery = Delivery::findOrFail($id);
+        $actor = $request->user();
+
+        if (! $actor->isAdmin() && $delivery->driver_id !== $actor->id) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+        }
+
+        $ping = $delivery->locationPings()->create([
+            'latitude' => $request->float('latitude'),
+            'longitude' => $request->float('longitude'),
+            'accuracy_m' => $request->integer('accuracy_m') ?: null,
+            'recorded_at' => now(),
+        ]);
+
+        return response()->json(['status' => 'success', 'data' => $this->formatPing($ping)], 201);
+    }
+
+    /**
+     * Admin live-track read: latest position + newest-first bounded pings (T7).
+     *
+     * `field_ops:read` is also granted to sales/driver for their own surfaces, so
+     * the dispatcher view additionally asserts an admin/owner role here.
+     */
+    public function track(Request $request, int $id): JsonResponse
+    {
+        $this->authorization->assertAdminOrOwner($request->user());
+
+        $delivery = Delivery::findOrFail($id);
+
+        $pings = $delivery->locationPings()
+            ->orderByDesc('recorded_at')
+            ->orderByDesc('id')
+            ->limit(self::TRACK_PING_LIMIT)
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'delivery_id' => $delivery->id,
+                'status' => $delivery->status,
+                'driver' => $delivery->driver ? [
+                    'id' => $delivery->driver->id,
+                    'name' => $delivery->driver->name,
+                ] : null,
+                'last_position' => $pings->isNotEmpty() ? $this->formatPing($pings->first()) : null,
+                'pings' => $pings->map(fn (DeliveryLocationPing $ping) => $this->formatPing($ping))->values(),
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatPing(DeliveryLocationPing $ping): array
+    {
+        return [
+            'id' => $ping->id,
+            'latitude' => $ping->latitude,
+            'longitude' => $ping->longitude,
+            'accuracy_m' => $ping->accuracy_m,
+            'recorded_at' => $ping->recorded_at,
+        ];
+    }
+
+    /**
      * Eager-load set shared by every `format()` call site. `order.outlet`,
      * `order.items.product` and `order.salesUser` feed the enriched detail
      * payload without triggering lazy loads on the store/show/updateStatus paths.
@@ -158,6 +231,11 @@ class DeliveryController extends Controller
         'assignedBy:id,name,email',
         'statusHistory.actor:id,name,role',
     ];
+
+    /**
+     * Upper bound on breadcrumbs returned by the admin track endpoint.
+     */
+    private const TRACK_PING_LIMIT = 50;
 
     private function canView(User $user, Delivery $delivery): bool
     {

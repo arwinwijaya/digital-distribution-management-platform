@@ -17,6 +17,13 @@ class SalesVisit extends Model
         'target',
         'visit_date',
         'scheduled_at',
+        'check_in_at',
+        'check_in_latitude',
+        'check_in_longitude',
+        'check_in_accuracy_m',
+        'check_out_at',
+        'check_out_latitude',
+        'check_out_longitude',
         'status',
         'notes',
         'outcome',
@@ -27,6 +34,12 @@ class SalesVisit extends Model
         return [
             'visit_date' => 'date:Y-m-d',
             'scheduled_at' => 'datetime',
+            'check_in_at' => 'datetime',
+            'check_out_at' => 'datetime',
+            'check_in_latitude' => 'decimal:7',
+            'check_in_longitude' => 'decimal:7',
+            'check_out_latitude' => 'decimal:7',
+            'check_out_longitude' => 'decimal:7',
         ];
     }
 

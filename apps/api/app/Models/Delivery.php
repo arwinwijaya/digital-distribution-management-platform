@@ -29,6 +29,9 @@ class Delivery extends Model
         'recipient_name',
         'proof_of_delivery_url',
         'proof_of_delivery',
+        'pod_captured_at',
+        'pod_latitude',
+        'pod_longitude',
         'notes',
         'route_data',
     ];
@@ -41,6 +44,9 @@ class Delivery extends Model
             'delivered_at' => 'datetime',
             'proof_of_delivery' => 'array',
             'route_data' => 'array',
+            'pod_captured_at' => 'datetime',
+            'pod_latitude' => 'decimal:7',
+            'pod_longitude' => 'decimal:7',
         ];
     }
 

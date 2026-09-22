@@ -15,9 +15,9 @@ data-driven business by utilizing:
 -   Operational automation
 -   AI-based recommendation and forecasting
 
-## Implementation Status Audit (2026-09-18)
+## Implementation Status Audit (2026-09-21)
 
-Roadmap **tetap belum 100% terimplementasi**. Sejak audit 2026-09-14, empat plan tambahan selesai: Business Validation Production Pilot (pre-pilot compatibility & readiness, 6 tasks T1→T6, `DONE`), Concierge Production Pilot Phase 6 (3 services pilot + TDD, `DONE`), Dummy Mode Jabodetabek (12 tasks, `DONE`, closeout), dan **Phase 7 — MVP Completion & Core Operations (9 tasks T1→T9, `DONE`)** yang menutup gap role management, outlet lifecycle, price/promotion, sales order collection, sales quota/performance, dan WhatsApp promotion broadcast. Ditambah hardening UX **Admin Table Readability (17 tasks, `DONE`, closeout)** untuk sort/paging/ringkasan/density di seluruh tabel admin. Data Intelligence, operational wall (readiness pipeline), infrastruktur pilot/pengukuran, dan administrasi MVP kini memiliki rangkaian penutup yang lengkap. Sisa pekerjaan adalah validasi lapangan sebenarnya (pilot produksi dengan partner/outlet nyata) dan sisa fase 8–10.
+Roadmap **tetap belum 100% terimplementasi**. Sejak audit 2026-09-14, enam plan tambahan selesai: Business Validation Production Pilot (pre-pilot compatibility & readiness, 6 tasks T1→T6, `DONE`), Concierge Production Pilot Phase 6 (3 services pilot + TDD, `DONE`), Dummy Mode Jabodetabek (12 tasks, `DONE`, closeout), **Phase 7 — MVP Completion & Core Operations (9 tasks T1→T9, `DONE`)** yang menutup gap role management, outlet lifecycle, price/promotion, sales order collection, sales quota/performance, dan WhatsApp promotion broadcast, hardening UX **Admin Table Readability (17 tasks, `DONE`, closeout)** untuk sort/paging/ringkasan/density di seluruh tabel admin, **RBAC Menu Matrix (12 tasks T1→T12, `DONE`, closeout)** yang mengikat 19 menu × 7 role ke middleware `rbac:<menu>:<level>` di semua route terlindungi plus halaman editor `/admin/rbac`, dan **Analytics Deeper Insight (7 tasks T1→T7, `DONE`, closeout)** yang menambah `AnalyticsService::insight()` + `GET /analytics/insight` (perbandingan 30 hari vs 30 hari sebelumnya, delta, needs-attention) sebagai strategic home Analitik. Data Intelligence, operational wall (readiness pipeline), infrastruktur pilot/pengukuran, administrasi MVP, otorisasi menu, dan insight strategis kini memiliki rangkaian penutup yang lengkap. Sisa pekerjaan adalah validasi lapangan sebenarnya (pilot produksi dengan partner/outlet nyata) dan sisa fase 8–10.
 
 Legend: `[x]` implemented · `[~]` partial/MVP/foundation · `[ ]` not implemented · `[?]` outcome belum terverifikasi.
 
@@ -30,15 +30,17 @@ Detail checklist per fitur tersedia di [`checklist.md`](checklist.md). Closeout 
 - [`Dummy Mode Jabodetabek`](docs/pocket/plans/2026-02-14-dummy-mode-jabodetabek/closeout.md)
 - [`Admin Table Readability (Paging, Sort, Ringkasan, Kepadatan)`](docs/pocket/plans/2026-09-17-admin-table-ux/closeout.md)
 - [`Phase 7 — MVP Completion & Core Operations`](docs/pocket/plans/2026-09-16-phase7-mvp-completion/execution-plan/index.md) (log `DONE`; 9 tasks, belum ada file closeout terpisah)
+- [`RBAC Menu Matrix (19 menu × 7 role)`](docs/pocket/plans/2026-09-18-rbac-menu-matrix/closeout.md)
+- [`Analytics Deeper Insight (30d vs 30d, delta, needs-attention)`](docs/pocket/plans/2026-09-18-analytics-deeper-insight/closeout.md)
 
 Ringkasan:
 
 - Phase 0 — Business Validation & Planning: `[~]` dokumen ada, tetapi riset bisnis, BRD, dan partner database belum terbukti. Sejak saat itu, **platform readiness sudah dibuktikan** oleh `2026-09-14-business-validation-production-pilot` (T1 baseline `docs/pilot/pre-pilot-compatibility-baseline.md` + compatibility gate `docs/pilot/pre-pilot-runbook.md`, `READY_FOR_PILOT=allow`—record `OperationalEvent`/`operational_events` hanya append, tanpa mutasi sumber transaksi), dan **Phase 6 Business Validation tervalidasi secara teknikal** oleh `2026-09-15-concierge-production-pilot` (T1 `PilotQualificationService` qualification 10-outlet/30d, T2 `PilotMetricsService` lifecycle `measureLifecycleTiming`→`calculateSpeedDelta` + guardrails `error<5% / delivery>95% / payment>90%`, T3 `PilotEvaluationService` decision matrix scale-up/iterate/stop + `phase7Evidence`). Validasi **lapangan yang sesungguhnya** (partner & order nyata) belum dieksekusi.
-- Phase 1 — MVP Platform: `[x]` **DONE** — core flow berjalan dan gap administrasi ditutup oleh Phase 7: `platform_owner` + `UserPolicy` + role management API/UI, outlet category/scoring/purchase-history, product price management + history, promotion CRUD, dan dashboard admin. Sisa: verifikasi adoption bisnis (`[?]`).
+- Phase 1 — MVP Platform: `[x]` **DONE** — core flow berjalan dan gap administrasi ditutup oleh Phase 7: `platform_owner` + `UserPolicy` + role management API/UI, RBAC menu matrix (19 menu × 7 role), outlet category/scoring/purchase-history, product price management + history, promotion CRUD, dan dashboard admin. Sisa: verifikasi adoption bisnis (`[?]`).
 - Phase 2 — Sales & Distribution Automation: `[~]` invoice, reminder, payment, delivery, sales visit, WhatsApp order, sales order collection, sales quota/performance dashboard, dan WhatsApp promotion broadcast tersedia. Yang belum: PWA offline, GPS/live tracking, driver roster, route optimization, dan proof of delivery foto/tanda tangan (Phase 8).
-- Phase 3 — Data Intelligence & AI: `[x]` **DONE** — foundation selesai: pipeline, geographic/supplier BI, stock planning, measurement, admin UI/map, dan atomic publication tersedia; ML/LLM production dan action workflow tetap `[ ]` out-of-scope Phase 3.
+- Phase 3 — Data Intelligence & AI: `[x]` **DONE** — foundation selesai: pipeline, geographic/supplier BI, stock planning, measurement, admin UI/map, atomic publication, dan strategic insight comparison (`/analytics/insight`, plan `2026-09-18-analytics-deeper-insight`) tersedia; ML/LLM production dan action workflow tetap `[ ]` out-of-scope Phase 3.
 - Phase 4 — Ecosystem Expansion: `[~]` marketplace dasar ada; dynamic pricing, financial services, distributor network, dan automated replenishment belum tersedia.
-- Phase 7 — MVP Completion & Core Operations: `[x]` **DONE** — 9 tasks (`1858ff4..fd7ee8d`) mencakup F1 role management/`platform_owner`, F2 outlet lifecycle, F3 price management, F4 promotion management, F5 sales order collection & performance, F6 WhatsApp promotion broadcast, plus halaman admin/sales; ditutup dengan Admin Table UX (17 tasks).
+- Phase 7 — MVP Completion & Core Operations: `[x]` **DONE** — 9 tasks (`1858ff4..fd7ee8d`) mencakup F1 role management/`platform_owner`, F2 outlet lifecycle, F3 price management, F4 promotion management, F5 sales order collection & performance, F6 WhatsApp promotion broadcast, plus halaman admin/sales; ditutup dengan Admin Table UX (17 tasks) dan RBAC Menu Matrix (12 tasks).
 
 ------------------------------------------------------------------------
 
@@ -95,7 +97,7 @@ Roles:
 
 Roles: Platform Owner (`[x]`), Admin, Sales, Supplier, Outlet Partner, Finance (`[x]`).
 
-Features: - Login `[x]` - Role management `[x]` (`UserPolicy`, `UserRoleService`, `UserRoleController`, audit `RoleAssignmentAudit`, JWT invalidation) - User profile `[x]` (`PATCH /auth/me`)
+Features: - Login `[x]` - Role management `[x]` (`UserPolicy`, `UserRoleService`, `UserRoleController`, audit `RoleAssignmentAudit`, JWT invalidation) - User profile `[x]` (`GET`/`PATCH /auth/me`, `UpdateProfileRequest`) - RBAC menu matrix `[x]` (`menu_definitions`/`role_menu_access`, middleware `rbac:<menu>:<level>` di semua route terlindungi, `GET`/`PUT /admin/rbac/matrix`, map di `GET /auth/me`, halaman `/admin/rbac`; plan `2026-09-18-rbac-menu-matrix`)
 
 ------------------------------------------------------------------------
 
@@ -175,7 +177,7 @@ Target:
 -   100 active ordering outlets — `[?]` belum terbukti sebagai adoption produksi
 -   5-10 supplier partners — `[?]` belum terbukti sebagai partner aktif produksi
 
-**Current status:** `[x] DONE` (implementasi). Core register → browse → order → approval flow berjalan dan gap administrasi (role management, outlet category/scoring/history, price/promotion management, dashboard admin) telah ditutup oleh Phase 7 (`2026-09-16-phase7-mvp-completion`) serta hardening tabel admin (`2026-09-17-admin-table-ux`). Target adoption bisnis tetap `[?]`.
+**Current status:** `[x] DONE` (implementasi). Core register → browse → order → approval flow berjalan dan gap administrasi (role management, outlet category/scoring/history, price/promotion management, dashboard admin) telah ditutup oleh Phase 7 (`2026-09-16-phase7-mvp-completion`), hardening tabel admin (`2026-09-17-admin-table-ux`), dan RBAC menu matrix (`2026-09-18-rbac-menu-matrix`). Target adoption bisnis tetap `[?]`.
 
 ------------------------------------------------------------------------
 
@@ -313,6 +315,7 @@ Features:
 -   Product performance — `[x]` melalui snapshot data intelligence
 -   Supplier performance — `[x]` fulfillment, lead time, coverage, dan revenue
 -   Measurement — `[x]` recommendation funnel dan forecast accuracy/WAPE
+-   Strategic insight comparison — `[x]` `AnalyticsService::insight()` + `GET /analytics/insight` (fixed 30d vs previous 30d, delta per metrik, needs-attention outlet decline ≥20%/outstanding; plan `2026-09-18-analytics-deeper-insight`)
 
 ------------------------------------------------------------------------
 
@@ -414,6 +417,14 @@ Status (2026-09-18): **DONE** — plan `docs/pocket/plans/2026-09-16-phase7-mvp-
 ## Phase 7.5 — Admin Table Readability (hardening, non-roadmap)
 
 Status (2026-09-18): **DONE** — plan `docs/pocket/plans/2026-09-17-admin-table-ux` (closeout, 17 tasks `T1..T17`, SHA `cb54e09..c1b8053`). Menambahkan helper backend `ListQuery` (sort allowlist, offset cursor, total/summary) dan frontend `admin-table.ts` + komponen `TablePagination`/`TableSummary`/`TableDensityToggle`, diterapkan ke seluruh tabel admin dengan dummy-mode parity.
+
+## Phase 7.6 — RBAC Menu Matrix (hardening, non-roadmap)
+
+Status (2026-09-19): **DONE** — plan `docs/pocket/plans/2026-09-18-rbac-menu-matrix` (closeout, 12 tasks `T1..T12`, SHA `9cb3c61..422a261`). Menambahkan skema `menu_definitions`/`role_menu_access` (19 menu × 77 sel non-`none`), middleware `App\Http\Middleware\Rbac` (`rbac:<menu>:<level>`, ordinal `none<read<edit`) di semua route terlindungi, endpoint `GET`/`PUT /admin/rbac/matrix` + map `data.rbac` di `GET /auth/me`, `useRbacStore` + Sidebar matrix-driven, dan halaman editor `/admin/rbac` dengan dummy parity.
+
+## Phase 7.7 — Analytics Deeper Insight (hardening, non-roadmap)
+
+Status (2026-09-18): **DONE** — plan `docs/pocket/plans/2026-09-18-analytics-deeper-insight` (closeout, 7 tasks `T1..T7`, SHA `63e5d75..065bf3b`). Menambahkan `AnalyticsService::insight()` + `GET /api/analytics/insight` (gate `isAdminOrOwner`; window fixed 30d vs 30d sebelumnya, delta per metrik pada jalur integer-cents, `needs_attention` outlet dengan sales decline ≥20% atau outstanding > 0), rebuild halaman `/analytics` menjadi strategic home (MetricStrip + delta chip, trend chart, top-outlet ranking, NeedsAttention strip, trust label), dan nav `adminOnly` dengan `platform_owner` setara admin. Out-of-scope: ML/LLM narrative, date-range picker, rebuild `/data-intelligence`.
 
 ## Phase 8 — Mobile Field Operations
 

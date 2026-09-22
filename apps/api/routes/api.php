@@ -8,6 +8,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreditLimitController;
 use App\Http\Controllers\DataPipelineController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\DriverRosterController;
 use App\Http\Controllers\FinanceRoleController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\FinanceMetricsController;
@@ -148,6 +149,12 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/sales/visits', [SalesController::class, 'store'])->middleware('rbac:sales:edit');
     Route::get('/sales/visits/{id}', [SalesController::class, 'show'])->middleware('rbac:sales:read');
     Route::patch('/sales/visits/{id}', [SalesController::class, 'update'])->middleware('rbac:sales:edit');
+
+    // Driver roster (Phase 8, T5): admin-only CRUD over driver_profiles.
+    Route::get('/admin/drivers', [DriverRosterController::class, 'index'])->middleware('rbac:driver_roster:read');
+    Route::post('/admin/drivers', [DriverRosterController::class, 'store'])->middleware('rbac:driver_roster:edit');
+    Route::patch('/admin/drivers/{id}', [DriverRosterController::class, 'update'])->middleware('rbac:driver_roster:edit');
+    Route::delete('/admin/drivers/{id}', [DriverRosterController::class, 'destroy'])->middleware('rbac:driver_roster:edit');
 
     // Delivery assignment and auditable lifecycle routes.
     Route::get('/deliveries', [DeliveryController::class, 'index'])->middleware('rbac:delivery:read');

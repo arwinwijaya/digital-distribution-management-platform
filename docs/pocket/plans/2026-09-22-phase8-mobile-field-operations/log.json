@@ -13,7 +13,7 @@
     {
       "order": 1,
       "file": "execution-plan/phase-1.md",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T1",
@@ -25,30 +25,33 @@
         {
           "id": "T2",
           "name": "DriverProfile model + relasi + factory + seeder",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T2-driver-profile-model-relations-factory-seeder.md"
+          "file": "execution-plan/tasks/T2-driver-profile-model-relations-factory-seeder.md",
+          "commit": "24762db"
         },
         {
           "id": "T3",
           "name": "RoutingService nearest-neighbor bounded deterministik",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T3-routing-service-nearest-neighbor-bounded.md"
+          "file": "execution-plan/tasks/T3-routing-service-nearest-neighbor-bounded.md",
+          "commit": "0d111d8"
         },
         {
           "id": "T4",
           "name": "RBAC catalog + seeder default (driver_roster, field_ops)",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T4-rbac-catalog-seeder-driver-roster-field-ops.md"
+          "file": "execution-plan/tasks/T4-rbac-catalog-seeder-driver-roster-field-ops.md",
+          "commit": "e5a8ebe"
         }
       ]
     },
     {
       "order": 2,
       "file": "execution-plan/phase-2.md",
-      "status": "PENDING",
+      "status": "IN_PROGRESS",
       "tasks": [
         {
           "id": "T5",

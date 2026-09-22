@@ -25,9 +25,16 @@ T2, T3, T4 boleh paralel setelah T1 selesai.
 
 DONE when ALL of the following:
 - Every task in this phase: status DONE
-- `php artisan test` hijau untuk test baru (`DriverProfileMigrationTest`, `RoutingServiceTest`, `RbacCatalogTest`)
-- `php artisan migrate` + `migrate:rollback` berjalan bersih di SQLite
+- `php artisan test` hijau untuk test baru (`FieldOpsMigrationTest`, `DriverProfileTest`, `RoutingServiceTest`, `RbacFieldOpsCatalogTest`)
+- `php artisan migrate` + `migrate:rollback --step=4` berjalan bersih di SQLite untuk 4 migrasi Phase 8
+  (rollback penuh tetap gagal di migrasi lama `2026_09_14_000025` — pre-existing, di luar scope)
 - All commits created with correct format
 - No task has status BLOCKED or NEEDS_CONTEXT
+
+## Status: DONE (2026-09-22)
+
+- T1 `6696c42` · T2 `24762db` · T3 `0d111d8` · T4 `e5a8ebe`
+- Backend suite 545 passed / 7 skipped; web suite 487 passed.
+- Migrasi + rollback `--step=4` bersih (tabel/kolom hilang tanpa error).
 
 Hand off to Phase 2 ONLY after this gate passes.

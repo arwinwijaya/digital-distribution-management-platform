@@ -26,12 +26,23 @@ T12,T17 → T18
 
 ## Phase Summary
 
-- **Phase 1:** [phase-1.md](phase-1.md) — Data foundation (migrasi, model, routing, RBAC catalog) (T1, T2, T3, T4)
-- **Phase 2:** [phase-2.md](phase-2.md) — Backend field-ops API (roster, check-in, tracking, PoD) (T5, T6, T7, T8, T9)
+- **Phase 1:** [phase-1.md](phase-1.md) — Data foundation (migrasi, model, routing, RBAC catalog) (T1, T2, T3, T4) — **DONE**
+- **Phase 2:** [phase-2.md](phase-2.md) — Backend field-ops API (roster, check-in, tracking, PoD) (T5, T6, T7, T8, T9) — IN_PROGRESS
 - **Phase 3:** [phase-3.md](phase-3.md) — PWA offline shell + offline order queue (T10, T11, T12)
 - **Phase 4:** [phase-4.md](phase-4.md) — Frontend field surfaces (roster, check-in, PoD capture, tracking) (T13, T14, T15, T16)
 - **Phase 5:** [phase-5.md](phase-5.md) — Dummy parity + RBAC menu wiring (T17)
 - **Phase 6:** [phase-6.md](phase-6.md) — Cross-unit integration verification (T18)
+
+---
+
+## Progress Log
+
+- **2026-09-22 — Phase 1 DONE.** T1 `6696c42`, T2 `24762db`, T3 `0d111d8`, T4 `e5a8ebe`.
+  - Backend suite: 545 passed / 7 skipped. Web suite: 487 passed (unchanged; dummy RBAC parity deferred to T17).
+  - Migration rollback verified clean for the 4 new migrations (`--step=4`). Note: a full
+    `migrate:rollback` still fails on the pre-existing `2026_09_14_000025_add_territory_id_to_outlets_table`
+    (SQLite cannot drop an indexed column) — this failure reproduces on baseline `18f0413` and is out of scope.
+  - `pint --test` is not wired into any CI/Makefile in this repo and fails on baseline HEAD, so it is not used as a gate.
 
 ---
 

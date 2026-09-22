@@ -13,7 +13,7 @@
 
 ## Overall status
 
-**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`. Business Validation Production Pilot (pre-pilot compatibility & readiness) dan Concierge Production Pilot Phase 6 Business Validation (`DONE`, lihat `docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md` + `docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md`) telah menambahkan infrastruktur pilot (kelayakan partner 10 outlet/30d, pengukuran lifecycle order→payment, pengawalan error<5%/delivery>95%/payment>90%, decision matrix Phase 6). RBAC menu matrix (19 menu × 7 role) telah ditutup (`docs/pocket/plans/2026-09-18-rbac-menu-matrix/closeout.md`), dan strategic insight `/analytics/insight` telah ditutup (`docs/pocket/plans/2026-09-18-analytics-deeper-insight/closeout.md`), melengkapi role management, Platform Owner, price/promotion management, sales target/dashboard, dan WhatsApp promotion broadcast pada Phase 7. Fase berikutnya adalah eksekusi lapangan sesungguhnya (partner/outlet nyata, order produksi) dan Phase 8–10.
+**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`. Business Validation Production Pilot (pre-pilot compatibility & readiness) dan Concierge Production Pilot Phase 6 Business Validation (`DONE`, lihat `docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md` + `docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md`) telah menambahkan infrastruktur pilot (kelayakan partner 10 outlet/30d, pengukuran lifecycle order→payment, pengawalan error<5%/delivery>95%/payment>90%, decision matrix Phase 6). RBAC menu matrix (19 menu × 7 role) telah ditutup (`docs/pocket/plans/2026-09-18-rbac-menu-matrix/closeout.md`), dan strategic insight `/analytics/insight` telah ditutup (`docs/pocket/plans/2026-09-18-analytics-deeper-insight/closeout.md`), melengkapi role management, Platform Owner, price/promotion management, sales target/dashboard, dan WhatsApp promotion broadcast pada Phase 7. Fase berikutnya adalah eksekusi lapangan sesungguhnya (partner/outlet nyata, order produksi); **Phase 8 (Mobile Field Operations) sudah memiliki spec + execution plan task-level (18 tasks, 6 phase, `PENDING`)** yang siap dieksekusi, sedangkan Phase 9–10 belum dimulai.
 
 | Roadmap phase | Status | Ringkasan |
 |---|---|---|
@@ -231,8 +231,18 @@
 
 ### Phase 8 — Mobile Field Operations
 
+- **Status:** `[ ]` Planned — spec [`phase8-mobile-field-operations.md`](docs/pocket/spec/2026-09-22-phase8-mobile-field-operations/phase8-mobile-field-operations.md) + execution plan [`execution-plan/index.md`](docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/execution-plan/index.md) (18 tasks `T1..T18`, 6 phase, log `PENDING`). Belum ada implementasi.
 - **Scope:** PWA/mobile sales-driver, offline order, GPS check-in, driver roster, route optimization, live tracking, serta proof of delivery foto/tanda tangan.
 - **Exit criteria:** sales dan driver dapat menjalankan workflow lapangan yang dapat diaudit, termasuk saat koneksi tidak stabil.
+
+**Sub-rencana (task-level):**
+
+- `[ ]` Phase 1 — Data foundation: T1 migrasi+skema field-ops, T2 `DriverProfile`, T3 `RoutingService` bounded, T4 RBAC menu `driver_roster`/`field_ops`.
+- `[ ]` Phase 2 — Backend API: T5 roster CRUD, T6 visit check-in/out + radius, T7 location ping + track, T8 PoD upload, T9 wire routing.
+- `[ ]` Phase 3 — PWA offline: T10 service worker + `/offline`, T11 antrean order + flush, T12 integrasi `OrderForm`.
+- `[ ]` Phase 4 — Frontend: T13 roster admin, T14 check-in sales, T15 PoD capture, T16 live tracking.
+- `[ ]` Phase 5 — T17 dummy parity + NavItem/RBAC wiring.
+- `[ ]` Phase 6 — T18 integrasi lintas unit + verifikasi suite penuh.
 
 ### Phase 9 — AI Action & Supply Chain
 

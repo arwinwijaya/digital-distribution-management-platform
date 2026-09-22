@@ -1,0 +1,180 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-22-phase8-mobile-field-operations",
+    "plan_type": "phased",
+    "status": "PENDING",
+    "date_started": "2026-09-22",
+    "date_completed": null,
+    "baseline_sha": "18f041312aab73beaac5d8fd22d098c12de5e8d3",
+    "pipeline": 4,
+    "plan_file": "execution-plan/index.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/phase-1.md",
+      "status": "PENDING",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Migrasi & model field-ops (driver_profiles, visit GPS, PoD meta, location pings)",
+          "status": "PENDING",
+          "file": "execution-plan/tasks/T1-migrasi-model-field-ops.md"
+        },
+        {
+          "id": "T2",
+          "name": "DriverProfile model + relasi + factory + seeder",
+          "status": "PENDING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T2-driver-profile-model-relations-factory-seeder.md"
+        },
+        {
+          "id": "T3",
+          "name": "RoutingService nearest-neighbor bounded deterministik",
+          "status": "PENDING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T3-routing-service-nearest-neighbor-bounded.md"
+        },
+        {
+          "id": "T4",
+          "name": "RBAC catalog + seeder default (driver_roster, field_ops)",
+          "status": "PENDING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T4-rbac-catalog-seeder-driver-roster-field-ops.md"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "file": "execution-plan/phase-2.md",
+      "status": "PENDING",
+      "tasks": [
+        {
+          "id": "T5",
+          "name": "DriverRosterController CRUD + requests + routes",
+          "status": "PENDING",
+          "depends": "T2, T4",
+          "file": "execution-plan/tasks/T5-driver-roster-controller-crud.md"
+        },
+        {
+          "id": "T6",
+          "name": "Visit check-in/check-out endpoints + radius validation",
+          "status": "PENDING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T6-visit-checkin-checkout-endpoints.md"
+        },
+        {
+          "id": "T7",
+          "name": "Delivery location ping endpoints (driver POST + admin track GET)",
+          "status": "PENDING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T7-delivery-location-ping-endpoints.md"
+        },
+        {
+          "id": "T8",
+          "name": "Proof-of-delivery upload endpoint (foto + tanda tangan)",
+          "status": "PENDING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T8-proof-of-delivery-upload-endpoint.md"
+        },
+        {
+          "id": "T9",
+          "name": "Wire RoutingService ke DeliveryController@store + route admin",
+          "status": "PENDING",
+          "depends": "T3, T5",
+          "file": "execution-plan/tasks/T9-wire-routing-into-delivery-store.md"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "file": "execution-plan/phase-3.md",
+      "status": "PENDING",
+      "tasks": [
+        {
+          "id": "T10",
+          "name": "Service worker + registrasi + halaman offline + indikator Topbar",
+          "status": "PENDING",
+          "file": "execution-plan/tasks/T10-service-worker-offline-shell-topbar.md"
+        },
+        {
+          "id": "T11",
+          "name": "Offline order queue (IndexedDB wrapper + flush)",
+          "status": "PENDING",
+          "depends": "T10",
+          "file": "execution-plan/tasks/T11-offline-order-queue-indexeddb-flush.md"
+        },
+        {
+          "id": "T12",
+          "name": "Integrasi antrean offline ke form order + status UI",
+          "status": "PENDING",
+          "depends": "T11",
+          "file": "execution-plan/tasks/T12-offline-queue-order-form-integration.md"
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "file": "execution-plan/phase-4.md",
+      "status": "PENDING",
+      "tasks": [
+        {
+          "id": "T13",
+          "name": "Halaman admin roster driver (/admin/drivers) + api + kontrak tabel",
+          "status": "PENDING",
+          "depends": "T5",
+          "file": "execution-plan/tasks/T13-admin-driver-roster-page.md"
+        },
+        {
+          "id": "T14",
+          "name": "UI check-in/out kunjungan sales + geolokasi",
+          "status": "PENDING",
+          "depends": "T6",
+          "file": "execution-plan/tasks/T14-sales-visit-checkin-ui.md"
+        },
+        {
+          "id": "T15",
+          "name": "UI capture PoD driver (kamera + canvas tanda tangan)",
+          "status": "PENDING",
+          "depends": "T8",
+          "file": "execution-plan/tasks/T15-driver-pod-capture-ui.md"
+        },
+        {
+          "id": "T16",
+          "name": "Halaman live tracking admin (GeoMap + polling)",
+          "status": "PENDING",
+          "depends": "T7",
+          "file": "execution-plan/tasks/T16-admin-live-tracking-page.md"
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "file": "execution-plan/phase-5.md",
+      "status": "PENDING",
+      "tasks": [
+        {
+          "id": "T17",
+          "name": "Dummy fixtures + NavItem + RBAC page wiring",
+          "status": "PENDING",
+          "depends": "T13, T14, T15, T16",
+          "file": "execution-plan/tasks/T17-dummy-fixtures-navitem-rbac-wiring.md"
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "file": "execution-plan/phase-6.md",
+      "status": "PENDING",
+      "tasks": [
+        {
+          "id": "T18",
+          "name": "Integrasi lintas unit + verifikasi suite penuh",
+          "status": "PENDING",
+          "depends": "T12, T17",
+          "file": "execution-plan/tasks/T18-cross-unit-integration-verification.md"
+        }
+      ]
+    }
+  ]
+}

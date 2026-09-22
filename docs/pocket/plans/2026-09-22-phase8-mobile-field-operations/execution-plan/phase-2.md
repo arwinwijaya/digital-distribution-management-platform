@@ -5,6 +5,28 @@
 **Prerequisite:** Phase 1 (data foundation)
 **Contains tasks:** {T5, T6, T7, T8, T9}
 **Unlocks next:** Phase 3, Phase 4
+**Status:** DONE (2026-09-22)
+
+---
+
+## Status
+
+Phase 2 selesai. Semua task DONE dengan commit:
+
+- **T5** `121e34a` — `DriverRosterController` CRUD (`GET/POST/PATCH/DELETE /admin/drivers`, rbac:driver_roster).
+- **T6** `610af38` — `POST /sales/visits/{id}/check-in|check-out` + radius (`GeoService`, `config('orders.visit_radius_m')`).
+- **T7** `54829b7` — `POST /deliveries/{id}/location` + `GET /admin/deliveries/{id}/track` (`DeliveryLocationPing`).
+- **T8** `212fc95` — `POST /deliveries/{id}/proof` + `config/filesystems.php` (disk `local` default + `public`).
+- **T9** `2f37653` — `GET /admin/deliveries/{id}/route` (route_data plan dari T3 tersimpan di `store()`).
+
+Gate verification:
+- `php artisan test` → **592 passed / 7 skipped** (3701 assertions).
+- Test baru Phase 2: `DriverRosterTest` (11), `SalesVisitCheckinTest` (8), `DeliveryTrackingTest` (12),
+  `DeliveryProofUploadTest` (9), `DeliveryRouteTest` (7) = **47 kasus**.
+- Semua route baru: 401/403 diuji; `/admin/deliveries/{id}/track` & `/route` memakai
+  `rbac:field_ops:read` + assert admin/owner eksplisit.
+- Catatan deviasi: `POST /deliveries/{id}/proof` memakai `rbac:delivery:edit` (driver `edit`)
+  alih-alih `field_ops:edit` (driver hanya `read`), lihat `execution-plan/index.md` Progress Log.
 
 ---
 

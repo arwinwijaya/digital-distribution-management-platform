@@ -27,7 +27,7 @@ T12,T17 → T18
 ## Phase Summary
 
 - **Phase 1:** [phase-1.md](phase-1.md) — Data foundation (migrasi, model, routing, RBAC catalog) (T1, T2, T3, T4) — **DONE**
-- **Phase 2:** [phase-2.md](phase-2.md) — Backend field-ops API (roster, check-in, tracking, PoD) (T5, T6, T7, T8, T9) — IN_PROGRESS
+- **Phase 2:** [phase-2.md](phase-2.md) — Backend field-ops API (roster, check-in, tracking, PoD) (T5, T6, T7, T8, T9) — **DONE**
 - **Phase 3:** [phase-3.md](phase-3.md) — PWA offline shell + offline order queue (T10, T11, T12)
 - **Phase 4:** [phase-4.md](phase-4.md) — Frontend field surfaces (roster, check-in, PoD capture, tracking) (T13, T14, T15, T16)
 - **Phase 5:** [phase-5.md](phase-5.md) — Dummy parity + RBAC menu wiring (T17)
@@ -43,6 +43,16 @@ T12,T17 → T18
     `migrate:rollback` still fails on the pre-existing `2026_09_14_000025_add_territory_id_to_outlets_table`
     (SQLite cannot drop an indexed column) — this failure reproduces on baseline `18f0413` and is out of scope.
   - `pint --test` is not wired into any CI/Makefile in this repo and fails on baseline HEAD, so it is not used as a gate.
+- **2026-09-22 — Phase 2 DONE.** T5 `121e34a`, T6 `610af38`, T7 `54829b7`, T8 `212fc95`, T9 `2f37653`.
+  - Backend suite: 592 passed / 7 skipped (3701 assertions). New Phase 2 tests: 47 cases
+    (`DriverRosterTest` 11, `SalesVisitCheckinTest` 8, `DeliveryTrackingTest` 12, `DeliveryProofUploadTest` 9, `DeliveryRouteTest` 7).
+  - Deviation: `POST /deliveries/{id}/proof` is gated on `rbac:delivery:edit` (not `field_ops:edit`)
+    because the default matrix grants drivers only `read` on `field_ops`; `delivery:edit` is the
+    driver-writable menu. Admin-only reads (`/admin/deliveries/{id}/track`, `/route`) keep
+    `rbac:field_ops:read` plus an explicit admin/owner assertion.
+  - New shared helpers: `App\Services\GeoService` (haversine), `config/filesystems.php`
+    (`local` default + `public`), `DeliveryLocationPing` model + `Delivery::locationPings()`.
+  - Web suite unchanged (backend-only phase).
 
 ---
 

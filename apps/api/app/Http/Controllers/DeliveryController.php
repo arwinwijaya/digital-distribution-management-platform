@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreDeliveryRequest;
 use App\Http\Requests\StoreLocationPingRequest;
 use App\Http\Requests\UpdateDeliveryStatusRequest;
+use App\Http\Requests\UploadProofRequest;
 use App\Models\Delivery;
 use App\Models\DeliveryLocationPing;
 use App\Models\Order;
@@ -17,6 +18,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
 class DeliveryController extends Controller
@@ -170,6 +172,54 @@ class DeliveryController extends Controller
     }
 
     /**
+     * Proof-of-delivery upload (photo + signature) via the disk abstraction (T8).
+     *
+     * Only the assigned driver (or an admin) may attach media, and only while the
+     * delivery is still open (assigned/in_progress). Files are stored on
+     * `filesystems.default` and referenced by URL in `proof_of_delivery`.
+     */
+    public function uploadProof(UploadProofRequest $request, int $id): JsonResponse
+    {
+        $delivery = Delivery::findOrFail($id);
+        $actor = $request->user();
+
+        if (! $actor->isAdmin() && $delivery->driver_id !== $actor->id) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+        }
+
+        if (! in_array($delivery->status, [Delivery::ASSIGNED, Delivery::IN_PROGRESS], true)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Proof of delivery can only be attached to an open delivery.',
+            ], 422);
+        }
+
+        $diskName = config('filesystems.default');
+        $disk = Storage::disk($diskName);
+        $capturedAt = now();
+
+        $photoPath = $request->file('photo')->store('proof-of-delivery/'.$delivery->id, $diskName);
+        $signaturePath = $request->file('signature')->store('proof-of-delivery/'.$delivery->id, $diskName);
+
+        $delivery->fill([
+            'proof_of_delivery' => [
+                'photo_url' => $disk->url($photoPath),
+                'signature_url' => $disk->url($signaturePath),
+                'photo_path' => $photoPath,
+                'signature_path' => $signaturePath,
+                'captured_at' => $capturedAt->toIso8601String(),
+            ],
+            'proof_of_delivery_url' => $disk->url($photoPath),
+            'pod_captured_at' => $capturedAt,
+            'pod_latitude' => $request->input('latitude'),
+            'pod_longitude' => $request->input('longitude'),
+        ]);
+        $delivery->save();
+
+        return response()->json(['status' => 'success', 'data' => $this->format($delivery->fresh(self::RELATIONS))], 201);
+    }
+
+    /**
      * Admin live-track read: latest position + newest-first bounded pings (T7).
      *
      * `field_ops:read` is also granted to sales/driver for their own surfaces, so
@@ -269,6 +319,9 @@ class DeliveryController extends Controller
             'recipient_name' => $delivery->recipient_name,
             'proof_of_delivery_url' => $delivery->proof_of_delivery_url,
             'proof_of_delivery' => $delivery->proof_of_delivery,
+            'pod_captured_at' => $delivery->pod_captured_at,
+            'pod_latitude' => $delivery->pod_latitude,
+            'pod_longitude' => $delivery->pod_longitude,
             'notes' => $delivery->notes,
             'route_data' => $delivery->route_data,
             'order' => $this->formatOrder($delivery->order),

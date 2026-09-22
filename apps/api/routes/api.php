@@ -166,6 +166,10 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus'])->middleware('rbac:delivery:edit');
     Route::put('/deliveries/{id}', [DeliveryController::class, 'updateStatus'])->middleware('rbac:delivery:edit');
     Route::post('/deliveries/{id}/location', [DeliveryController::class, 'storeLocation'])->middleware('rbac:delivery:edit');
+    // NOTE: driver-facing uploads gate on `delivery:edit` (driver has edit there);
+    // `field_ops` grants drivers read-only in the default matrix, so it cannot guard
+    // a write a driver must perform (deviation from the T8 packet, see log).
+    Route::post('/deliveries/{id}/proof', [DeliveryController::class, 'uploadProof'])->middleware('rbac:delivery:edit');
 
     // Admin live tracking (Phase 8, T7).
     Route::get('/admin/deliveries/{id}/track', [DeliveryController::class, 'track'])->middleware('rbac:field_ops:read');

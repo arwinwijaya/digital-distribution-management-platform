@@ -8,7 +8,7 @@
 import { useDummyStore, setDummyGenerator } from '@/dummy/store';
 import type { DummyEntities } from '@/dummy/store';
 import { buildFullDummy } from '@/dummy';
-import { loadDeliveries, toLocalDateString } from '@/app/delivery/api';
+import { loadDeliveries, toLocalDateString, uploadProof } from '@/app/delivery/api';
 
 const FIXED_TODAY = new Date('2026-02-14T10:00:00+07:00');
 const DUMMY = buildFullDummy(FIXED_TODAY) as unknown as DummyEntities;
@@ -95,5 +95,103 @@ describe('loadDeliveries — dummy enrichment', () => {
     const rows = await loadDeliveries('t-token');
     expect(rows.every((row) => row.order !== null)).toBe(true);
     expect(rows.every((row) => row.assigned_date !== null)).toBe(true);
+  });
+});
+
+/**
+ * Upload-proof helper tests — exercise dummy branch and network branch.
+ */
+describe('uploadProof — PoD upload', () => {
+  let originalFetch: typeof fetch | undefined;
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem('ddp_token', 't-token');
+    useDummyStore.getState().reset();
+    setDummyGenerator(() => DUMMY);
+
+    fetchMock = jest.fn(async () => ({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        status: 'success',
+        data: {
+          id: 1,
+          order_id: 1,
+          driver_id: 1,
+          status: 'delivered',
+          delivered_at: '2026-09-22T08:00:00Z',
+          proof_of_delivery: {
+            photo_url: 'http://example.com/photo.png',
+            signature_url: 'http://example.com/sig.png',
+            captured_at: '2026-09-22T08:00:00Z',
+          },
+        },
+      }),
+    }) as unknown as Response);
+    originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    if (originalFetch) (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    else delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    useDummyStore.getState().reset();
+  });
+
+  function turnDummyOn(): void {
+    useDummyStore.getState().toggle();
+    expect(useDummyStore.getState().isDummy).toBe(true);
+  }
+
+  it('returns a fake proof response in dummy mode without network', async () => {
+    turnDummyOn();
+
+    const formData = new FormData();
+    formData.append('photo', new File(['x'], 'photo.jpg', { type: 'image/jpeg' }));
+    formData.append('signature', new File(['x'], 'sig.png', { type: 'image/png' }));
+
+    const result = await uploadProof(1, formData);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.id).toBe(1);
+    expect(result.status).toBe('delivered');
+    expect(result.proof_of_delivery?.photo_url).toMatch(/^dummy:/);
+    expect(result.proof_of_delivery?.signature_url).toMatch(/^dummy:/);
+  });
+
+  it('POSTs multipart/form-data to the backend when dummy is OFF', async () => {
+    // dummy OFF (default)
+    const formData = new FormData();
+    formData.append('photo', new File(['x'], 'photo.jpg', { type: 'image/jpeg' }));
+    formData.append('signature', new File(['x'], 'sig.png', { type: 'image/png' }));
+
+    await uploadProof(42, formData);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/deliveries\/42\/proof$/);
+    expect(init).toEqual(
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer t-token' }),
+        body: formData,
+      }),
+    );
+  });
+
+  it('throws on non-OK response', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: async () => ({ message: 'Ukuran foto melebihi batas.' }),
+    } as unknown as Response);
+
+    const formData = new FormData();
+    formData.append('photo', new File(['x'], 'photo.jpg', { type: 'image/jpeg' }));
+    formData.append('signature', new File(['x'], 'sig.png', { type: 'image/png' }));
+
+    await expect(uploadProof(1, formData)).rejects.toThrow(/ukuran foto/i);
   });
 });

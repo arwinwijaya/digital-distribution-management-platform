@@ -8,7 +8,8 @@ import { filterDeliveries } from '@/app/delivery/filters';
 import { useDummyRefresh } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { updateDummyDelivery } from '@/dummy/mutations';
-import { Button, Card, EmptyState, Input, PageHeader, Select, StatusBadge } from '@/components/ui';
+import { Button, Card, EmptyState, Input, Modal, PageHeader, Select, StatusBadge } from '@/components/ui';
+import PodCapture from '@/components/delivery/PodCapture';
 import { formatDateTime } from '@/lib/admin-table';
 import { formatRupiah } from '@/lib/format';
 
@@ -117,6 +118,8 @@ export default function DeliveryPage() {
   const [proof, setProof] = useState<Record<number, Proof>>({});
   const [completing, setCompleting] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  // PodCapture modal state
+  const [capturingPod, setCapturingPod] = useState<number | null>(null);
   // Filter state (applied client-side over the loaded rows).
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -197,10 +200,19 @@ export default function DeliveryPage() {
                     {isOpen && <DeliveryDetail delivery={delivery} />}
 
                     {delivery.status === 'in_progress' && (
-                      <div className="mt-4 grid gap-3 rounded-lg bg-gray-50 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                        <Input label="Nama penerima" value={details.recipient} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, recipient: event.target.value } })} placeholder="Nama penerima" />
-                        <Input label="URL bukti pengiriman" type="url" value={details.url} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, url: event.target.value } })} placeholder="https://..." />
-                        <Button disabled={completing === delivery.id} onClick={() => updateStatus(delivery, 'delivered')}>{completing === delivery.id ? 'Menyimpan...' : 'Tandai terkirim'}</Button>
+                      <div className="mt-4 space-y-3 rounded-lg bg-gray-50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-gray-700">Bukti serah terima</p>
+                          <Button size="sm" onClick={() => setCapturingPod(delivery.id)}>
+                            📷 Ambil bukti (foto + tanda tangan)
+                          </Button>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                          <Input label="Nama penerima" value={details.recipient} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, recipient: event.target.value } })} placeholder="Nama penerima" />
+                          <Input label="URL bukti pengiriman" type="url" value={details.url} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, url: event.target.value } })} placeholder="https://..." />
+                          <Button disabled={completing === delivery.id} onClick={() => updateStatus(delivery, 'delivered')}>{completing === delivery.id ? 'Menyimpan...' : 'Tandai terkirim'}</Button>
+                        </div>
+                        <p className="text-xs text-gray-500">Gunakan tombol kamera untuk menangkap foto + tanda tangan, atau isi URL bukti secara manual.</p>
                       </div>
                     )}
                   </div>
@@ -210,6 +222,22 @@ export default function DeliveryPage() {
           )}
         </Card>
       )}
+
+      <Modal
+        open={capturingPod !== null}
+        onClose={() => setCapturingPod(null)}
+        title="Bukti serah terima (PoD)"
+      >
+        {capturingPod !== null && (
+          <PodCapture
+            deliveryId={capturingPod}
+            onSuccess={() => {
+              setCapturingPod(null);
+              if (token) void load(token);
+            }}
+          />
+        )}
+      </Modal>
     </div>
   );
 }

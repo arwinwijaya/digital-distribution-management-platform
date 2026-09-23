@@ -3,7 +3,7 @@
  * Guarded with `withDummyRead` so zero network while dummy mode is ON.
  * PATCH delivery status is a write (T11) — NOT guarded here.
  */
-import { apiUrl, authHeaders } from '@/lib/api';
+import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import type { FullDummy } from '@/dummy';
@@ -135,4 +135,66 @@ export async function loadDeliveries(token: string): Promise<Delivery[]> {
       throw new Error(body.message || 'Pengiriman tidak dapat dimuat.');
     return body.data as Delivery[];
   });
+}
+
+/** Optional GPS capture attached to a PoD upload. */
+export type ProofCoords = {
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
+/** Proof-of-delivery upload result (subset of the delivery payload). */
+export type ProofResult = {
+  id: number;
+  order_id: number;
+  driver_id: number;
+  status: string;
+  delivered_at: string | null;
+  proof_of_delivery: {
+    photo_url: string;
+    signature_url: string;
+    captured_at?: string;
+  } | null;
+};
+
+/**
+ * Upload proof-of-delivery media (photo + signature) as `multipart/form-data`.
+ *
+ * In dummy mode this is a fake success — zero network — so the offline shell
+ * and dummy surfaces can exercise the capture flow end to end.
+ */
+export async function uploadProof(
+  deliveryId: number,
+  formData: FormData,
+): Promise<ProofResult> {
+  const { isDummy } = useDummyStore.getState();
+
+  if (isDummy) {
+    const now = new Date().toISOString();
+    return {
+      id: deliveryId,
+      order_id: deliveryId,
+      driver_id: 1,
+      status: 'delivered',
+      delivered_at: now,
+      proof_of_delivery: {
+        photo_url: 'dummy://proof-of-delivery/photo.png',
+        signature_url: 'dummy://proof-of-delivery/signature.png',
+        captured_at: now,
+      },
+    };
+  }
+
+  const token = getStoredToken() ?? '';
+  const response = await fetch(apiUrl(`/deliveries/${deliveryId}/proof`), {
+    method: 'POST',
+    // NOTE: never set Content-Type — the browser must add the multipart boundary.
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.message || 'Unggahan bukti pengiriman gagal.');
+  }
+  return body.data as ProofResult;
 }

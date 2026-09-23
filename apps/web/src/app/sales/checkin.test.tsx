@@ -10,13 +10,13 @@ const mockCheckOutVisit = jest.fn();
 jest.mock('@/lib/api', () => ({
   apiUrl: (path: string) => `http://localhost:8000/api${path}`,
   authHeaders: (token: string) => ({ Authorization: `Bearer ${token}` }),
-  getStoredToken: (...args: unknown[]) => mockGetStoredToken(...args),
+  getStoredToken: () => mockGetStoredToken(),
 }));
 
 jest.mock('@/app/sales/api', () => ({
-  loadSalesList: (...args: unknown[]) => mockLoadSalesList(...args),
-  checkInVisit: (...args: unknown[]) => mockCheckInVisit(...args),
-  checkOutVisit: (...args: unknown[]) => mockCheckOutVisit(...args),
+  loadSalesList: () => mockLoadSalesList(),
+  checkInVisit: (id: number, coords: unknown) => mockCheckInVisit(id, coords),
+  checkOutVisit: (id: number, coords: unknown) => mockCheckOutVisit(id, coords),
 }));
 
 import SalesPage from '@/app/sales/page';

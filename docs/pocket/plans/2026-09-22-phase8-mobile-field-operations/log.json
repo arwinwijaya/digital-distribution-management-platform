@@ -128,56 +128,61 @@
     {
       "order": 4,
       "file": "execution-plan/phase-4.md",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T13",
           "name": "Halaman admin roster driver (/admin/drivers) + api + kontrak tabel",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T5",
-          "file": "execution-plan/tasks/T13-admin-driver-roster-page.md"
+          "file": "execution-plan/tasks/T13-admin-driver-roster-page.md",
+          "commit": "a01f4a8"
         },
         {
           "id": "T14",
           "name": "UI check-in/out kunjungan sales + geolokasi",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T6",
-          "file": "execution-plan/tasks/T14-sales-visit-checkin-ui.md"
+          "file": "execution-plan/tasks/T14-sales-visit-checkin-ui.md",
+          "commit": "2a6c70d"
         },
         {
           "id": "T15",
           "name": "UI capture PoD driver (kamera + canvas tanda tangan)",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T8",
-          "file": "execution-plan/tasks/T15-driver-pod-capture-ui.md"
+          "file": "execution-plan/tasks/T15-driver-pod-capture-ui.md",
+          "commit": "7fd3cd6"
         },
         {
           "id": "T16",
           "name": "Halaman live tracking admin (GeoMap + polling)",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T7",
-          "file": "execution-plan/tasks/T16-admin-live-tracking-page.md"
+          "file": "execution-plan/tasks/T16-admin-live-tracking-page.md",
+          "commit": "3db66ea"
         }
       ]
     },
     {
       "order": 5,
       "file": "execution-plan/phase-5.md",
-      "status": "PENDING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T17",
           "name": "Dummy fixtures + NavItem + RBAC page wiring",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T13, T14, T15, T16",
-          "file": "execution-plan/tasks/T17-dummy-fixtures-navitem-rbac-wiring.md"
+          "file": "execution-plan/tasks/T17-dummy-fixtures-navitem-rbac-wiring.md",
+          "commit": "e1bb13b"
         }
       ]
     },
     {
       "order": 6,
       "file": "execution-plan/phase-6.md",
-      "status": "PENDING",
+      "status": "IN_PROGRESS",
       "tasks": [
         {
           "id": "T18",

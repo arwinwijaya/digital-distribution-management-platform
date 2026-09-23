@@ -2,26 +2,26 @@
  * rbac.test.ts — dummy RBAC matrix fixture.
  *
  * Story 3 (dummy parity): dummy mode must mirror the seeded default matrix
- * with zero network. Guards the shape (19 explicit keys), the fallback for
+ * with zero network. Guards the shape (21 explicit keys), the fallback for
  * unknown roles (all `none`), and spot-check parity with the API seeder
  * (apps/api/database/seeders/RbacMatrixSeeder.php).
  */
 import { DUMMY_RBAC_MATRIX, MENU_KEYS, ROLES, getDummyMatrix } from '@/dummy/rbac';
 
 describe('DUMMY_RBAC_MATRIX shape', () => {
-  it('exposes exactly 19 menu keys', () => {
-    expect(MENU_KEYS).toHaveLength(19);
-    expect(new Set(MENU_KEYS).size).toBe(19);
+  it('exposes exactly 21 menu keys', () => {
+    expect(MENU_KEYS).toHaveLength(21);
+    expect(new Set(MENU_KEYS).size).toBe(21);
   });
 
   it('exposes exactly 7 roles', () => {
     expect(ROLES).toHaveLength(7);
   });
 
-  it('resolves a 19-key map for every known role', () => {
+  it('resolves a 21-key map for every known role', () => {
     for (const role of ROLES) {
       const map = getDummyMatrix(role);
-      expect(Object.keys(map)).toHaveLength(19);
+      expect(Object.keys(map)).toHaveLength(21);
       for (const key of MENU_KEYS) {
         expect(['none', 'read', 'edit']).toContain(map[key]);
       }
@@ -32,7 +32,7 @@ describe('DUMMY_RBAC_MATRIX shape', () => {
 describe('getDummyMatrix fallback', () => {
   it('returns all-none for an unknown role', () => {
     const map = getDummyMatrix('unknown');
-    expect(Object.keys(map)).toHaveLength(19);
+    expect(Object.keys(map)).toHaveLength(21);
     for (const key of MENU_KEYS) {
       expect(map[key]).toBe('none');
     }
@@ -125,5 +125,27 @@ describe('getDummyMatrix parity spot-checks with the API seeder', () => {
     expect(DUMMY_RBAC_MATRIX.data_intelligence?.finance).toBeUndefined();
     // ...but admin must.
     expect(DUMMY_RBAC_MATRIX.data_intelligence?.admin).toBe('read');
+  });
+
+  it('matches field_ops + driver_roster rows from seeder', () => {
+    // field_ops: platform_owner=edit, admin=edit, sales=read, driver=read
+    const fieldOps = DUMMY_RBAC_MATRIX.field_ops;
+    expect(fieldOps?.platform_owner).toBe('edit');
+    expect(fieldOps?.admin).toBe('edit');
+    expect(fieldOps?.sales).toBe('read');
+    expect(fieldOps?.driver).toBe('read');
+    expect(fieldOps?.outlet).toBeUndefined();
+    expect(fieldOps?.supplier).toBeUndefined();
+    expect(fieldOps?.finance).toBeUndefined();
+
+    // driver_roster: platform_owner=edit, admin=edit
+    const driverRoster = DUMMY_RBAC_MATRIX.driver_roster;
+    expect(driverRoster?.platform_owner).toBe('edit');
+    expect(driverRoster?.admin).toBe('edit');
+    expect(driverRoster?.sales).toBeUndefined();
+    expect(driverRoster?.driver).toBeUndefined();
+    expect(driverRoster?.outlet).toBeUndefined();
+    expect(driverRoster?.supplier).toBeUndefined();
+    expect(driverRoster?.finance).toBeUndefined();
   });
 });

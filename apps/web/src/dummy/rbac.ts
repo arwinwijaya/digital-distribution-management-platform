@@ -32,6 +32,8 @@ export const MENU_KEYS = [
   'admin_promotions',
   'admin_sales_performance',
   'rbac_matrix',
+  'field_ops',
+  'driver_roster',
 ] as const;
 
 export type MenuKey = (typeof MENU_KEYS)[number];
@@ -120,6 +122,13 @@ export const DUMMY_RBAC_MATRIX: Record<string, Partial<Record<RbacRole, RbacLeve
   },
   rbac_matrix: {
     platform_owner: 'edit', admin: 'read',
+  },
+  field_ops: {
+    platform_owner: 'edit', admin: 'edit',
+    sales: 'read', driver: 'read',
+  },
+  driver_roster: {
+    platform_owner: 'edit', admin: 'edit',
   },
 };
 

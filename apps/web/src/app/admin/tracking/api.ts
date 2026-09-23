@@ -22,31 +22,63 @@ export type TrackResponse = {
   pings: TrackPoint[];
 };
 
-/** Fallback label when dummy has no matching driver master row. */
+/** Numeric suffix of a `dummy-###` id, 0 when unparseable. */
+function numericSuffix(id: string): number {
+  const n = Number(String(id).replace(/^dummy-/, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Synthesize a deterministic tracking path for a delivery in dummy mode.
+ * Resolves the driver name from `driverProfiles` and the destination from the
+ * linked order's outlet, then interpolates a depot → outlet path with 5 pings.
+ */
 function buildDummyTrack(dummy: FullDummy, deliveryId: number): TrackResponse | null {
   const delivery = dummy.deliveries.find((d) => d.id === deliveryId);
   if (!delivery) return null;
 
-  /* Dummy has no locationPings — synthesize a single static point near Jakarta. */
-  const lastPosition: TrackPoint = {
-    latitude: -6.2 + (deliveryId % 5) * 0.01,
-    longitude: 106.816_666 + (deliveryId % 5) * 0.01,
-    accuracy_m: 10,
-    recorded_at: new Date().toISOString(),
-  };
+  const profile = dummy.driverProfiles.find(
+    (p) => String(p.user_id) === String(delivery.driver_id),
+  );
+  const driverName = profile?.user.name ?? `Driver #${delivery.driver_id}`;
+
+  const order = dummy.orders.find((o) => o.id === delivery.order_id);
+  /* `order.outlet_id` is the 1-based outlet index (see factory-transactions). */
+  const outlet = order ? dummy.outlets[order.outlet_id - 1] : null;
+  const outletNumeric = outlet ? numericSuffix(outlet.id) : 1;
+  const destLat = -6.2 + outletNumeric * 0.003;
+  const destLng = 106.816 + outletNumeric * 0.003;
+
+  // Depot origin (Jakarta center) → destination outlet.
+  const depotLat = -6.175;
+  const depotLng = 106.827;
+
+  const numPings = 5;
+  const pings: TrackPoint[] = [];
+  for (let i = 0; i < numPings; i++) {
+    const t = i / (numPings - 1);
+    const lat = depotLat + (destLat - depotLat) * t + (deliveryId + i) * 0.0001;
+    const lng = depotLng + (destLng - depotLng) * t + (deliveryId + i) * 0.0001;
+    pings.push({
+      latitude: lat,
+      longitude: lng,
+      accuracy_m: 10 + i * 2,
+      recorded_at: `2026-09-22T${String(8 + i).padStart(2, '0')}:00:00Z`,
+    });
+  }
 
   return {
     delivery_id: deliveryId,
     status: delivery.status,
-    driver: { id: delivery.driver_id, name: `Driver #${delivery.driver_id}` },
-    last_position: lastPosition,
-    pings: [lastPosition],
+    driver: { id: delivery.driver_id, name: driverName },
+    last_position: pings[pings.length - 1],
+    pings,
   };
 }
 
 /**
  * Fetch live tracking data for a delivery.
- * In dummy mode returns a static fixture — zero network.
+ * In dummy mode returns a synthesized path — zero network.
  */
 export async function getTrack(deliveryId: number): Promise<TrackResponse> {
   const { isDummy, dummyEntities } = useDummyStore.getState();

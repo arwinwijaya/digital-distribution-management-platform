@@ -38,11 +38,36 @@ export interface DummySupplier {
   name: string;
 }
 
+export interface DummyDriverProfile {
+  id: string;
+  user_id: string;
+  vehicle_type: string | null;
+  plate_number: string | null;
+  capacity_kg: number | null;
+  service_territory_id: string | null;
+  shift_start: string | null;
+  shift_end: string | null;
+  is_available: boolean;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    is_active: boolean;
+  };
+  serviceTerritory: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+}
+
 export interface MasterData {
   territories: DummyTerritory[];
   outlets: DummyOutlet[];
   products: DummyProduct[];
   suppliers: DummySupplier[];
+  driverProfiles: DummyDriverProfile[];
 }
 
 /** Spec canonical outlet (Story 2 R2): always `dummy-001`. */
@@ -188,6 +213,67 @@ function buildSuppliers(rng: SeededRng): DummySupplier[] {
     }));
 }
 
+const DRIVER_FIRST_NAMES = [
+  'Budi', 'Siti', 'Ahmad', 'Dewi', 'Rudi', 'Sri', 'Agus', 'Rina',
+  'Joko', 'Maya', 'Hendra', 'Lina', 'Bayu', 'Nia', 'Eko', 'Wati',
+];
+
+const DRIVER_LAST_NAMES = [
+  'Santoso', 'Rahayu', 'Fauzi', 'Lestari', 'Hidayat', 'Ningsih',
+  'Wijaya', 'Kartika', 'Pratama', 'Sari',
+];
+
+const DRIVER_VEHICLES = [
+  { type: 'Motor', capacity: 50 },
+  { type: 'Mobil Pickup', capacity: 500 },
+  { type: 'Truk', capacity: 2000 },
+  { type: 'Van', capacity: 800 },
+];
+
+const PLATE_PREFIXES = ['B', 'D', 'F', 'T', 'Z'];
+
+/**
+ * Build the deterministic driver roster (≥8 drivers) with stable ids that
+ * align 1:1 with the `driver_id` values used by the delivery factory.
+ */
+function buildDriverProfiles(rng: SeededRng): DummyDriverProfile[] {
+  /* Fixed size so `driver_id` (rng.int(1, 12)) always maps to a roster row. */
+  const count = 12;
+  const profiles: DummyDriverProfile[] = [];
+  for (let i = 0; i < count; i++) {
+    const vehicle = rng.pick(DRIVER_VEHICLES);
+    const territory = JABODETABEK_TERRITORIES[i % JABODETABEK_TERRITORIES.length];
+    const first = DRIVER_FIRST_NAMES[i % DRIVER_FIRST_NAMES.length];
+    const last = DRIVER_LAST_NAMES[(i * 3) % DRIVER_LAST_NAMES.length];
+    const userId = String(i + 1);
+    const plate = `${rng.pick(PLATE_PREFIXES)} ${1000 + rng.int(1, 8999)} ${rng.pick(['ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQR'])}`;
+    profiles.push({
+      id: `dummy-driver-${userId}`,
+      user_id: userId,
+      vehicle_type: vehicle.type,
+      plate_number: plate,
+      capacity_kg: vehicle.capacity,
+      service_territory_id: territory.id,
+      shift_start: '08:00',
+      shift_end: '17:00',
+      is_available: i % 5 !== 4,
+      user: {
+        id: userId,
+        name: `${first} ${last}`,
+        email: `driver${userId}@example.com`,
+        role: 'driver',
+        is_active: true,
+      },
+      serviceTerritory: {
+        id: territory.id,
+        name: territory.name,
+        code: territory.id.toUpperCase().slice(0, 3),
+      },
+    });
+  }
+  return profiles;
+}
+
 /**
  * Build the deterministic master dataset: 5 territories, ~48 outlets,
  * ~30 products, ~8 suppliers.
@@ -202,5 +288,6 @@ export function buildMasterData(rng: SeededRng, window: DateWindow): MasterData 
     outlets: buildOutlets(rng),
     products: buildProducts(rng),
     suppliers: buildSuppliers(rng),
+    driverProfiles: buildDriverProfiles(rng),
   };
 }

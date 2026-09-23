@@ -45,14 +45,19 @@ export type CheckInCoords = {
 const PAGE_SIZE = 10;
 
 function buildDummySalesList(dummy: FullDummy): Visit[] {
-  return dummy.outlets.slice(0, 20).map((o, i) => ({
-    id: -(i + 1),
-    target: o.name,
-    visit_date: `${new Date().getFullYear()}-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
-    status: ['scheduled', 'completed', 'cancelled'][i % 3],
-    notes: `Kunjungan terencana ke ${o.name}`,
-    check_in_at: null,
-    check_out_at: null,
+  // Pre-seeded visits from factory-transactions: 16 visits with check_in/out populated.
+  return dummy.visits.map((v) => ({
+    id: v.id,
+    target: v.target,
+    visit_date: v.visit_date,
+    status: v.status,
+    notes: v.notes,
+    check_in_at: v.check_in_at ?? null,
+    check_out_at: v.check_out_at ?? null,
+    check_in_latitude: v.check_in_latitude ?? null,
+    check_in_longitude: v.check_in_longitude ?? null,
+    check_out_latitude: v.check_out_latitude ?? null,
+    check_out_longitude: v.check_out_longitude ?? null,
   }));
 }
 

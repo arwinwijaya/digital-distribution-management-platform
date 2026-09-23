@@ -24,6 +24,8 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'delivery',     href: '/delivery',      label: 'Pengiriman',    icon: '🚚' },
   { key: 'sales',        href: '/sales',         label: 'Sales',         icon: '📋' },
   { key: 'worktree',     href: '/worktree',      label: 'Worktree',      icon: '🌳' },
+  // Operasi Lapangan (field_ops)
+  { key: 'field_ops',    href: '/admin/tracking', label: 'Operasi Lapangan', icon: '📍' },
   // Analitik & Insight (admin)
   { key: 'analytics',         href: '/analytics',         label: 'Analitik',         icon: '📈' },
   { key: 'data_intelligence', href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️' },
@@ -35,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'admin_promotions',        href: '/admin/promotions',        label: 'Kelola promosi',   icon: '🎁' },
   { key: 'admin_sales_performance', href: '/admin/sales-performance', label: 'Performa sales',   icon: '🎯' },
   { key: 'rbac_matrix',             href: '/admin/rbac',              label: 'Kelola Akses',     icon: '🔐' },
+  { key: 'driver_roster',           href: '/admin/drivers',           label: 'Roster Driver',    icon: '👥' },
 ];
 
 type MeResponse = { role: string | null; rbac: Record<string, RbacLevel> | null };

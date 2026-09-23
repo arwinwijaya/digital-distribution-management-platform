@@ -24,13 +24,14 @@ jest.mock('next/link', () => {
   });
 });
 
-/** The five `/admin/*` management menus that must be visible to admin only. */
+/** The `/admin/*` management menus that must be visible to admin only. */
 const ADMIN_MENUS = [
   'Approval Pesanan',
   'Harga Produk',
   'Kelola pengguna',
   'Kelola promosi',
   'Performa sales',
+  'Roster Driver',
 ];
 
 let originalFetch: typeof fetch | undefined;
@@ -93,6 +94,7 @@ describe('Sidebar admin menu visibility', () => {
     expect(hrefFor('Kelola pengguna')).toBe('/admin/users');
     expect(hrefFor('Kelola promosi')).toBe('/admin/promotions');
     expect(hrefFor('Performa sales')).toBe('/admin/sales-performance');
+    expect(hrefFor('Roster Driver')).toBe('/admin/drivers');
   });
 
   it('shows the Kelola Akses menu for admin', async () => {
@@ -189,6 +191,40 @@ describe('Sidebar Analitik gate', () => {
 
     await waitFor(() => expect(screen.getByText('Analitik')).toBeInTheDocument());
     expect(screen.getByText('Analitik').closest('a')?.getAttribute('href')).toBe('/analytics');
+  });
+});
+
+describe('Sidebar field-ops menu (Phase 8)', () => {
+  it('shows Operasi Lapangan to admin and links to /admin/tracking', async () => {
+    mockRole('admin');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Operasi Lapangan')).toBeInTheDocument());
+    expect(screen.getByText('Operasi Lapangan').closest('a')?.getAttribute('href')).toBe(
+      '/admin/tracking',
+    );
+  });
+
+  it.each(['sales', 'driver'])('shows Operasi Lapangan to %s (read)', async (role) => {
+    mockRole(role);
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Operasi Lapangan')).toBeInTheDocument());
+  });
+
+  it('hides Operasi Lapangan from outlet and finance', async () => {
+    mockRole('outlet');
+    await renderSidebar();
+    await waitFor(() => expect(screen.getByText('Pesanan')).toBeInTheDocument());
+    expect(screen.queryByText('Operasi Lapangan')).not.toBeInTheDocument();
+  });
+
+  it('hides Roster Driver from sales and driver', async () => {
+    mockRole('driver');
+    await renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Pesanan')).toBeInTheDocument());
+    expect(screen.queryByText('Roster Driver')).not.toBeInTheDocument();
   });
 });
 

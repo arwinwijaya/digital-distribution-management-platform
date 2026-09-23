@@ -66,6 +66,27 @@ export interface DummyDelivery {
   status: string;
   delivered_at: string | null;
   recipient_name: string | null;
+  /** Populated only for `delivered` rows — mirrors the backend `proof_of_delivery_url`. */
+  proof_of_delivery_url?: string | null;
+  /** ISO timestamp when the PoD was captured. */
+  pod_captured_at?: string | null;
+  pod_latitude?: number | null;
+  pod_longitude?: number | null;
+}
+
+export interface DummyVisit {
+  id: number;
+  target: string | null;
+  visit_date: string;
+  status: string;
+  notes: string | null;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  check_in_latitude: number | null;
+  check_in_longitude: number | null;
+  check_in_accuracy_m: number | null;
+  check_out_latitude: number | null;
+  check_out_longitude: number | null;
 }
 
 export interface Transactions {
@@ -73,6 +94,7 @@ export interface Transactions {
   payments: DummyPayment[];
   invoices: DummyInvoice[];
   deliveries: DummyDelivery[];
+  visits: DummyVisit[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -365,6 +387,11 @@ export function buildTransactions(
           ? `${firstName(rng)} ${lastName(rng)}`
           : null;
 
+      const proofUrl =
+        deliveryStatus === 'delivered'
+          ? `https://dummy.local/pod/${paymentId}.jpg`
+          : null;
+
       deliveries.push({
         id: paymentId,
         order_id: id,
@@ -372,13 +399,43 @@ export function buildTransactions(
         status: deliveryStatus,
         delivered_at: deliveredAt,
         recipient_name: recipientName,
+        proof_of_delivery_url: proofUrl,
+        pod_captured_at: deliveredAt,
+        pod_latitude: deliveryStatus === 'delivered' ? -6.2 + (paymentId % 7) * 0.005 : null,
+        pod_longitude: deliveryStatus === 'delivered' ? 106.816 + (paymentId % 7) * 0.005 : null,
       });
 
       orderIdCounter += 1;
     }
   }
 
-  return { orders, payments, invoices, deliveries };
+  // ── 3. Sales visits (deterministic, some with check-in/out) ──────────
+  const visits: DummyVisit[] = [];
+  const visitCount = 16;
+  for (let i = 0; i < visitCount; i++) {
+    const outlet = master.outlets[i % master.outlets.length];
+    const day = days[i % days.length];
+    const checkedIn = i % 3 !== 2; // ~2/3 checked in
+    const checkedOut = i % 3 === 0; // ~1/3 checked out
+    const checkInAt = checkedIn ? `${day}T09:${String((i * 7) % 60).padStart(2, '0')}:00+07:00` : null;
+    const checkOutAt = checkedOut ? `${day}T11:${String((i * 5) % 60).padStart(2, '0')}:00+07:00` : null;
+    visits.push({
+      id: i + 1,
+      target: outlet.name,
+      visit_date: day,
+      status: checkedOut ? 'completed' : checkedIn ? 'in_progress' : 'scheduled',
+      notes: `Kunjungan ke ${outlet.name}`,
+      check_in_at: checkInAt,
+      check_out_at: checkOutAt,
+      check_in_latitude: checkedIn ? -6.2 + i * 0.003 : null,
+      check_in_longitude: checkedIn ? 106.816 + i * 0.003 : null,
+      check_in_accuracy_m: checkedIn ? 12 : null,
+      check_out_latitude: checkedOut ? -6.2 + i * 0.003 + 0.001 : null,
+      check_out_longitude: checkedOut ? 106.816 + i * 0.003 + 0.001 : null,
+    });
+  }
+
+  return { orders, payments, invoices, deliveries, visits };
 }
 
 /**

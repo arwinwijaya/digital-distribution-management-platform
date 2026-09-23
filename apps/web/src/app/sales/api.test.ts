@@ -46,9 +46,9 @@ function turnDummyOn(): void {
   expect(useDummyStore.getState().isDummy).toBe(true);
 }
 
-/** Dummy parity mirrors the loader: 20 outlet-derived rows. */
+/** Dummy parity mirrors the loader: 16 pre-seeded visits. */
 const dummyTotal = () =>
-  (DUMMY as unknown as { outlets: unknown[] }).outlets.slice(0, 20).length;
+  (DUMMY as unknown as { visits: unknown[] }).visits.length;
 
 describe('sales visits — dummy paging parity (10/page, newest first)', () => {
   it('returns exactly 10 rows on page 1 with a real total and has_more', async () => {
@@ -84,7 +84,8 @@ describe('sales visits — dummy paging parity (10/page, newest first)', () => {
     const page2 = await loadSalesList('t-token', 2);
 
     expect(page2.meta.page).toBe(2);
-    expect(page2.visits).toHaveLength(10);
+    // 16 seeded visits → page 2 holds the remaining 6.
+    expect(page2.visits).toHaveLength(Math.max(0, dummyTotal() - PAGE_SIZE));
 
     const page1Ids = page1.visits.map((v) => v.id);
     const page2Ids = page2.visits.map((v) => v.id);

@@ -130,6 +130,20 @@ export interface DummyVisit {
   visit_date: string;
   status: string;
   notes: string | null;
+  check_in_at?: string | null;
+  check_out_at?: string | null;
+  check_in_latitude?: number | null;
+  check_in_longitude?: number | null;
+  check_in_accuracy_m?: number | null;
+  check_out_latitude?: number | null;
+  check_out_longitude?: number | null;
+}
+
+export interface DummyVisitCheckCoords {
+  latitude: number;
+  longitude: number;
+  accuracy_m?: number | null;
+  notes?: string | null;
 }
 
 export interface DummyFunnelEventPayload {
@@ -734,4 +748,82 @@ export function createDummyVisit(payload: DummyVisitInput): DummyVisit {
   };
   setGraph({ ...graph, visits: [...visits, visit] });
   return visit;
+}
+
+/**
+ * Store-bound wrapper for `POST /sales/visits/:id/check-in` (Phase 8, T6).
+ *
+ * Dummy mode is a fake success — no network. Marks the visit checked in and
+ * stamps the GPS payload so the UI can render the timestamp. Unknown ids fall
+ * back to a synthesized checked-in row so the surface never dead-ends.
+ */
+export function createDummyVisitCheckIn(
+  visitId: number,
+  coords: DummyVisitCheckCoords,
+): DummyVisit {
+  const graph = getGraph();
+  const visits = graph.visits ?? [];
+  const existing = visits.find((visit) => visit.id === visitId);
+  const checkedInAt = nowIso();
+
+  const updated: DummyVisit = {
+    id: visitId,
+    target: existing?.target ?? null,
+    visit_date: existing?.visit_date ?? todayIso(),
+    status: 'in_progress',
+    notes: coords.notes ?? existing?.notes ?? null,
+    check_in_at: existing?.check_in_at ?? checkedInAt,
+    check_out_at: existing?.check_out_at ?? null,
+    check_in_latitude: coords.latitude,
+    check_in_longitude: coords.longitude,
+    check_in_accuracy_m: coords.accuracy_m ?? null,
+    check_out_latitude: existing?.check_out_latitude ?? null,
+    check_out_longitude: existing?.check_out_longitude ?? null,
+  };
+
+  setGraph({
+    ...graph,
+    visits: existing
+      ? visits.map((visit) => (visit.id === visitId ? updated : visit))
+      : [...visits, updated],
+  });
+  return updated;
+}
+
+/**
+ * Store-bound wrapper for `POST /sales/visits/:id/check-out` (Phase 8, T6).
+ *
+ * Dummy mode is a fake success — no network. Marks the visit `completed` and
+ * stamps `check_out_at`.
+ */
+export function createDummyVisitCheckOut(
+  visitId: number,
+  coords: DummyVisitCheckCoords,
+): DummyVisit {
+  const graph = getGraph();
+  const visits = graph.visits ?? [];
+  const existing = visits.find((visit) => visit.id === visitId);
+
+  const updated: DummyVisit = {
+    id: visitId,
+    target: existing?.target ?? null,
+    visit_date: existing?.visit_date ?? todayIso(),
+    status: 'completed',
+    notes: existing?.notes ?? null,
+    check_in_at: existing?.check_in_at ?? nowIso(),
+    check_out_at: nowIso(),
+    check_in_latitude: existing?.check_in_latitude ?? null,
+    check_in_longitude: existing?.check_in_longitude ?? null,
+    check_in_accuracy_m: existing?.check_in_accuracy_m ?? null,
+    check_out_latitude: coords.latitude,
+    check_out_longitude: coords.longitude,
+  };
+
+  setGraph({
+    ...graph,
+    visits: existing
+      ? visits.map((visit) => (visit.id === visitId ? updated : visit))
+      : [...visits, updated],
+  });
+  return updated;
 }

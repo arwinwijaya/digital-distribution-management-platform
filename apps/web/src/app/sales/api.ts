@@ -15,6 +15,12 @@ export type Visit = {
   visit_date: string;
   status: string;
   notes: string | null;
+  check_in_at?: string | null;
+  check_out_at?: string | null;
+  check_in_latitude?: number | null;
+  check_in_longitude?: number | null;
+  check_out_latitude?: number | null;
+  check_out_longitude?: number | null;
 };
 
 export type SalesPageMeta = {
@@ -29,6 +35,13 @@ export type SalesListResult = {
   meta: SalesPageMeta;
 };
 
+export type CheckInCoords = {
+  latitude: number;
+  longitude: number;
+  accuracy_m?: number | null;
+  notes?: string | null;
+};
+
 const PAGE_SIZE = 10;
 
 function buildDummySalesList(dummy: FullDummy): Visit[] {
@@ -38,6 +51,8 @@ function buildDummySalesList(dummy: FullDummy): Visit[] {
     visit_date: `${new Date().getFullYear()}-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
     status: ['scheduled', 'completed', 'cancelled'][i % 3],
     notes: `Kunjungan terencana ke ${o.name}`,
+    check_in_at: null,
+    check_out_at: null,
   }));
 }
 
@@ -94,4 +109,35 @@ export async function loadSalesList(token: string, page = 1): Promise<SalesListR
       },
     };
   });
+}
+
+async function submitVisitCheck(
+  visitId: number,
+  coords: CheckInCoords,
+  action: 'check-in' | 'check-out',
+): Promise<Visit> {
+  const { getStoredToken } = await import('@/lib/api');
+  const token = getStoredToken() ?? '';
+  const { isDummy } = useDummyStore.getState();
+  if (isDummy) {
+    const { createDummyVisitCheckIn, createDummyVisitCheckOut } = await import('@/dummy/mutations');
+    return (action === 'check-in' ? createDummyVisitCheckIn : createDummyVisitCheckOut)(visitId, coords);
+  }
+
+  const response = await fetch(apiUrl(`/sales/visits/${visitId}/${action}`), {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(coords),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message || `${action === 'check-in' ? 'Check-in' : 'Check-out'} gagal.`);
+  return body.data as Visit;
+}
+
+export function checkInVisit(visitId: number, coords: CheckInCoords): Promise<Visit> {
+  return submitVisitCheck(visitId, coords, 'check-in');
+}
+
+export function checkOutVisit(visitId: number, coords: CheckInCoords): Promise<Visit> {
+  return submitVisitCheck(visitId, coords, 'check-out');
 }

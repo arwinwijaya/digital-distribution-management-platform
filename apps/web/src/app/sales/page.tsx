@@ -5,6 +5,7 @@ import Link from 'next/link';
 import LoginForm from '@/components/LoginForm';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { loadSalesList, type Visit, type SalesPageMeta } from '@/app/sales/api';
+import VisitCheckin from '@/app/sales/VisitCheckin';
 import { useDummyRefresh } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { createDummyVisit } from '@/dummy/mutations';
@@ -86,6 +87,16 @@ export default function SalesPage() {
     { key: 'date', header: 'Tanggal', render: (visit: Visit) => new Date(visit.visit_date).toLocaleDateString('id-ID') },
     { key: 'status', header: 'Status', render: (visit: Visit) => <StatusBadge status={visit.status} /> },
     { key: 'notes', header: 'Catatan', render: (visit: Visit) => <span className="text-gray-500">{visit.notes || '—'}</span> },
+    {
+      key: 'checkin',
+      header: 'Kehadiran',
+      render: (visit: Visit) => (
+        <VisitCheckin
+          visit={visit}
+          onUpdated={(updated) => setVisits((current) => current.map((item) => item.id === updated.id ? updated : item))}
+        />
+      ),
+    },
   ];
 
   return (

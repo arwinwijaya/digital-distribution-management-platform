@@ -72,7 +72,7 @@ export default function TablePagination({
   const pageItems = buildPageItems(totalPages, currentPage);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-4 bg-white border-t border-gray-100">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-4 bg-white border-t border-gray-100" data-testid="table-pagination">
       <div className="text-sm text-gray-600">
         {isBeyondTotal ? (
           <span className="text-gray-500">tidak ada data lanjutan</span>

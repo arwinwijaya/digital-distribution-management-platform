@@ -17,9 +17,9 @@ data-driven business by utilizing:
 
 ## Implementation Status Audit (2026-09-21)
 
-> **Update 2026-09-22:** Phase 8 — Mobile Field Operations kini memiliki spec dan execution plan task-level (18 tasks, 6 phase, log `PENDING`) — lihat `docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/execution-plan/index.md`. Belum ada task yang dieksekusi.
+> **Update 2026-09-22:** **Phase 8 — Mobile Field Operations SELESAI** — 18 tasks / 6 phase, semua `DONE` (SHA `18f0413..2665894`), closeout [`closeout.md`](docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/closeout.md). Verifikasi: API 595 passed / 7 skipped / 0 failed, web 555 passed / 0 failed, `tsc --noEmit` clean. Menutup gap PWA offline, GPS check-in, driver roster, route optimization, live tracking, dan proof of delivery foto/tanda tangan. Fase berikutnya: Phase 9 — AI Action & Supply Chain (belum punya spec/plan).
 
-Roadmap **tetap belum 100% terimplementasi**. Sejak audit 2026-09-14, enam plan tambahan selesai: Business Validation Production Pilot (pre-pilot compatibility & readiness, 6 tasks T1→T6, `DONE`), Concierge Production Pilot Phase 6 (3 services pilot + TDD, `DONE`), Dummy Mode Jabodetabek (12 tasks, `DONE`, closeout), **Phase 7 — MVP Completion & Core Operations (9 tasks T1→T9, `DONE`)** yang menutup gap role management, outlet lifecycle, price/promotion, sales order collection, sales quota/performance, dan WhatsApp promotion broadcast, hardening UX **Admin Table Readability (17 tasks, `DONE`, closeout)** untuk sort/paging/ringkasan/density di seluruh tabel admin, **RBAC Menu Matrix (12 tasks T1→T12, `DONE`, closeout)** yang mengikat 19 menu × 7 role ke middleware `rbac:<menu>:<level>` di semua route terlindungi plus halaman editor `/admin/rbac`, dan **Analytics Deeper Insight (7 tasks T1→T7, `DONE`, closeout)** yang menambah `AnalyticsService::insight()` + `GET /analytics/insight` (perbandingan 30 hari vs 30 hari sebelumnya, delta, needs-attention) sebagai strategic home Analitik. Data Intelligence, operational wall (readiness pipeline), infrastruktur pilot/pengukuran, administrasi MVP, otorisasi menu, dan insight strategis kini memiliki rangkaian penutup yang lengkap. Sisa pekerjaan adalah validasi lapangan sebenarnya (pilot produksi dengan partner/outlet nyata) dan sisa fase 8–10.
+Roadmap **tetap belum 100% terimplementasi**. Sejak audit 2026-09-14, enam plan tambahan selesai: Business Validation Production Pilot (pre-pilot compatibility & readiness, 6 tasks T1→T6, `DONE`), Concierge Production Pilot Phase 6 (3 services pilot + TDD, `DONE`), Dummy Mode Jabodetabek (12 tasks, `DONE`, closeout), **Phase 7 — MVP Completion & Core Operations (9 tasks T1→T9, `DONE`)** yang menutup gap role management, outlet lifecycle, price/promotion, sales order collection, sales quota/performance, dan WhatsApp promotion broadcast, hardening UX **Admin Table Readability (17 tasks, `DONE`, closeout)** untuk sort/paging/ringkasan/density di seluruh tabel admin, **RBAC Menu Matrix (12 tasks T1→T12, `DONE`, closeout)** yang mengikat 19 menu × 7 role ke middleware `rbac:<menu>:<level>` di semua route terlindungi plus halaman editor `/admin/rbac`, dan **Analytics Deeper Insight (7 tasks T1→T7, `DONE`, closeout)** yang menambah `AnalyticsService::insight()` + `GET /analytics/insight` (perbandingan 30 hari vs 30 hari sebelumnya, delta, needs-attention) sebagai strategic home Analitik. Data Intelligence, operational wall (readiness pipeline), infrastruktur pilot/pengukuran, administrasi MVP, otorisasi menu, dan insight strategis kini memiliki rangkaian penutup yang lengkap. Dengan selesainya **Phase 8 — Mobile Field Operations (18 tasks, `DONE`, closeout)** pada 2026-09-22, seluruh gap fitur lapangan tertutup. Sisa pekerjaan adalah validasi lapangan sebenarnya (pilot produksi dengan partner/outlet nyata) dan sisa fase 9–10.
 
 Legend: `[x]` implemented · `[~]` partial/MVP/foundation · `[ ]` not implemented · `[?]` outcome belum terverifikasi.
 
@@ -34,20 +34,21 @@ Detail checklist per fitur tersedia di [`checklist.md`](checklist.md). Closeout 
 - [`Phase 7 — MVP Completion & Core Operations`](docs/pocket/plans/2026-09-16-phase7-mvp-completion/execution-plan/index.md) (log `DONE`; 9 tasks, belum ada file closeout terpisah)
 - [`RBAC Menu Matrix (19 menu × 7 role)`](docs/pocket/plans/2026-09-18-rbac-menu-matrix/closeout.md)
 - [`Analytics Deeper Insight (30d vs 30d, delta, needs-attention)`](docs/pocket/plans/2026-09-18-analytics-deeper-insight/closeout.md)
+- [`Phase 8 — Mobile Field Operations (PWA offline, GPS, roster, routing, tracking, PoD)`](docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/closeout.md)
 
 Plan aktif (belum dieksekusi):
 
-- [`Phase 8 — Mobile Field Operations`](docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/execution-plan/index.md) — 18 tasks / 6 phase, log `PENDING`; spec [`phase8-mobile-field-operations.md`](docs/pocket/spec/2026-09-22-phase8-mobile-field-operations/phase8-mobile-field-operations.md).
+- Tidak ada — semua plan eksekusi sudah `DONE`. Phase 9 (AI Action & Supply Chain) belum memiliki spec/plan.
 
 Ringkasan:
 
 - Phase 0 — Business Validation & Planning: `[~]` dokumen ada, tetapi riset bisnis, BRD, dan partner database belum terbukti. Sejak saat itu, **platform readiness sudah dibuktikan** oleh `2026-09-14-business-validation-production-pilot` (T1 baseline `docs/pilot/pre-pilot-compatibility-baseline.md` + compatibility gate `docs/pilot/pre-pilot-runbook.md`, `READY_FOR_PILOT=allow`—record `OperationalEvent`/`operational_events` hanya append, tanpa mutasi sumber transaksi), dan **Phase 6 Business Validation tervalidasi secara teknikal** oleh `2026-09-15-concierge-production-pilot` (T1 `PilotQualificationService` qualification 10-outlet/30d, T2 `PilotMetricsService` lifecycle `measureLifecycleTiming`→`calculateSpeedDelta` + guardrails `error<5% / delivery>95% / payment>90%`, T3 `PilotEvaluationService` decision matrix scale-up/iterate/stop + `phase7Evidence`). Validasi **lapangan yang sesungguhnya** (partner & order nyata) belum dieksekusi.
 - Phase 1 — MVP Platform: `[x]` **DONE** — core flow berjalan dan gap administrasi ditutup oleh Phase 7: `platform_owner` + `UserPolicy` + role management API/UI, RBAC menu matrix (19 menu × 7 role), outlet category/scoring/purchase-history, product price management + history, promotion CRUD, dan dashboard admin. Sisa: verifikasi adoption bisnis (`[?]`).
-- Phase 2 — Sales & Distribution Automation: `[~]` invoice, reminder, payment, delivery, sales visit, WhatsApp order, sales order collection, sales quota/performance dashboard, dan WhatsApp promotion broadcast tersedia. Yang belum: PWA offline, GPS/live tracking, driver roster, route optimization, dan proof of delivery foto/tanda tangan (Phase 8).
+- Phase 2 — Sales & Distribution Automation: `[x]` **DONE (fitur)** — invoice, reminder, payment, delivery, sales visit, WhatsApp order, sales order collection, sales quota/performance dashboard, dan WhatsApp promotion broadcast tersedia; gap lapangan ditutup Phase 8: PWA offline + antrean order, GPS check-in/out, driver roster CRUD, route optimization (nearest-neighbor bounded), live tracking, dan PoD foto/tanda tangan. Outcome bisnis/adoption tetap `[?]`.
 - Phase 3 — Data Intelligence & AI: `[x]` **DONE** — foundation selesai: pipeline, geographic/supplier BI, stock planning, measurement, admin UI/map, atomic publication, dan strategic insight comparison (`/analytics/insight`, plan `2026-09-18-analytics-deeper-insight`) tersedia; ML/LLM production dan action workflow tetap `[ ]` out-of-scope Phase 3.
 - Phase 4 — Ecosystem Expansion: `[~]` marketplace dasar ada; dynamic pricing, financial services, distributor network, dan automated replenishment belum tersedia.
 - Phase 7 — MVP Completion & Core Operations: `[x]` **DONE** — 9 tasks (`1858ff4..fd7ee8d`) mencakup F1 role management/`platform_owner`, F2 outlet lifecycle, F3 price management, F4 promotion management, F5 sales order collection & performance, F6 WhatsApp promotion broadcast, plus halaman admin/sales; ditutup dengan Admin Table UX (17 tasks) dan RBAC Menu Matrix (12 tasks).
-- Phase 8 — Mobile Field Operations: `[ ]` **PLANNED** — spec + execution plan task-level (18 tasks, 6 phase) siap dieksekusi; belum ada implementasi (PWA offline, GPS check-in, driver roster, route optimization, live tracking, PoD foto/tanda tangan).
+- Phase 8 — Mobile Field Operations: `[x]` **DONE** — 18 tasks / 6 phase (`18f0413..2665894`), closeout tersedia; API 595 passed / web 555 passed / `tsc` clean. Mencakup PWA offline shell + antrean order idempotent, GPS check-in/out dengan radius, driver roster CRUD, route optimization bounded deterministik, live tracking (polling), dan PoD foto/tanda tangan.
 
 ------------------------------------------------------------------------
 
@@ -188,7 +189,7 @@ Target:
 
 ------------------------------------------------------------------------
 
-# Phase 2 - Sales & Distribution Automation — `[~] PARTIAL`
+# Phase 2 - Sales & Distribution Automation — `[x] DONE (fitur; outcome bisnis `[?]`)`
 
 ## Objective
 
@@ -203,7 +204,7 @@ Improve field execution and operational efficiency.
 Features:
 
 -   Sales visit planning — `[x]`
--   Outlet visit tracking — `[~]` status/notes tersedia; GPS/check-in telemetry belum ada
+-   Outlet visit tracking — `[x]` check-in/out GPS dengan validasi radius + telemetry (`POST /sales/visits/{id}/check-in|check-out`, Phase 8 T6/T14)
 -   Order collection — `[x]` `SalesOrderController` (territory-scoped)
 -   Sales target — `[x]` `SalesTargetController` + `sales_targets` (periode `YYYY-MM`)
 -   Performance dashboard — `[x]` `SalesPerformanceController` + halaman sales/admin
@@ -215,10 +216,11 @@ Features:
 Features:
 
 -   Delivery planning — `[x]`
--   Driver management — `[~]` assignment/validasi driver ada; driver roster CRUD belum ada
--   Route planning — `[~]` `RoutingService`/`route_data` sebagai seam MVP; optimasi penuh belum ada
+-   Driver management — `[x]` assignment/validasi driver + roster CRUD `driver_profiles` (`/admin/drivers`, Phase 8 T5/T13)
+-   Route planning — `[x]` `RoutingService::plan()` nearest-neighbor bounded deterministik, disimpan ke `route_data.stops` (Phase 8 T3/T9); VRP/time-window di luar scope
 -   Delivery confirmation — `[x]`
--   Proof of delivery — `[~]` recipient name + proof URL; foto/tanda tangan belum ada
+-   Live delivery tracking — `[x]` `POST /deliveries/{id}/location` + `GET /admin/deliveries/{id}/track` + halaman `/admin/tracking` (polling, Phase 8 T7/T16)
+-   Proof of delivery — `[x]` foto + tanda tangan via `POST /deliveries/{id}/proof` + metadata `pod_captured_at`/geo (Phase 8 T8/T15)
 
 ------------------------------------------------------------------------
 
@@ -252,7 +254,7 @@ Target:
 -   Digital ordering adoption \>70% — `[?]` belum ada measurement
 -   Reduced manual order processing — `[?]` belum ada measurement
 
-**Current status:** `[~] PARTIAL`. Operational readiness untuk invoice, payment, finance role, reminder, dan delivery proof sudah selesai; sales order collection, sales target/performance dashboard, dan promotion broadcast telah ditambahkan oleh Phase 7. Yang masih belum tersedia adalah PWA/offline, GPS/live tracking, driver roster, route optimization, dan proof of delivery foto/tanda tangan (dijadwalkan Phase 8).
+**Current status:** `[x] DONE (fitur)` — seluruh fitur tersedia. Operational readiness (invoice, payment, finance role, reminder, delivery proof) selesai; sales order collection, sales target/performance dashboard, dan promotion broadcast ditambahkan Phase 7; gap lapangan ditutup Phase 8 (PWA offline + antrean order, GPS check-in/out, driver roster, route optimization bounded, live tracking, PoD foto/tanda tangan). Di luar scope tetap: push notification native (FCM/APNs), VRP/time-window solver, dan object storage S3 (conventional upload). Outcome bisnis/adoption tetap `[?]`.
 
 ------------------------------------------------------------------------
 
@@ -435,7 +437,7 @@ Status (2026-09-18): **DONE** — plan `docs/pocket/plans/2026-09-18-analytics-d
 
 ## Phase 8 — Mobile Field Operations
 
-Status (2026-09-22): **PLANNED** — spec [`phase8-mobile-field-operations.md`](docs/pocket/spec/2026-09-22-phase8-mobile-field-operations/phase8-mobile-field-operations.md) + execution plan [`execution-plan/index.md`](docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/execution-plan/index.md) (18 tasks `T1..T18`, 6 phase, log `PENDING`). Belum ada task yang dieksekusi.
+Status (2026-09-22): **DONE** — spec [`phase8-mobile-field-operations.md`](docs/pocket/spec/2026-09-22-phase8-mobile-field-operations/phase8-mobile-field-operations.md) + execution plan [`execution-plan/index.md`](docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/execution-plan/index.md) (18 tasks `T1..T18`, 6 phase, log `DONE`), closeout [`closeout.md`](docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/closeout.md), SHA `18f0413..2665894`. Verifikasi: API 595 passed / 7 skipped / 0 failed, web 555 passed / 0 failed, `tsc --noEmit` clean.
 
 **Tujuan:** mendukung sales dan driver di lapangan dengan workflow mobile yang dapat diandalkan.
 
@@ -449,14 +451,14 @@ Status (2026-09-22): **PLANNED** — spec [`phase8-mobile-field-operations.md`](
 
 **Exit criteria:** sales dapat mengunjungi outlet dan mengumpulkan order tanpa koneksi stabil; driver menyelesaikan rute dengan status dan proof of delivery yang dapat diaudit.
 
-**Rencana eksekusi (6 phase):**
+**Bukti implementasi (6 phase, semua `DONE`):**
 
-- Phase 1 — Data foundation: migrasi `driver_profiles`/`delivery_location_pings`, kolom GPS `sales_visits`, metadata PoD `deliveries` (T1); model `DriverProfile` (T2); `RoutingService` nearest-neighbor bounded (T3); menu RBAC `driver_roster`+`field_ops` (T4).
-- Phase 2 — Backend field-ops API: roster CRUD (T5), visit check-in/out + radius (T6), delivery location ping + track (T7), PoD upload (T8), wire routing ke `DeliveryController@store` (T9).
-- Phase 3 — PWA offline shell: service worker + halaman `/offline` + indikator online (T10), antrean order offline + flush idempotent (T11), integrasi ke `OrderForm` (T12).
-- Phase 4 — Frontend field surfaces: halaman roster admin (T13), UI check-in sales (T14), UI capture PoD driver (T15), halaman live tracking (T16).
-- Phase 5 — Dummy parity + RBAC wiring (T17).
-- Phase 6 — Integrasi lintas unit + verifikasi suite penuh (T18).
+- Phase 1 — Data foundation: migrasi `driver_profiles`/`delivery_location_pings` (`2026_09_22_000001..000004`), kolom GPS `sales_visits`, metadata PoD `deliveries` (T1 `6696c42`); model `DriverProfile` (T2 `24762db`); `RoutingService` nearest-neighbor bounded deterministik (T3 `0d111d8`); menu RBAC `driver_roster`+`field_ops` (T4 `e5a8ebe`).
+- Phase 2 — Backend field-ops API: roster CRUD (T5 `121e34a`), visit check-in/out + radius (T6 `610af38`), delivery location ping + track (T7 `54829b7`), PoD upload (T8 `212fc95`), wire routing ke `DeliveryController@store` (T9 `2f37653`).
+- Phase 3 — PWA offline shell: service worker + halaman `/offline` + indikator online Topbar (T10 `e6c3bd6`), antrean order offline IndexedDB + flush idempotent (T11 `868e7f5`), integrasi ke `OrderForm` (T12 `da5db44`).
+- Phase 4 — Frontend field surfaces: halaman roster admin `/admin/drivers` (T13 `a01f4a8`), UI check-in sales (T14 `2a6c70d`), UI capture PoD driver kamera + canvas tanda tangan (T15 `7fd3cd6`), halaman live tracking `/admin/tracking` (T16 `3db66ea`).
+- Phase 5 — Dummy parity + RBAC wiring (T17 `e1bb13b`).
+- Phase 6 — Integrasi lintas unit + verifikasi suite penuh (T18 `0973d53`/`2665894`).
 
 ## Phase 9 — AI Action & Supply Chain
 
@@ -487,7 +489,7 @@ Status (2026-09-22): **PLANNED** — spec [`phase8-mobile-field-operations.md`](
 
 **Exit criteria:** setiap distributor terisolasi secara data dan authorization; pricing memiliki guardrail; integrasi pembayaran/financing memiliki reconciliation, audit, dan kontrol risiko.
 
-**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal) dan Phase 7 sudah `DONE`; fase berikutnya adalah Phase 8 (Mobile Field Operations). Phase 9 dapat dimulai setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
+**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan **Phase 8 sudah `DONE`**; fase berikutnya adalah **Phase 9 (AI Action & Supply Chain)** yang belum memiliki spec/plan. Phase 9 dapat dimulai setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
 
 ------------------------------------------------------------------------
 
@@ -496,8 +498,8 @@ Status (2026-09-22): **PLANNED** — spec [`phase8-mobile-field-operations.md`](
 ## Frontend
 
 -   Phase 1: Next.js Web Application — `[x]` implemented di `apps/web/`
--   Phase 2: Progressive Web App (PWA) — `[~]` `apps/web/src/app/manifest.ts` (standalone display, icon 192/512) tersedia; service worker/offline caching belum ada
--   Phase 2: Mobile Sales Application — `[ ]` belum tersedia
+-   Phase 2: Progressive Web App (PWA) — `[x]` `manifest.ts` + service worker `apps/web/public/sw.js` (app-shell cache-first, network-first nav, skip `/api/`), halaman `/offline`, indikator online Topbar, dan antrean order offline IndexedDB (Phase 8 T10–T12); feature flag `NEXT_PUBLIC_PWA_ENABLED`
+-   Phase 2: Mobile Sales Application — `[~]` permukaan lapangan mobile responsif tersedia (check-in sales, PoD capture driver, tracking admin) via PWA; belum ada aplikasi native terpisah
 
 ------------------------------------------------------------------------
 

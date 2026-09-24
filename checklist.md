@@ -246,14 +246,17 @@
 
 ### Phase 9 — AI Action & Supply Chain
 
-- **Scope:** Python ML service/pipeline, guarded LLM integration, recommendation menjadi draft order/campaign, approval stock plan, automated replenishment, forecast calibration, A/B test, dan revenue-lift monitoring.
+- **Status:** `[ ]` planned — spec + execution plan tersedia, implementasi belum dimulai.
+- **Scope:** draft-first recommendation → draft order/campaign → approval → execute; approval stock plan; automated replenishment; forecast calibration; deterministic A/B assignment; revenue-lift monitoring; optional guarded ML/LLM adapter dengan deterministic fallback.
 - **Exit criteria:** rekomendasi dan replenishment memiliki approval, idempotency, audit trail, dan dampak bisnis yang terukur.
+- **Spec:** `docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md`
+- **Execution plan:** `docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain/execution-plan/index.md` (18 tasks / 6 phases).
 
 ### Phase 10 — Commercial Ecosystem & Financial Services
 
 - **Scope:** multi-distributor dan tenant isolation, promotion recommendation, pricing optimization, demand-based pricing, external payment, credit scoring, dan working-capital partnership.
 - **Exit criteria:** isolasi data/authorization, pricing guardrail, reconciliation pembayaran, audit, dan kontrol risiko tersedia.
 
-**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan Phase 8 sudah `DONE`; fase berikutnya adalah Phase 9 (belum punya spec/plan) yang dapat dimulai setelah data pilot stabil; Phase 10 membutuhkan security, legal, dan operational readiness yang disetujui.
+**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan Phase 8 sudah `DONE`; Phase 9 sudah memiliki spec + execution plan tetapi masih `PLANNED` dan dapat dimulai setelah data pilot stabil; Phase 10 membutuhkan security, legal, dan operational readiness yang disetujui.
 
 > Status `[?]` tetap berarti implementasi teknis belum cukup untuk membuktikan outcome bisnis. Fixture atau test seeder tidak boleh dianggap sebagai adoption produksi.

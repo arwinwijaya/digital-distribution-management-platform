@@ -1,0 +1,69 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain",
+    "plan_type": "execution",
+    "status": "PLANNED",
+    "created_at": "2026-09-24T00:00:00+07:00",
+    "updated_at": "2026-09-24T00:00:00+07:00",
+    "baseline_sha": "2dcd3c7",
+    "pipeline": "pocket-development",
+    "plan_file": "execution-plan.md",
+    "spec_file": "docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md"
+  },
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Data Foundation",
+      "tasks": [
+        {"id": "T1", "name": "Migrasi & model Phase 9", "status": "PENDING", "depends": [], "file": "execution-plan/tasks/T1-migrasi-model-phase9.md", "commit": null},
+        {"id": "T2", "name": "RecommendationActionService draft-first + idempotency", "status": "PENDING", "depends": ["T1"], "file": "execution-plan/tasks/T2-recommendation-action-service.md", "commit": null},
+        {"id": "T3", "name": "RecommendationModelAdapter seam + deterministik + guardrail", "status": "PENDING", "depends": ["T1"], "file": "execution-plan/tasks/T3-recommendation-model-adapter.md", "commit": null},
+        {"id": "T4", "name": "RBAC catalog + seeder (ai_actions, supply_chain)", "status": "PENDING", "depends": ["T1"], "file": "execution-plan/tasks/T4-rbac-catalog-seeder-ai-actions.md", "commit": null}
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Draft + Approval + Execute API",
+      "tasks": [
+        {"id": "T5", "name": "Endpoint create draft action", "status": "PENDING", "depends": ["T2", "T4"], "file": "execution-plan/tasks/T5-create-draft-action-endpoint.md", "commit": null},
+        {"id": "T6", "name": "Approve/reject + audit append-only", "status": "PENDING", "depends": ["T5"], "file": "execution-plan/tasks/T6-approve-reject-audit.md", "commit": null},
+        {"id": "T7", "name": "Execute draft_order via OrderCreationService", "status": "PENDING", "depends": ["T6"], "file": "execution-plan/tasks/T7-execute-draft-order.md", "commit": null},
+        {"id": "T8", "name": "Execute draft_campaign via PromotionService", "status": "PENDING", "depends": ["T6"], "file": "execution-plan/tasks/T8-execute-draft-campaign.md", "commit": null}
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Replenishment + Calibration + Experiment",
+      "tasks": [
+        {"id": "T9", "name": "ReplenishmentService generate draft plan", "status": "PENDING", "depends": ["T1", "T4"], "file": "execution-plan/tasks/T9-replenishment-service-generate.md", "commit": null},
+        {"id": "T10", "name": "Replenishment approve/execute (draft PO)", "status": "PENDING", "depends": ["T9", "T6"], "file": "execution-plan/tasks/T10-replenishment-approve-execute.md", "commit": null},
+        {"id": "T11", "name": "ForecastCalibrationService + persistensi kalibrasi", "status": "PENDING", "depends": ["T1", "T3"], "file": "execution-plan/tasks/T11-forecast-calibration-service.md", "commit": null},
+        {"id": "T12", "name": "Assignment A/B deterministik + RevenueLiftService", "status": "PENDING", "depends": ["T1"], "file": "execution-plan/tasks/T12-ab-assignment-revenue-lift.md", "commit": null}
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Frontend Action Surfaces",
+      "tasks": [
+        {"id": "T13", "name": "Halaman inbox approval rekomendasi", "status": "PENDING", "depends": ["T7", "T8"], "file": "execution-plan/tasks/T13-approval-inbox-page.md", "commit": null},
+        {"id": "T14", "name": "Halaman replenishment", "status": "PENDING", "depends": ["T10"], "file": "execution-plan/tasks/T14-replenishment-page.md", "commit": null},
+        {"id": "T15", "name": "Dashboard eksperimen + revenue lift", "status": "PENDING", "depends": ["T12"], "file": "execution-plan/tasks/T15-experiment-dashboard.md", "commit": null}
+      ]
+    },
+    {
+      "phase": 5,
+      "name": "Parity Dummy + RBAC Wiring",
+      "tasks": [
+        {"id": "T16", "name": "Fixture dummy + NavItem + wiring RBAC", "status": "PENDING", "depends": ["T13", "T14", "T15"], "file": "execution-plan/tasks/T16-dummy-navitem-rbac-wiring.md", "commit": null}
+      ]
+    },
+    {
+      "phase": 6,
+      "name": "Cross-Unit Integration Verification",
+      "tasks": [
+        {"id": "T17", "name": "Fallback & guardrail adapter lintas unit", "status": "PENDING", "depends": ["T3", "T5", "T6", "T7", "T8"], "file": "execution-plan/tasks/T17-adapter-fallback-guardrail.md", "commit": null},
+        {"id": "T18", "name": "Cross-unit integration verification end-to-end", "status": "PENDING", "depends": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12", "T13", "T14", "T15", "T16", "T17"], "file": "execution-plan/tasks/T18-cross-unit-integration.md", "commit": null}
+      ]
+    }
+  ]
+}

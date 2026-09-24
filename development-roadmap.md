@@ -38,7 +38,7 @@ Detail checklist per fitur tersedia di [`checklist.md`](checklist.md). Closeout 
 
 Plan aktif (belum dieksekusi):
 
-- Tidak ada — semua plan eksekusi sudah `DONE`. Phase 9 (AI Action & Supply Chain) belum memiliki spec/plan.
+- **Phase 9 — AI Action & Supply Chain** — spec + execution plan tersedia (`docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md`, `docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain/execution-plan/index.md`), 18 tasks / 6 phases, status `PLANNED` (belum diimplementasi).
 
 Ringkasan:
 
@@ -466,14 +466,18 @@ Status (2026-09-22): **DONE** — spec [`phase8-mobile-field-operations.md`](doc
 
 **Scope:**
 
-- Python ML service dan ML pipeline.
-- LLM integration hanya untuk use case yang memiliki guardrail dan fallback.
-- Promotion/recommendation engine yang menghasilkan draft campaign atau draft order.
-- Approval workflow untuk recommendation dan stock plan.
-- Automated replenishment ke supplier atau purchase order.
-- Forecast calibration, A/B test, recommendation acceptance, dan revenue-lift monitoring.
+- Draft-first action layer: recommendation → draft order/campaign → approval → execute (idempotent, audit trail).
+- Approval workflow untuk recommendation actions dan replenishment plans.
+- Replenishment otomatis: draft PO per supplier dari `StockPlanningService` dengan approval-gated execute.
+- Forecast calibration deterministik (bias/seasonality) + `method_version` + fallback.
+- A/B experiment assignment deterministik + revenue-lift measurement (`insufficient-data` jujur).
+- ML/LLM adapter seam **opsional** dengan fallback deterministik + timeout/circuit-breaker + guardrail validator; adapter tidak pernah memutasi state bisnis.
+- Observability: audit append-only, `method`/`method_version`/`fallback`/`data_sufficiency` di respons.
 
-**Exit criteria:** rekomendasi dapat diterima/ditolak dan dilacak dampaknya; replenishment memiliki approval, idempotency, dan audit trail; akurasi forecast diukur dari data produksi.
+**Exit criteria:** rekomendasi dan replenishment memiliki approval, idempotency, audit trail, dan dampak bisnis yang terukur; ML/LLM opsional tidak menjadi blocker MVP.
+
+**Spec:** `docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md`
+**Execution plan:** `docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain/execution-plan/index.md` (18 tasks, 6 phases, status `PLANNED`)
 
 ## Phase 10 — Commercial Ecosystem & Financial Services
 
@@ -489,7 +493,7 @@ Status (2026-09-22): **DONE** — spec [`phase8-mobile-field-operations.md`](doc
 
 **Exit criteria:** setiap distributor terisolasi secara data dan authorization; pricing memiliki guardrail; integrasi pembayaran/financing memiliki reconciliation, audit, dan kontrol risiko.
 
-**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan **Phase 8 sudah `DONE`**; fase berikutnya adalah **Phase 9 (AI Action & Supply Chain)** yang belum memiliki spec/plan. Phase 9 dapat dimulai setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
+**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan **Phase 8 sudah `DONE`**; fase berikutnya adalah **Phase 9 (AI Action & Supply Chain)** yang **sudah memiliki spec + execution plan** (18 tasks / 6 phases, status `PLANNED`). Phase 9 dapat dimulai setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
 
 ------------------------------------------------------------------------
 

@@ -2,6 +2,9 @@
 
 namespace Tests\Unit;
 
+use App\Models\Order;
+use App\Models\Outlet;
+use App\Models\Product;
 use App\Services\Recommendation\DeterministicRecommendationAdapter;
 use App\Services\Recommendation\ModelOutputValidator;
 use App\Services\Recommendation\RecommendationModelAdapter;
@@ -70,6 +73,27 @@ class RecommendationModelAdapterTest extends TestCase
         $this->assertTrue($result['invalid_output']);
         $this->assertSame('purchase_frequency_v1', $result['method']);
     }
+
+    public function test_mutating_external_adapter_cannot_persist_business_state(): void
+    {
+        config([
+            'ai_actions.enabled' => true,
+            'ai_actions.ml_adapter.driver' => 'external',
+        ]);
+
+        $product = Product::factory()->create();
+        $outletId = Outlet::factory()->create()->id;
+
+        $resolver = new RecommendationModelAdapterResolver(
+            app(RecommendationService::class),
+            new ModelOutputValidator(),
+            new MutatingFakeRecommendationModelAdapter($product->id),
+        );
+
+        $resolver->predict($outletId);
+
+        $this->assertSame(0, Order::count(), 'Adapter must not persist business state (Order created)');
+    }
 }
 
 final class FakeRecommendationModelAdapter implements RecommendationModelAdapter
@@ -87,6 +111,47 @@ final class FakeRecommendationModelAdapter implements RecommendationModelAdapter
         }
 
         return $this->output ?? [];
+    }
+
+    public function explain(?int $outletId, int $limit = RecommendationService::DEFAULT_LIMIT): array
+    {
+        return $this->predict($outletId, $limit);
+    }
+}
+
+/**
+ * A malicious/buggy adapter that tries to create an Order.
+ * The resolver's mutation guard must roll this back.
+ */
+final class MutatingFakeRecommendationModelAdapter implements RecommendationModelAdapter
+{
+    public function __construct(
+        private readonly int $productId,
+    ) {
+    }
+
+    public function predict(?int $outletId, int $limit = RecommendationService::DEFAULT_LIMIT): array
+    {
+        // Side effect: create an Order (simulating a buggy/malicious adapter)
+        Order::create([
+            'order_id' => 'ADAPTER-MUTATE-'.bin2hex(random_bytes(4)),
+            'outlet_id' => $outletId ?? 1,
+            'status' => 'New',
+            'total_amount' => 100,
+            'idempotency_key' => 'adapter-mutate-'.bin2hex(random_bytes(8)),
+        ]);
+
+        // Return a valid-looking output so validator passes
+        return [
+            'recommendations' => [],
+            'limit' => $limit,
+            'data_points' => 0,
+            'data_sufficiency' => [],
+            'fallback' => false,
+            'method' => 'fake_mutating',
+            'method_version' => '1.0.0',
+            'measurement' => [],
+        ];
     }
 
     public function explain(?int $outletId, int $limit = RecommendationService::DEFAULT_LIMIT): array

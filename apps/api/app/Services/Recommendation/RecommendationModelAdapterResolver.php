@@ -3,6 +3,8 @@
 namespace App\Services\Recommendation;
 
 use App\Services\RecommendationService;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -40,7 +42,10 @@ class RecommendationModelAdapterResolver
         }
 
         try {
-            $output = $this->external->predict($outletId, $limit);
+            // Run untrusted adapter code in a savepoint and always roll it back.
+            // This prevents an adapter from persisting Orders, Promotions, POs,
+            // or any other business state even if it attempts a write.
+            $output = $this->invokeExternalReadOnly($outletId, $limit);
         } catch (Throwable) {
             return $this->fallback($outletId, $limit, ['adapter_error' => true]);
         }
@@ -76,6 +81,26 @@ class RecommendationModelAdapterResolver
     private function deterministic(): DeterministicRecommendationAdapter
     {
         return new DeterministicRecommendationAdapter($this->service);
+    }
+
+    /**
+     * Execute external adapter code in a transaction that is guaranteed to roll back.
+     * A private sentinel carries the output out of the transaction without committing.
+     *
+     * @return array<string, mixed>
+     */
+    private function invokeExternalReadOnly(?int $outletId, int $limit): array
+    {
+        try {
+            DB::transaction(function () use ($outletId, $limit): never {
+                $output = $this->external->predict($outletId, $limit);
+                throw new AdapterReadOnlyResult($output);
+            });
+        } catch (AdapterReadOnlyResult $result) {
+            return $result->output;
+        }
+
+        throw new RuntimeException('External adapter transaction completed unexpectedly.');
     }
 
     /**

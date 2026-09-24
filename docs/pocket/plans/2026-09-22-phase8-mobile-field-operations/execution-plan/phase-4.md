@@ -5,6 +5,7 @@
 **Prerequisite:** Phase 2 (backend field-ops API)
 **Contains tasks:** {T13, T14, T15, T16}
 **Unlocks next:** Phase 5
+**Status:** DONE (2026-09-22)
 
 ---
 

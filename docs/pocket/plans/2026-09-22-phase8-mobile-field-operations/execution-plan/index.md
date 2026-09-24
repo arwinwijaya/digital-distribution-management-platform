@@ -72,6 +72,20 @@ T12,T17 → T18
     auto-flushes on the `online` event, and preserves the normal online path.
   - Dummy mode bypasses the queue (zero-network parity preserved).
   - Backend FieldOps suite: 58 passed (unchanged).
+- **2026-09-22 — Phase 4 DONE.** T13 `a01f4a8`, T14 `2a6c70d` (+ fixup `4c78f01`),
+  T15 `7fd3cd6`, T16 `3db66ea`.
+  - New frontend surfaces: `/admin/drivers` (admin-table contract), sales visit
+    check-in/out UI with geolocation, driver PoD capture (camera + canvas signature),
+    admin live tracking page (`GeoMap` + polling).
+- **2026-09-22 — Phase 5 DONE.** T17 `e1bb13b`.
+  - Dummy fixtures (deterministic `driverProfiles`, visits, PoD URLs) + `NavItem` +
+    RBAC wiring. Log commit `3a38177` marks Phase 4 (T13–T16) + Phase 5 (T17) done.
+- **2026-09-22 — Phase 6 DONE.** T18 `0973d53` (API) + `2665894` (web).
+  - Cross-unit tests: `FieldOpsIntegrationTest` (3 passed / 90 assertions); web
+    offline → flush → sent integration (1 passed).
+  - Full suites: API 595 passed / 7 skipped (pgsql-only) / 0 failed (3791 assertions);
+    web 555 passed / 0 failed (66 suites); `npx tsc --noEmit` clean.
+  - Closeout: [closeout.md](../closeout.md).
 
 ---
 

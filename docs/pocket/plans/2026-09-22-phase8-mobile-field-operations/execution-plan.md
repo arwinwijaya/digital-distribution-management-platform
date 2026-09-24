@@ -2,7 +2,8 @@
 
 **Date:** 2026-09-22
 **Spec:** docs/pocket/spec/2026-09-22-phase8-mobile-field-operations/phase8-mobile-field-operations.md
-**Status:** approved
+**Status:** DONE (2026-09-22)
+**Closeout:** [closeout.md](closeout.md)
 **Total tasks:** 18
 
 ---

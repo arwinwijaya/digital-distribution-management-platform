@@ -5,6 +5,7 @@
 **Prerequisite:** Phase 4 (frontend field surfaces)
 **Contains tasks:** {T17}
 **Unlocks next:** Phase 6
+**Status:** DONE (2026-09-22)
 
 ---
 

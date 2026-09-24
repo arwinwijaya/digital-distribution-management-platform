@@ -14,7 +14,7 @@ use Throwable;
  * failure (exception or schema violation) is converted into a deterministic
  * fallback result with explicit flags. It never mutates business state.
  */
-class RecommendationModelAdapterResolver
+class RecommendationModelAdapterResolver implements RecommendationModelAdapter
 {
     public function __construct(
         private readonly RecommendationService $service,
@@ -29,7 +29,8 @@ class RecommendationModelAdapterResolver
             return new DeterministicRecommendationAdapter($this->service);
         }
 
-        return $this->external;
+        // Return the guarded resolver rather than exposing the raw provider.
+        return $this;
     }
 
     /**

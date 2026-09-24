@@ -2,9 +2,9 @@
   "header": {
     "plan_dir": "docs/pocket/plans/2026-09-22-phase8-mobile-field-operations",
     "plan_type": "phased",
-    "status": "IN_PROGRESS",
+    "status": "DONE",
     "date_started": "2026-09-22",
-    "date_completed": null,
+    "date_completed": "2026-09-22",
     "baseline_sha": "18f041312aab73beaac5d8fd22d098c12de5e8d3",
     "pipeline": 4,
     "plan_file": "execution-plan/index.md"
@@ -182,14 +182,15 @@
     {
       "order": 6,
       "file": "execution-plan/phase-6.md",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T18",
           "name": "Integrasi lintas unit + verifikasi suite penuh",
-          "status": "PENDING",
+          "status": "DONE",
           "depends": "T12, T17",
-          "file": "execution-plan/tasks/T18-cross-unit-integration-verification.md"
+          "file": "execution-plan/tasks/T18-cross-unit-integration-verification.md",
+          "commit": "0973d53, 2665894"
         }
       ]
     }

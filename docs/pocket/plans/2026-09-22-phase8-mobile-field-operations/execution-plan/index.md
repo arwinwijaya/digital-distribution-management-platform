@@ -29,9 +29,9 @@ T12,T17 → T18
 - **Phase 1:** [phase-1.md](phase-1.md) — Data foundation (migrasi, model, routing, RBAC catalog) (T1, T2, T3, T4) — **DONE**
 - **Phase 2:** [phase-2.md](phase-2.md) — Backend field-ops API (roster, check-in, tracking, PoD) (T5, T6, T7, T8, T9) — **DONE**
 - **Phase 3:** [phase-3.md](phase-3.md) — PWA offline shell + offline order queue (T10, T11, T12) — **DONE**
-- **Phase 4:** [phase-4.md](phase-4.md) — Frontend field surfaces (roster, check-in, PoD capture, tracking) (T13, T14, T15, T16) — **IN_PROGRESS**
-- **Phase 5:** [phase-5.md](phase-5.md) — Dummy parity + RBAC menu wiring (T17)
-- **Phase 6:** [phase-6.md](phase-6.md) — Cross-unit integration verification (T18)
+- **Phase 4:** [phase-4.md](phase-4.md) — Frontend field surfaces (roster, check-in, PoD capture, tracking) (T13, T14, T15, T16) — **DONE**
+- **Phase 5:** [phase-5.md](phase-5.md) — Dummy parity + RBAC menu wiring (T17) — **DONE**
+- **Phase 6:** [phase-6.md](phase-6.md) — Cross-unit integration verification (T18) — **DONE**
 
 ---
 

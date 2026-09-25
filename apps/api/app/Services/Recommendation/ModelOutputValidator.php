@@ -9,6 +9,11 @@ use InvalidArgumentException;
  *
  * Rejects unknown fields and wrong types so untrusted ML/LLM output can never
  * be consumed unchecked. No raw prompt/response is stored or logged here.
+ *
+ * Accepts the canonical deterministic output:
+ * - Top-level `low_confidence` (bool) is permitted.
+ * - Item `price` may be a numeric string (e.g. "12.50"), int, or float;
+ *   normalized to float for the non-negative range check.
  */
 class ModelOutputValidator
 {
@@ -22,6 +27,7 @@ class ModelOutputValidator
         'method',
         'method_version',
         'measurement',
+        'low_confidence',
     ];
 
     /** @var array<int, string> */
@@ -87,6 +93,10 @@ class ModelOutputValidator
             if (! array_key_exists($key, $output)) {
                 throw new InvalidArgumentException("Missing adapter output field: {$key}");
             }
+        }
+
+        if (! is_bool($output['low_confidence'])) {
+            throw new InvalidArgumentException('low_confidence must be a boolean.');
         }
 
         if (! is_array($output['recommendations'])) {
@@ -161,7 +171,7 @@ class ModelOutputValidator
         $this->assertNonEmptyString($item['category'], 'category');
         $this->assertNonEmptyString($item['reason'], 'reason');
 
-        $this->assertNumericNonNegative($item['price'], 'price');
+        $this->assertNumericStringOrNumberNonNegative($item['price'], 'price');
     }
 
     /**
@@ -273,6 +283,37 @@ class ModelOutputValidator
     {
         if (! (is_int($value) || is_float($value)) || $value < 0) {
             throw new InvalidArgumentException("{$field} must be a non-negative number (int or float).");
+        }
+    }
+
+    /**
+     * Accepts a numeric string (e.g. "12.50"), int, or float; the value is
+     * normalized to float for the non-negative range check. This matches the
+     * canonical deterministic output, which emits price via
+     * number_format(..., 2, '.', '') as a numeric string.
+     *
+     * @param  mixed  $value
+     * @param  string  $field
+     *
+     * @throws InvalidArgumentException
+     */
+    private function assertNumericStringOrNumberNonNegative(mixed $value, string $field): void
+    {
+        if (is_string($value)) {
+            // Only pure numeric strings; reject currency symbols, thousands
+            // separators, whitespace, exponents, and other non-numeric text.
+            if (preg_match('/^\d+(\.\d+)?$/', $value) !== 1) {
+                throw new InvalidArgumentException("{$field} must be a non-negative numeric string, int, or float.");
+            }
+            $normalized = (float) $value;
+        } elseif (is_int($value) || is_float($value)) {
+            $normalized = (float) $value;
+        } else {
+            throw new InvalidArgumentException("{$field} must be a non-negative numeric string, int, or float.");
+        }
+
+        if ($normalized < 0) {
+            throw new InvalidArgumentException("{$field} must be non-negative.");
         }
     }
 }

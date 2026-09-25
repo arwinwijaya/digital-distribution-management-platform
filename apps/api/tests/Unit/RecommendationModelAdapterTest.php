@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Outlet;
 use App\Models\Product;
 use App\Services\Recommendation\DeterministicRecommendationAdapter;
@@ -10,7 +11,9 @@ use App\Services\Recommendation\ModelOutputValidator;
 use App\Services\Recommendation\RecommendationModelAdapter;
 use App\Services\Recommendation\RecommendationModelAdapterResolver;
 use App\Services\RecommendationService;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Tests\TestCase;
@@ -18,6 +21,15 @@ use Tests\TestCase;
 class RecommendationModelAdapterTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Deterministic circuit-breaker state for every test.
+        config(['cache.default' => 'array']);
+        Cache::flush();
+    }
 
     public function test_default_config_resolves_deterministic_adapter(): void
     {
@@ -32,6 +44,38 @@ class RecommendationModelAdapterTest extends TestCase
         );
 
         $this->assertInstanceOf(DeterministicRecommendationAdapter::class, $resolver->resolve());
+    }
+
+    public function test_deterministic_adapter_output_passes_validator(): void
+    {
+        $product = Product::factory()->create([
+            'price' => 1250,
+            'stock_quantity' => 100,
+            'is_active' => true,
+        ]);
+        $outletId = Outlet::factory()->create()->id;
+        $order = Order::create([
+            'order_id' => 'ORD-VALIDATOR-'.uniqid(),
+            'outlet_id' => $outletId,
+            'status' => 'Delivered',
+            'total_amount' => 1250,
+            'paid_amount' => 0,
+            'idempotency_key' => 'validator-'.uniqid(),
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit_price' => 1250,
+            'subtotal' => 2500,
+        ]);
+
+        $output = (new DeterministicRecommendationAdapter(app(RecommendationService::class)))
+            ->predict($outletId);
+
+        (new ModelOutputValidator())->assertValid($output);
+        $this->assertTrue($output['low_confidence']);
+        $this->assertSame('1250.00', $output['recommendations'][0]['price']);
     }
 
     public function test_external_adapter_failure_falls_back_without_leaking_exception(): void
@@ -137,6 +181,63 @@ class RecommendationModelAdapterTest extends TestCase
             'reason' => 123,
         ];
         $this->assertFalse($validator->isValid($tampered));
+    }
+
+    public function test_write_detection_listener_does_not_leak_between_predictions(): void
+    {
+        config([
+            'ai_actions.enabled' => true,
+            'ai_actions.ml_adapter.driver' => 'external',
+            'ai_actions.ml_adapter.failure_threshold' => 10,
+        ]);
+
+        $external = new CallCountingFakeRecommendationModelAdapter;
+        $resolver = new RecommendationModelAdapterResolver(
+            app(RecommendationService::class),
+            new ModelOutputValidator(),
+            $external,
+        );
+        $dispatcher = DB::connection()->getEventDispatcher();
+        $before = count($dispatcher->getListeners(QueryExecuted::class));
+
+        $first = $resolver->predict(null);
+        $afterFirst = count($dispatcher->getListeners(QueryExecuted::class));
+        $second = $resolver->predict(null);
+        $afterSecond = count($dispatcher->getListeners(QueryExecuted::class));
+
+        $this->assertTrue($first['adapter_error']);
+        $this->assertTrue($second['adapter_error']);
+        $this->assertSame(0, $afterFirst - $before);
+        $this->assertSame($afterFirst, $afterSecond);
+        $this->assertArrayNotHasKey('mutation_attempt', $second);
+    }
+
+    public function test_circuit_breaker_state_is_shared_between_resolver_instances(): void
+    {
+        config([
+            'ai_actions.enabled' => true,
+            'ai_actions.ml_adapter.driver' => 'external',
+            'ai_actions.ml_adapter.failure_threshold' => 1,
+            'ai_actions.ml_adapter.cooldown_seconds' => 3600,
+        ]);
+        Cache::flush();
+
+        $externalA = new CallCountingFakeRecommendationModelAdapter;
+        $resolverA = new RecommendationModelAdapterResolver(
+            app(RecommendationService::class), new ModelOutputValidator(), $externalA,
+        );
+        $opened = $resolverA->predict(null);
+        $this->assertTrue($opened['adapter_error']);
+        $this->assertSame(1, $externalA->calls);
+
+        $externalB = new CallCountingFakeRecommendationModelAdapter;
+        $resolverB = new RecommendationModelAdapterResolver(
+            app(RecommendationService::class), new ModelOutputValidator(), $externalB,
+        );
+        $shortCircuited = $resolverB->predict(null);
+
+        $this->assertTrue($shortCircuited['circuit_open']);
+        $this->assertSame(0, $externalB->calls);
     }
 
     public function test_slow_adapter_returns_timeout_fallback(): void
@@ -387,6 +488,7 @@ function validRecommendationOutput(int $limit): array
         'method' => 'fake',
         'method_version' => '1.0.0',
         'measurement' => [],
+        'low_confidence' => false,
     ];
 }
 

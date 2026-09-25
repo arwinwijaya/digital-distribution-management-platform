@@ -4,6 +4,7 @@ namespace App\Services\Recommendation;
 
 use App\Services\RecommendationService;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -14,14 +15,21 @@ use Throwable;
  * The resolver is the only place where an external adapter may fail. Every
  * failure (exception, timeout, mutation attempt, or schema violation) is
  * converted into a deterministic fallback result with explicit flags.
- * External adapters receive only the plain read data/services already exposed
- * by their adapter contract; this resolver never passes write services.
+ * External adapters receive only plain read data through their adapter contract;
+ * the resolver never passes write-capable facades or services. Business state is
+ * defined as database state. The always-rollback transaction plus listeners on
+ * every open connection are defense-in-depth: they detect and revert DB writes,
+ * including on alternate/lazily-opened connections that are open at call time.
+ *
+ * Residual MVP limitation: in-process non-DB side effects (for example queue
+ * dispatches, file writes, or writes on connections opened after the call begins)
+ * are not interceptable by this seam. They must be addressed by adapter review
+ * and the read-only contract. This is an accepted MVP limitation per Phase 9
+ * spec DD-4 (the adapter is an optional seam, never an MVP blocker).
  */
 class RecommendationModelAdapterResolver implements RecommendationModelAdapter
 {
-    private int $consecutiveFailures = 0;
-
-    private ?int $circuitOpenedAt = null;
+    private const CIRCUIT_KEY_DEFAULT = 'ai_actions:ml_adapter:circuit';
 
     private bool $mutationDetected = false;
 
@@ -130,8 +138,18 @@ class RecommendationModelAdapterResolver implements RecommendationModelAdapter
         $this->mutationDetected = false;
         $connections = DB::getConnections();
         $alternateTransactions = [];
+        $dispatchers = [];
 
         foreach ($connections as $connection) {
+            // Use a per-call dispatcher clone so this listener can be removed by
+            // restoring the original dispatcher without disturbing application
+            // query listeners registered elsewhere.
+            $dispatcher = $connection->getEventDispatcher();
+            if ($dispatcher === null) {
+                continue;
+            }
+            $dispatchers[] = [$connection, $dispatcher];
+            $connection->setEventDispatcher(clone $dispatcher);
             $connection->listen(function (QueryExecuted $query): void {
                 if (preg_match('/^(INSERT|UPDATE|DELETE|ALTER|DROP|TRUNCATE|CREATE)\\b/i', ltrim($query->sql)) === 1) {
                     $this->mutationDetected = true;
@@ -158,21 +176,21 @@ class RecommendationModelAdapterResolver implements RecommendationModelAdapter
         }
 
         try {
-            DB::transaction(function () use ($outletId, $limit): never {
-                $output = $this->external->predict($outletId, $limit);
-                throw new AdapterReadOnlyResult($output);
-            });
-        } catch (AdapterReadOnlyResult $result) {
-            $this->rollbackAlternateTransactions($alternateTransactions);
-
-            return $result->output;
-        } catch (Throwable $throwable) {
-            $this->rollbackAlternateTransactions($alternateTransactions);
-
-            throw $throwable;
+            try {
+                DB::transaction(function () use ($outletId, $limit): never {
+                    $output = $this->external->predict($outletId, $limit);
+                    throw new AdapterReadOnlyResult($output);
+                });
+            } catch (AdapterReadOnlyResult $result) {
+                return $result->output;
+            } finally {
+                $this->rollbackAlternateTransactions($alternateTransactions);
+            }
+        } finally {
+            foreach ($dispatchers as [$connection, $dispatcher]) {
+                $connection->setEventDispatcher($dispatcher);
+            }
         }
-
-        $this->rollbackAlternateTransactions($alternateTransactions);
 
         throw new RuntimeException('External adapter transaction completed unexpectedly.');
     }
@@ -191,34 +209,36 @@ class RecommendationModelAdapterResolver implements RecommendationModelAdapter
 
     private function isCircuitOpen(): bool
     {
-        if ($this->circuitOpenedAt === null) {
+        $state = $this->getCircuitState();
+        $openedAt = $state['opened_at'];
+        if ($openedAt === null) {
             return false;
         }
 
         $cooldown = max(0, (int) config('ai_actions.ml_adapter.cooldown_seconds', 60));
-        if ((time() - $this->circuitOpenedAt) < $cooldown) {
+        if ((time() - $openedAt) < $cooldown) {
             return true;
         }
 
-        $this->circuitOpenedAt = null;
-        $this->consecutiveFailures = 0;
-
+        // Cooldown elapsed: reset state
+        $this->setCircuitState(['failures' => 0, 'opened_at' => null]);
         return false;
     }
 
     private function recordExternalFailure(): void
     {
-        $this->consecutiveFailures++;
+        $state = $this->getCircuitState();
+        $state['failures']++;
         $threshold = max(1, (int) config('ai_actions.ml_adapter.failure_threshold', 3));
-        if ($this->consecutiveFailures >= $threshold) {
-            $this->circuitOpenedAt = time();
+        if ($state['failures'] >= $threshold) {
+            $state['opened_at'] = time();
         }
+        $this->setCircuitState($state);
     }
 
     private function recordExternalSuccess(): void
     {
-        $this->consecutiveFailures = 0;
-        $this->circuitOpenedAt = null;
+        $this->setCircuitState(['failures' => 0, 'opened_at' => null]);
     }
 
     /**
@@ -230,5 +250,36 @@ class RecommendationModelAdapterResolver implements RecommendationModelAdapter
         $result = $this->deterministic()->predict($outletId, $limit);
 
         return array_merge($result, ['fallback' => true], $flags);
+    }
+
+    private function circuitKey(): string
+    {
+        $key = config('ai_actions.ml_adapter.circuit_key');
+
+        return is_string($key) && $key !== '' ? $key : self::CIRCUIT_KEY_DEFAULT;
+    }
+
+    /**
+     * @return array{failures: int, opened_at: int|null}
+     */
+    private function getCircuitState(): array
+    {
+        $state = Cache::get($this->circuitKey());
+        if (! is_array($state)) {
+            return ['failures' => 0, 'opened_at' => null];
+        }
+
+        return [
+            'failures' => (int) ($state['failures'] ?? 0),
+            'opened_at' => isset($state['opened_at']) ? (int) $state['opened_at'] : null,
+        ];
+    }
+
+    /**
+     * @param  array{failures: int, opened_at: int|null}  $state
+     */
+    private function setCircuitState(array $state): void
+    {
+        Cache::forever($this->circuitKey(), $state);
     }
 }

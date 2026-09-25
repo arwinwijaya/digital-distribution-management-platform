@@ -5,6 +5,7 @@
 **Prerequisite:** None (first phase)
 **Contains tasks:** {T1, T2, T3, T4}
 **Unlocks next:** Phase 2
+**Status:** **DONE** — T1 `96bf91b`, T2 `2f68cf9`, T3 `bc3c456`, T4 `d66c8bf`
 
 ---
 

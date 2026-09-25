@@ -38,7 +38,7 @@ Detail checklist per fitur tersedia di [`checklist.md`](checklist.md). Closeout 
 
 Plan aktif (belum dieksekusi):
 
-- **Phase 9 — AI Action & Supply Chain** — spec + execution plan tersedia (`docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md`, `docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain/execution-plan/index.md`), 18 tasks / 6 phases, status `PLANNED` (belum diimplementasi).
+- **Phase 9 — AI Action & Supply Chain** — spec + execution plan tersedia (`docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md`, `docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain/execution-plan/index.md`), 18 tasks / 6 phases, status `IN_PROGRESS` (Phase 1: T1–T4 DONE; Phase 2–6 PENDING).
 
 Ringkasan:
 
@@ -477,7 +477,7 @@ Status (2026-09-22): **DONE** — spec [`phase8-mobile-field-operations.md`](doc
 **Exit criteria:** rekomendasi dan replenishment memiliki approval, idempotency, audit trail, dan dampak bisnis yang terukur; ML/LLM opsional tidak menjadi blocker MVP.
 
 **Spec:** `docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md`
-**Execution plan:** `docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain/execution-plan/index.md` (18 tasks, 6 phases, status `PLANNED`)
+**Execution plan:** `docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain/execution-plan/index.md` (18 tasks, 6 phases, Phase 1 T1–T4 DONE; Phase 2–6 PENDING)
 
 ## Phase 10 — Commercial Ecosystem & Financial Services
 
@@ -493,7 +493,7 @@ Status (2026-09-22): **DONE** — spec [`phase8-mobile-field-operations.md`](doc
 
 **Exit criteria:** setiap distributor terisolasi secara data dan authorization; pricing memiliki guardrail; integrasi pembayaran/financing memiliki reconciliation, audit, dan kontrol risiko.
 
-**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan **Phase 8 sudah `DONE`**; fase berikutnya adalah **Phase 9 (AI Action & Supply Chain)** yang **sudah memiliki spec + execution plan** (18 tasks / 6 phases, status `PLANNED`). Phase 9 dapat dimulai setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
+**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan **Phase 8 sudah `DONE`**; fase berikutnya adalah **Phase 9 (AI Action & Supply Chain)** yang **sedang dieksekusi** (Phase 1 T1–T4 DONE; Phase 2–6 PENDING). Phase 9 dapat dilanjutkan setelah data pilot stabil, sedangkan Phase 10 membutuhkan security, legal, dan operational readiness yang telah disetujui.
 
 ------------------------------------------------------------------------
 

@@ -13,7 +13,7 @@
 
 ## Overall status
 
-**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`. Business Validation Production Pilot (pre-pilot compatibility & readiness) dan Concierge Production Pilot Phase 6 Business Validation (`DONE`, lihat `docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md` + `docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md`) telah menambahkan infrastruktur pilot (kelayakan partner 10 outlet/30d, pengukuran lifecycle order→payment, pengawalan error<5%/delivery>95%/payment>90%, decision matrix Phase 6). RBAC menu matrix (19 menu × 7 role) telah ditutup (`docs/pocket/plans/2026-09-18-rbac-menu-matrix/closeout.md`), dan strategic insight `/analytics/insight` telah ditutup (`docs/pocket/plans/2026-09-18-analytics-deeper-insight/closeout.md`), melengkapi role management, Platform Owner, price/promotion management, sales target/dashboard, dan WhatsApp promotion broadcast pada Phase 7. Fase berikutnya adalah eksekusi lapangan sesungguhnya (partner/outlet nyata, order produksi); **Phase 8 (Mobile Field Operations) sudah `DONE`** (18 tasks / 6 phase, `18f0413..2665894`, closeout `docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/closeout.md`), sedangkan Phase 9–10 belum dimulai (Phase 9 belum punya spec/plan).
+**Roadmap belum selesai seluruhnya.** Execution plan awal, operational readiness, dan Phase 3 data intelligence sudah ditutup dengan `REVIEW_PASS`. Business Validation Production Pilot (pre-pilot compatibility & readiness) dan Concierge Production Pilot Phase 6 Business Validation (`DONE`, lihat `docs/pocket/plans/2026-09-14-business-validation-production-pilot/closeout.md` + `docs/pocket/plans/2026-09-15-concierge-production-pilot/closeout.md`) telah menambahkan infrastruktur pilot (kelayakan partner 10 outlet/30d, pengukuran lifecycle order→payment, pengawalan error<5%/delivery>95%/payment>90%, decision matrix Phase 6). RBAC menu matrix (19 menu × 7 role) telah ditutup (`docs/pocket/plans/2026-09-18-rbac-menu-matrix/closeout.md`), dan strategic insight `/analytics/insight` telah ditutup (`docs/pocket/plans/2026-09-18-analytics-deeper-insight/closeout.md`), melengkapi role management, Platform Owner, price/promotion management, sales target/dashboard, dan WhatsApp promotion broadcast pada Phase 7. Fase berikutnya adalah eksekusi lapangan sesungguhnya (partner/outlet nyata, order produksi); **Phase 8 (Mobile Field Operations) sudah `DONE`** (18 tasks / 6 phase, `18f0413..2665894`, closeout `docs/pocket/plans/2026-09-22-phase8-mobile-field-operations/closeout.md`), sedangkan **Phase 9 (AI Action & Supply Chain) sedang dieksekusi** (Phase 1 T1–T4 DONE; Phase 2–6 PENDING) dan Phase 10 belum dimulai.
 
 | Roadmap phase | Status | Ringkasan |
 |---|---|---|
@@ -246,7 +246,7 @@
 
 ### Phase 9 — AI Action & Supply Chain
 
-- **Status:** `[ ]` planned — spec + execution plan tersedia, implementasi belum dimulai.
+- **Status:** `[~]` in-progress — Phase 1 (T1–T4) DONE: T1 migrasi+model (`96bf91b`), T2 `RecommendationActionService` draft-first (`2f68cf9`), T3 adapter seam + guardrail (`bc3c456`), T4 RBAC menu `ai_actions`/`supply_chain` (`d66c8bf`); Phase 2–6 PENDING.
 - **Scope:** draft-first recommendation → draft order/campaign → approval → execute; approval stock plan; automated replenishment; forecast calibration; deterministic A/B assignment; revenue-lift monitoring; optional guarded ML/LLM adapter dengan deterministic fallback.
 - **Exit criteria:** rekomendasi dan replenishment memiliki approval, idempotency, audit trail, dan dampak bisnis yang terukur.
 - **Spec:** `docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md`
@@ -257,6 +257,6 @@
 - **Scope:** multi-distributor dan tenant isolation, promotion recommendation, pricing optimization, demand-based pricing, external payment, credit scoring, dan working-capital partnership.
 - **Exit criteria:** isolasi data/authorization, pricing guardrail, reconciliation pembayaran, audit, dan kontrol risiko tersedia.
 
-**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan Phase 8 sudah `DONE`; Phase 9 sudah memiliki spec + execution plan tetapi masih `PLANNED` dan dapat dimulai setelah data pilot stabil; Phase 10 membutuhkan security, legal, dan operational readiness yang disetujui.
+**Urutan dependensi:** Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10. Phase 6 (teknikal), Phase 7, dan Phase 8 sudah `DONE`; Phase 9 **sedang dieksekusi** (Phase 1 T1–T4 DONE; Phase 2–6 PENDING) dan dapat dilanjutkan setelah data pilot stabil; Phase 10 membutuhkan security, legal, dan operational readiness yang disetujui.
 
 > Status `[?]` tetap berarti implementasi teknis belum cukup untuk membuktikan outcome bisnis. Fixture atau test seeder tidak boleh dianggap sebagai adoption produksi.

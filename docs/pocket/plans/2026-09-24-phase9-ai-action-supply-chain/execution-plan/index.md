@@ -1,7 +1,7 @@
 # Phase 9 — AI Action & Supply Chain — Execution Plan (Index)
 
 **Date:** 2026-09-24
-**Status:** PLANNED — 6 phases, 18 tasks (belum ada yang dieksekusi)
+**Status:** IN_PROGRESS — Phase 1 (T1–T4) DONE · Phase 2–6 PENDING
 **Spec:** docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md
 **Plan:** ../execution-plan.md · **Log:** ../log.json
 
@@ -11,7 +11,7 @@
 
 | # | Phase | Tasks | File |
 |---|---|---|---|
-| 1 | Data foundation (action, audit, replenishment, calibration, experiment) | T1–T4 | [phase-1.md](phase-1.md) |
+| 1 | Data foundation (action, audit, replenishment, calibration, experiment) | T1–T4 — **DONE** (T1 `96bf91b`, T2 `2f68cf9`, T3 `bc3c456`, T4 `d66c8bf`) | [phase-1.md](phase-1.md) |
 | 2 | Draft + approval + execute API | T5–T8 | [phase-2.md](phase-2.md) |
 | 3 | Replenishment, forecast calibration, A/B & revenue lift | T9–T12 | [phase-3.md](phase-3.md) |
 | 4 | Frontend action surfaces | T13–T15 | [phase-4.md](phase-4.md) |

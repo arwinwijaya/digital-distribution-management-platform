@@ -2,9 +2,9 @@
   "header": {
     "plan_dir": "docs/pocket/plans/2026-09-24-phase9-ai-action-supply-chain",
     "plan_type": "execution",
-    "status": "PLANNED",
+    "status": "IN_PROGRESS",
     "created_at": "2026-09-24T00:00:00+07:00",
-    "updated_at": "2026-09-24T00:00:00+07:00",
+    "updated_at": "2026-09-25T11:15:00+07:00",
     "baseline_sha": "2dcd3c7",
     "pipeline": "pocket-development",
     "plan_file": "execution-plan.md",
@@ -15,10 +15,10 @@
       "phase": 1,
       "name": "Data Foundation",
       "tasks": [
-        {"id": "T1", "name": "Migrasi & model Phase 9", "status": "PENDING", "depends": [], "file": "execution-plan/tasks/T1-migrasi-model-phase9.md", "commit": null},
-        {"id": "T2", "name": "RecommendationActionService draft-first + idempotency", "status": "PENDING", "depends": ["T1"], "file": "execution-plan/tasks/T2-recommendation-action-service.md", "commit": null},
-        {"id": "T3", "name": "RecommendationModelAdapter seam + deterministik + guardrail", "status": "PENDING", "depends": ["T1"], "file": "execution-plan/tasks/T3-recommendation-model-adapter.md", "commit": null},
-        {"id": "T4", "name": "RBAC catalog + seeder (ai_actions, supply_chain)", "status": "PENDING", "depends": ["T1"], "file": "execution-plan/tasks/T4-rbac-catalog-seeder-ai-actions.md", "commit": null}
+        {"id": "T1", "name": "Migrasi & model Phase 9", "status": "DONE", "depends": [], "file": "execution-plan/tasks/T1-migrasi-model-phase9.md", "commit": "96bf91b"},
+        {"id": "T2", "name": "RecommendationActionService draft-first + idempotency", "status": "DONE", "depends": ["T1"], "file": "execution-plan/tasks/T2-recommendation-action-service.md", "commit": "2f68cf9"},
+        {"id": "T3", "name": "RecommendationModelAdapter seam + deterministik + guardrail", "status": "DONE", "depends": ["T1"], "file": "execution-plan/tasks/T3-recommendation-model-adapter.md", "commit": "bc3c456"},
+        {"id": "T4", "name": "RBAC catalog + seeder (ai_actions, supply_chain)", "status": "DONE", "depends": ["T1"], "file": "execution-plan/tasks/T4-rbac-catalog-seeder-ai-actions.md", "commit": "d66c8bf"}
       ]
     },
     {

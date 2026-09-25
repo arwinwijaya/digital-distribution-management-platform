@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * GET /auth/me must include a full 21-key `rbac` map for the caller's role.
+ * GET /auth/me must include a full 23-key `rbac` map for the caller's role.
  */
 class AuthMeRbacTest extends TestCase
 {
@@ -21,7 +21,7 @@ class AuthMeRbacTest extends TestCase
         return 'Bearer ' . app(AuthService::class)->createToken($user)['token'];
     }
 
-    public function test_me_includes_twenty_one_key_rbac_map(): void
+    public function test_me_includes_full_rbac_map(): void
     {
         $sales = User::factory()->sales()->create();
 
@@ -33,7 +33,7 @@ class AuthMeRbacTest extends TestCase
         $rbac = $response->json('data.rbac');
 
         $this->assertIsArray($rbac);
-        $this->assertCount(21, $rbac);
+        $this->assertCount(23, $rbac);
         $this->assertSame('read', $rbac['products']);
         $this->assertSame('edit', $rbac['orders']);
         $this->assertSame('none', $rbac['rbac_matrix']);
@@ -67,7 +67,7 @@ class AuthMeRbacTest extends TestCase
             ->assertOk()
             ->json('data.rbac');
 
-        $this->assertCount(21, $rbac);
+        $this->assertCount(23, $rbac);
         $this->assertSame(['none'], array_values(array_unique($rbac)));
     }
 }

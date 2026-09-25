@@ -12,7 +12,8 @@ use Illuminate\Database\Seeder;
  * Source of truth: docs/pocket/spec/2026-09-18-rbac-menu-matrix/rbac-menu-matrix.md
  * ("Default Matrix (Seed)"), plus the `worktree` menu added during planning
  * (spec listed 18 menus; the app had 19), plus the Phase 8 field-operations
- * menus `field_ops` + `driver_roster` (21 menus x 7 roles = 83 non-none cells).
+ * menus `field_ops` + `driver_roster`, plus the Phase 9 `ai_actions` +
+ * `supply_chain` menus (23 menus x 7 roles = 87 non-none cells).
  *
  * Only non-`none` cells are persisted; a missing row is interpreted as `none`
  * by the Rbac middleware and by RbacMatrixService. Fully idempotent via
@@ -99,6 +100,14 @@ class RbacMatrixSeeder extends Seeder
             'sales' => 'read', 'driver' => 'read',
         ],
         'driver_roster' => [
+            'platform_owner' => 'edit', 'admin' => 'edit',
+        ],
+        // Phase 9 AI action surfaces: platform_owner equivalent to admin,
+        // every other role stays `none` (no row at all).
+        'ai_actions' => [
+            'platform_owner' => 'edit', 'admin' => 'edit',
+        ],
+        'supply_chain' => [
             'platform_owner' => 'edit', 'admin' => 'edit',
         ],
     ];

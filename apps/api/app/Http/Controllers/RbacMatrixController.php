@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 /**
  * RBAC role x menu matrix administration.
  *
- *   GET /admin/rbac/matrix — view the full 7-role x 21-menu matrix
+ *   GET /admin/rbac/matrix — view the full 7-role x 23-menu matrix
  *   PUT /admin/rbac/matrix — update one or more cells (all-or-nothing)
  *
  * Both endpoints are authorized at the controller level (owner+admin) rather

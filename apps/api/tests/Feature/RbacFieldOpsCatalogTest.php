@@ -14,7 +14,8 @@ use Tests\TestCase;
  * Phase 8 RBAC catalog additions: `field_ops` + `driver_roster`.
  *
  * Locks the 19 -> 21 menu expansion and the default access levels added for
- * the mobile field operations surfaces.
+ * the mobile field operations surfaces (catalog now totals 23 keys after
+ * Phase 9 `ai_actions` + `supply_chain`).
  */
 class RbacFieldOpsCatalogTest extends TestCase
 {
@@ -26,7 +27,7 @@ class RbacFieldOpsCatalogTest extends TestCase
 
         $this->assertContains('field_ops', $keys);
         $this->assertContains('driver_roster', $keys);
-        $this->assertCount(21, $keys);
+        $this->assertCount(23, $keys);
     }
 
     public function test_catalog_metadata_continues_sort_order_and_grouping(): void
@@ -42,12 +43,12 @@ class RbacFieldOpsCatalogTest extends TestCase
         $this->assertSame(21, $catalog['driver_roster']['sort']);
     }
 
-    public function test_seeder_creates_twenty_one_menus_and_eighty_three_cells(): void
+    public function test_seeder_creates_menus_and_cells_for_field_ops(): void
     {
         $this->seed(RbacMatrixSeeder::class);
 
-        $this->assertSame(21, MenuDefinition::count());
-        $this->assertSame(83, RoleMenuAccess::where('level', '!=', 'none')->count());
+        $this->assertSame(23, MenuDefinition::count());
+        $this->assertSame(87, RoleMenuAccess::where('level', '!=', 'none')->count());
     }
 
     public function test_default_access_levels_for_new_menus(): void
@@ -70,7 +71,7 @@ class RbacFieldOpsCatalogTest extends TestCase
         $this->assertSame('none', $this->level('finance', 'driver_roster'));
     }
 
-    public function test_matrix_endpoint_exposes_twenty_one_keys_per_role(): void
+    public function test_matrix_endpoint_exposes_all_keys_per_role(): void
     {
         $admin = User::factory()->admin()->create();
         $token = 'Bearer ' . app(AuthService::class)->createToken($admin)['token'];
@@ -80,7 +81,7 @@ class RbacFieldOpsCatalogTest extends TestCase
             ->assertOk();
 
         foreach ($response->json('data') as $role => $map) {
-            $this->assertCount(21, $map, "role {$role} should expose 21 menu keys");
+            $this->assertCount(23, $map, "role {$role} should expose 23 menu keys");
         }
 
         $this->assertSame('read', $response->json('data.driver.field_ops'));

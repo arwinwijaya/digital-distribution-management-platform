@@ -15,7 +15,7 @@ function cellId(role: string, key: string): string {
   return `${role}:${key}`;
 }
 
-/** Seed the draft from the loaded matrix (all 19×7 cells explicit). */
+/** Seed the draft from the loaded matrix (all 23×7 cells explicit). */
 function draftFromMatrix(matrix: Record<string, Record<string, RbacLevel>> | null): Draft {
   const draft: Draft = {};
   for (const role of ROLES) {

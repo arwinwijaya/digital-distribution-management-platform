@@ -1,7 +1,7 @@
 /**
  * useRbacStore — frontend source of truth for RBAC menu visibility.
  *
- * Holds the caller's role and their 19-key access map (level per menu). The
+ * Holds the caller's role and their 23-key access map (level per menu). The
  * Sidebar filters on `levelFor(key) !== 'none'`; the `/admin/rbac` page reads
  * the full 7-role matrix via `loadFromServer` and writes cells via `save`.
  *
@@ -16,7 +16,7 @@ import { useDummyStore } from '@/dummy/store';
 import { getDummyMatrix, MENU_KEYS, ROLES, type MenuKey, type RbacLevel } from '@/dummy/rbac';
 import { apiUrl, authHeaders } from '@/lib/api';
 
-/** A role's access map: menu_key => level, all 19 keys explicit. */
+/** A role's access map: menu_key => level, all 23 keys explicit. */
 export type RoleMap = Record<string, RbacLevel>;
 /** Full matrix: role => RoleMap. */
 export type RbacMatrix = Record<string, RoleMap>;
@@ -29,7 +29,7 @@ export interface RbacCell {
 
 export interface RbacState {
   role: string | null;
-  /** Caller's own 19-key map (from /auth/me or dummy). */
+  /** Caller's own 23-key map (from /auth/me or dummy). */
   map: RoleMap | null;
   /** Full 7-role matrix (admin page). Null until loaded. */
   matrix: RbacMatrix | null;
@@ -57,7 +57,7 @@ function dummyFullMatrix(): RbacMatrix {
   return matrix;
 }
 
-/** Normalise a partial map into a full 19-key map (missing → none). */
+/** Normalise a partial map into a full 23-key map (missing → none). */
 function normalizeMap(partial: Record<string, RbacLevel> | null | undefined): RoleMap {
   const map: RoleMap = {};
   for (const key of MENU_KEYS) {

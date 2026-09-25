@@ -60,8 +60,8 @@ describe('admin rbac page', () => {
     jest.restoreAllMocks();
   });
 
-  // Rendering 19×7 = 133 selects is heavy; give it headroom under full-suite load.
-  it('renders a 19x7 grid and PUTs only the changed cell on save', async () => {
+// Rendering the full 7-role grid is heavy; give it headroom under full-suite load.
+  it('renders a 23x7 grid and PUTs only the changed cell on save', async () => {
     let putBody: { cells: Array<{ role: string; menu_key: string; level: string }> } | null = null;
     fetchMock = jest.fn(async (url: unknown, options?: { method?: string; body?: string }) => {
       const target = String(url);
@@ -82,7 +82,7 @@ describe('admin rbac page', () => {
 
     await waitFor(() => expect(screen.getByTestId('rbac-row-dashboard')).toBeInTheDocument());
 
-    // 19 menu rows, each with 7 role selects.
+// The full 23-key grid, each menu a row with 7 role selects.
     for (const key of MENU_KEYS) expect(screen.getByTestId(`rbac-row-${key}`)).toBeInTheDocument();
     expect(screen.getAllByRole('combobox')).toHaveLength(MENU_KEYS.length * ROLES.length);
 

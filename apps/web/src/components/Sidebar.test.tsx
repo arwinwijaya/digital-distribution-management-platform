@@ -174,23 +174,27 @@ describe('Sidebar Analitik gate', () => {
     expect(screen.queryByText('Analitik')).not.toBeInTheDocument();
   });
 
-  it('shows Analitik and every admin item to platform_owner', async () => {
+  it('shows Analitik, Phase 9 menus, and every admin item to platform_owner', async () => {
     mockRole('platform_owner');
     await renderSidebar();
 
     await waitFor(() => expect(screen.getByText('Analitik')).toBeInTheDocument());
     expect(screen.getByText('Data Intelligence')).toBeInTheDocument();
+    expect(screen.getByText('Aksi AI')).toBeInTheDocument();
+    expect(screen.getByText('Rantai Pasok')).toBeInTheDocument();
     for (const label of ADMIN_MENUS) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
 
-  it('keeps Analitik visible to admin (unchanged)', async () => {
+  it('keeps Analitik and Phase 9 menus visible to admin', async () => {
     mockRole('admin');
     await renderSidebar();
 
     await waitFor(() => expect(screen.getByText('Analitik')).toBeInTheDocument());
     expect(screen.getByText('Analitik').closest('a')?.getAttribute('href')).toBe('/analytics');
+    expect(screen.getByText('Aksi AI').closest('a')?.getAttribute('href')).toBe('/ai-actions');
+    expect(screen.getByText('Rantai Pasok').closest('a')?.getAttribute('href')).toBe('/supply-chain');
   });
 });
 

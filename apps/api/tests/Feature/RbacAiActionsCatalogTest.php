@@ -20,13 +20,38 @@ class RbacAiActionsCatalogTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_catalog_contains_ai_actions_and_supply_chain(): void
+    public function test_catalog_preserves_legacy_order_and_appends_phase_nine_keys(): void
     {
-        $keys = MenuDefinition::keys();
+        $expectedKeys = [
+            // The 21 legacy keys must remain in their established order.
+            'dashboard',
+            'orders',
+            'products',
+            'outlets',
+            'marketplace',
+            'payments',
+            'delivery',
+            'sales',
+            'invoices',
+            'worktree',
+            'analytics',
+            'data_intelligence',
+            'operations',
+            'admin_orders',
+            'admin_products',
+            'admin_users',
+            'admin_promotions',
+            'admin_sales_performance',
+            'rbac_matrix',
+            'field_ops',
+            'driver_roster',
+            // Phase 9 additions are appended in catalog order.
+            'ai_actions',
+            'supply_chain',
+        ];
 
-        $this->assertContains('ai_actions', $keys);
-        $this->assertContains('supply_chain', $keys);
-        $this->assertCount(23, $keys);
+        $this->assertSame($expectedKeys, MenuDefinition::keys());
+        $this->assertCount(23, MenuDefinition::keys());
     }
 
     public function test_catalog_metadata_continues_sort_order_and_grouping(): void
@@ -113,10 +138,18 @@ class RbacAiActionsCatalogTest extends TestCase
         $menus = MenuDefinition::count();
         $cells = RoleMenuAccess::count();
 
+        // updateOrCreate must repair an existing row, not merely avoid adding
+        // duplicates. Mutate a Phase 9 grant before running the seeder again.
+        RoleMenuAccess::where('role', 'platform_owner')
+            ->where('menu_key', 'ai_actions')
+            ->update(['level' => 'read']);
+        $this->assertSame('read', $this->level('platform_owner', 'ai_actions'));
+
         $this->seed(RbacMatrixSeeder::class);
 
         $this->assertSame($menus, MenuDefinition::count());
         $this->assertSame($cells, RoleMenuAccess::count());
+        $this->assertSame('edit', $this->level('platform_owner', 'ai_actions'));
     }
 
     private function level(string $role, string $menuKey): string

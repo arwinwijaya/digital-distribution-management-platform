@@ -2,26 +2,64 @@
  * rbac.test.ts — dummy RBAC matrix fixture.
  *
  * Story 3 (dummy parity): dummy mode must mirror the seeded default matrix
- * with zero network. Guards the shape (21 explicit keys), the fallback for
+ * with zero network. Guards the shape (23 explicit keys), the fallback for
  * unknown roles (all `none`), and spot-check parity with the API seeder
  * (apps/api/database/seeders/RbacMatrixSeeder.php).
  */
 import { DUMMY_RBAC_MATRIX, MENU_KEYS, ROLES, getDummyMatrix } from '@/dummy/rbac';
 
+/**
+ * Explicit expected key list — the 21 legacy keys in their original order,
+ * followed by the Phase 9 additions. Kept literal (rather than imported from
+ * the API) so a reordering of `MENU_KEYS` fails this test instead of silently
+ * reordering the sidebar and the RBAC matrix.
+ */
+const EXPECTED_MENU_KEYS = [
+  'dashboard',
+  'orders',
+  'products',
+  'outlets',
+  'marketplace',
+  'payments',
+  'delivery',
+  'sales',
+  'invoices',
+  'worktree',
+  'analytics',
+  'data_intelligence',
+  'operations',
+  'admin_orders',
+  'admin_products',
+  'admin_users',
+  'admin_promotions',
+  'admin_sales_performance',
+  'rbac_matrix',
+  'field_ops',
+  'driver_roster',
+  'ai_actions',
+  'supply_chain',
+] as const;
+
 describe('DUMMY_RBAC_MATRIX shape', () => {
-  it('exposes exactly 21 menu keys', () => {
-    expect(MENU_KEYS).toHaveLength(21);
-    expect(new Set(MENU_KEYS).size).toBe(21);
+  it('exposes exactly 23 menu keys in the canonical order', () => {
+    expect(MENU_KEYS).toHaveLength(23);
+    expect(new Set(MENU_KEYS).size).toBe(23);
+    expect([...MENU_KEYS]).toEqual([...EXPECTED_MENU_KEYS]);
+  });
+
+  it('appends ai_actions and supply_chain after the 21 legacy keys', () => {
+    expect(MENU_KEYS.slice(0, 21)).toEqual([...EXPECTED_MENU_KEYS.slice(0, 21)]);
+    expect(MENU_KEYS.slice(21)).toEqual(['ai_actions', 'supply_chain']);
   });
 
   it('exposes exactly 7 roles', () => {
     expect(ROLES).toHaveLength(7);
   });
 
-  it('resolves a 21-key map for every known role', () => {
+  it('resolves a 23-key map for every known role', () => {
     for (const role of ROLES) {
       const map = getDummyMatrix(role);
-      expect(Object.keys(map)).toHaveLength(21);
+      expect(Object.keys(map)).toHaveLength(23);
       for (const key of MENU_KEYS) {
         expect(['none', 'read', 'edit']).toContain(map[key]);
       }
@@ -32,7 +70,7 @@ describe('DUMMY_RBAC_MATRIX shape', () => {
 describe('getDummyMatrix fallback', () => {
   it('returns all-none for an unknown role', () => {
     const map = getDummyMatrix('unknown');
-    expect(Object.keys(map)).toHaveLength(21);
+    expect(Object.keys(map)).toHaveLength(23);
     for (const key of MENU_KEYS) {
       expect(map[key]).toBe('none');
     }
@@ -147,5 +185,26 @@ describe('getDummyMatrix parity spot-checks with the API seeder', () => {
     expect(driverRoster?.outlet).toBeUndefined();
     expect(driverRoster?.supplier).toBeUndefined();
     expect(driverRoster?.finance).toBeUndefined();
+  });
+
+  it('matches the Phase 9 ai_actions + supply_chain rows from seeder', () => {
+    // Both new menus: platform_owner=edit, admin=edit; every other role absent.
+    for (const menu of ['ai_actions', 'supply_chain'] as const) {
+      expect(DUMMY_RBAC_MATRIX[menu]?.platform_owner).toBe('edit');
+      expect(DUMMY_RBAC_MATRIX[menu]?.admin).toBe('edit');
+      expect(DUMMY_RBAC_MATRIX[menu]?.outlet).toBeUndefined();
+      expect(DUMMY_RBAC_MATRIX[menu]?.supplier).toBeUndefined();
+      expect(DUMMY_RBAC_MATRIX[menu]?.sales).toBeUndefined();
+      expect(DUMMY_RBAC_MATRIX[menu]?.driver).toBeUndefined();
+      expect(DUMMY_RBAC_MATRIX[menu]?.finance).toBeUndefined();
+
+      expect(getDummyMatrix('platform_owner')[menu]).toBe('edit');
+      expect(getDummyMatrix('admin')[menu]).toBe('edit');
+      expect(getDummyMatrix('outlet')[menu]).toBe('none');
+      expect(getDummyMatrix('supplier')[menu]).toBe('none');
+      expect(getDummyMatrix('sales')[menu]).toBe('none');
+      expect(getDummyMatrix('driver')[menu]).toBe('none');
+      expect(getDummyMatrix('finance')[menu]).toBe('none');
+    }
   });
 });

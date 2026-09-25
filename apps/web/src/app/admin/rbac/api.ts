@@ -4,7 +4,7 @@
  * All matrix traffic is funnelled through `useRbacStore` (never a direct fetch
  * from the component): the store owns the token handling, dummy-mode branch,
  * error parsing and the post-save refresh. `fetchMe` hydrates the caller's
- * role + 19-key map so the page can gate on `canRead('rbac_matrix')`.
+ * role + 23-key map so the page can gate on `canRead('rbac_matrix')`.
  */
 import { apiUrl, authHeaders } from '@/lib/api';
 import { useRbacStore, type RbacCell, type RbacMatrix } from '@/store/useRbacStore';
@@ -35,6 +35,10 @@ export const MENU_LABELS: Record<string, string> = {
   admin_promotions: 'Kelola Promosi',
   admin_sales_performance: 'Performa Sales',
   rbac_matrix: 'Kelola Akses',
+  field_ops: 'Operasi Lapangan',
+  driver_roster: 'Roster Driver',
+  ai_actions: 'Aksi AI',
+  supply_chain: 'Rantai Pasok',
 };
 
 /** The three selectable levels, in ascending order. */

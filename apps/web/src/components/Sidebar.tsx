@@ -26,10 +26,14 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'worktree',     href: '/worktree',      label: 'Worktree',      icon: '🌳' },
   // Operasi Lapangan (field_ops)
   { key: 'field_ops',    href: '/admin/tracking', label: 'Operasi Lapangan', icon: '📍' },
+  // Supply Chain (Phase 9) — group operasional
+  { key: 'supply_chain', href: '/supply-chain',  label: 'Rantai Pasok',  icon: '🔗' },
   // Analitik & Insight (admin)
   { key: 'analytics',         href: '/analytics',         label: 'Analitik',         icon: '📈' },
   { key: 'data_intelligence', href: '/data-intelligence', label: 'Data Intelligence', icon: '🗺️' },
   { key: 'operations',        href: '/operations',        label: 'Operasi',          icon: '🔧' },
+  // AI Actions (Phase 9) — group analitik
+  { key: 'ai_actions',      href: '/ai-actions',      label: 'Aksi AI',          icon: '🤖' },
   // Admin Management
   { key: 'admin_orders',            href: '/admin/orders',            label: 'Approval Pesanan', icon: '⚙️' },
   { key: 'admin_products',          href: '/admin/products',          label: 'Harga Produk',     icon: '💰' },

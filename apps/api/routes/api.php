@@ -21,6 +21,7 @@ use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PromotionBroadcastController;
+use App\Http\Controllers\RecommendationActionController;
 use App\Http\Controllers\RbacMatrixController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UserRoleController;
@@ -191,6 +192,11 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/forecast', [AIController::class, 'forecast']);
         Route::get('/segmentation', [AIController::class, 'segmentation']);
     });
+
+    // Phase 9 T5: draft recommendation actions (create-only; execution is a later,
+    // approval-gated task). Admin-only via the `ai_actions` menu.
+    Route::get('/admin/recommendation-actions', [RecommendationActionController::class, 'index'])->middleware('rbac:ai_actions:read');
+    Route::post('/admin/recommendation-actions', [RecommendationActionController::class, 'store'])->middleware('rbac:ai_actions:edit');
 
     // WhatsApp outbound operations use the authenticated outlet/admin identity.
     Route::post('/whatsapp/catalog', [WhatsAppController::class, 'catalog'])->middleware('rbac:orders:edit');

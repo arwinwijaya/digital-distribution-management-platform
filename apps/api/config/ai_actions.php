@@ -7,5 +7,7 @@ return [
     'ml_adapter' => [
         'driver' => env('AI_ACTIONS_ML_ADAPTER_DRIVER', 'deterministic'),
         'timeout_ms' => (int) env('AI_ACTIONS_ML_ADAPTER_TIMEOUT_MS', 1000),
+        'failure_threshold' => (int) env('AI_ACTIONS_ML_ADAPTER_FAILURE_THRESHOLD', 3),
+        'cooldown_seconds' => (int) env('AI_ACTIONS_ML_ADAPTER_COOLDOWN_SECONDS', 60),
     ],
 ];

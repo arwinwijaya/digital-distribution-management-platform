@@ -1,7 +1,7 @@
 # Phase 9 — AI Action & Supply Chain — Execution Plan (Index)
 
 **Date:** 2026-09-24
-**Status:** IN_PROGRESS — Phase 1 (T1–T4) DONE · Phase 2–6 PENDING
+**Status:** IN_PROGRESS — Phase 1 (T1–T4) DONE · Phase 2 (T5–T8) DONE · Phase 3 partial (T9, T11, T12 DONE; T10 PENDING) · Phase 4–6 PENDING
 **Spec:** docs/pocket/spec/2026-09-24-phase9-ai-action-supply-chain/phase9-ai-action-supply-chain.md
 **Plan:** ../execution-plan.md · **Log:** ../log.json
 

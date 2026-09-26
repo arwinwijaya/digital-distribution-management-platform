@@ -4,7 +4,7 @@
     "plan_type": "execution",
     "status": "IN_PROGRESS",
     "created_at": "2026-09-24T00:00:00+07:00",
-    "updated_at": "2026-09-25T11:15:00+07:00",
+    "updated_at": "2026-09-26T00:00:00+07:00",
     "baseline_sha": "2dcd3c7",
     "pipeline": "pocket-development",
     "plan_file": "execution-plan.md",
@@ -25,20 +25,20 @@
       "phase": 2,
       "name": "Draft + Approval + Execute API",
       "tasks": [
-        {"id": "T5", "name": "Endpoint create draft action", "status": "PENDING", "depends": ["T2", "T4"], "file": "execution-plan/tasks/T5-create-draft-action-endpoint.md", "commit": null},
-        {"id": "T6", "name": "Approve/reject + audit append-only", "status": "PENDING", "depends": ["T5"], "file": "execution-plan/tasks/T6-approve-reject-audit.md", "commit": null},
-        {"id": "T7", "name": "Execute draft_order via OrderCreationService", "status": "PENDING", "depends": ["T6"], "file": "execution-plan/tasks/T7-execute-draft-order.md", "commit": null},
-        {"id": "T8", "name": "Execute draft_campaign via PromotionService", "status": "PENDING", "depends": ["T6"], "file": "execution-plan/tasks/T8-execute-draft-campaign.md", "commit": null}
+        {"id": "T5", "name": "Endpoint create draft action", "status": "DONE", "depends": ["T2", "T4"], "file": "execution-plan/tasks/T5-create-draft-action-endpoint.md", "commit": "247c93b"},
+        {"id": "T6", "name": "Approve/reject + audit append-only", "status": "DONE", "depends": ["T5"], "file": "execution-plan/tasks/T6-approve-reject-audit.md", "commit": "9db60fb"},
+        {"id": "T7", "name": "Execute draft_order via OrderCreationService", "status": "DONE", "depends": ["T6"], "file": "execution-plan/tasks/T7-execute-draft-order.md", "commit": "5878d34"},
+        {"id": "T8", "name": "Execute draft_campaign via PromotionService", "status": "DONE", "depends": ["T6"], "file": "execution-plan/tasks/T8-execute-draft-campaign.md", "commit": "20363ec"}
       ]
     },
     {
       "phase": 3,
       "name": "Replenishment + Calibration + Experiment",
       "tasks": [
-        {"id": "T9", "name": "ReplenishmentService generate draft plan", "status": "PENDING", "depends": ["T1", "T4"], "file": "execution-plan/tasks/T9-replenishment-service-generate.md", "commit": null},
+        {"id": "T9", "name": "ReplenishmentService generate draft plan", "status": "DONE", "depends": ["T1", "T4"], "file": "execution-plan/tasks/T9-replenishment-service-generate.md", "commit": "1de9cda"},
         {"id": "T10", "name": "Replenishment approve/execute (draft PO)", "status": "PENDING", "depends": ["T9", "T6"], "file": "execution-plan/tasks/T10-replenishment-approve-execute.md", "commit": null},
-        {"id": "T11", "name": "ForecastCalibrationService + persistensi kalibrasi", "status": "PENDING", "depends": ["T1", "T3"], "file": "execution-plan/tasks/T11-forecast-calibration-service.md", "commit": null},
-        {"id": "T12", "name": "Assignment A/B deterministik + RevenueLiftService", "status": "PENDING", "depends": ["T1"], "file": "execution-plan/tasks/T12-ab-assignment-revenue-lift.md", "commit": null}
+        {"id": "T11", "name": "ForecastCalibrationService + persistensi kalibrasi", "status": "DONE", "depends": ["T1", "T3"], "file": "execution-plan/tasks/T11-forecast-calibration-service.md", "commit": "f513a1a"},
+        {"id": "T12", "name": "Assignment A/B deterministik + RevenueLiftService", "status": "DONE", "depends": ["T1"], "file": "execution-plan/tasks/T12-ab-assignment-revenue-lift.md", "commit": "0ad6955"}
       ]
     },
     {

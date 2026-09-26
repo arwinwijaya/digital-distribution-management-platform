@@ -126,6 +126,22 @@ class RecommendationActionController extends Controller
     }
 
     /**
+     * POST /api/admin/recommendation-actions/{id}/execute — approval-gated execution.
+     *
+     * Only `approved` actions run. `draft_order` delegates to OrderCreationService.
+     * Actor comes from the session only.
+     */
+    public function execute(Request $request, int $id): JsonResponse
+    {
+        $result = $this->service->execute($id, $request->user());
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $this->formatAction($result['action'], ! $result['replay']),
+        ]);
+    }
+
+    /**
      * Apply common list filters.
      */
     private function applyFilters(Builder $query, Request $request): Builder

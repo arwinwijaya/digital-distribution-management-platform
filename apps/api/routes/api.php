@@ -200,6 +200,8 @@ Route::middleware('auth:api')->group(function () {
     // Phase 9 T6: approval workflow — legal transitions + append-only audit.
     Route::post('/admin/recommendation-actions/{id}/approve', [RecommendationActionController::class, 'approve'])->middleware('rbac:ai_actions:edit');
     Route::post('/admin/recommendation-actions/{id}/reject', [RecommendationActionController::class, 'reject'])->middleware('rbac:ai_actions:edit');
+    // Phase 9 T7: approval-gated execution (draft_order via OrderCreationService).
+    Route::post('/admin/recommendation-actions/{id}/execute', [RecommendationActionController::class, 'execute'])->middleware('rbac:ai_actions:edit');
 
     // WhatsApp outbound operations use the authenticated outlet/admin identity.
     Route::post('/whatsapp/catalog', [WhatsAppController::class, 'catalog'])->middleware('rbac:orders:edit');

@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\RecommendationAction;
 use App\Models\RecommendationActionEvent;
+use App\Models\Outlet;
 use App\Models\User;
+use App\Services\OrderCreationService;
+use App\Services\PromotionService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +16,11 @@ use Illuminate\Validation\ValidationException;
 class RecommendationActionService
 {
     public const VALID_TYPES = ['draft_order', 'draft_campaign'];
+
+    public function __construct(
+        private readonly OrderCreationService $orderCreationService,
+        private readonly PromotionService $promotionService,
+    ) {}
 
     /**
      * Create a draft recommendation action with idempotency.
@@ -206,6 +214,134 @@ class RecommendationActionService
             'actor_id' => $actorId,
             'metadata' => array_merge(['at' => now()->toISOString()], $extra),
         ]);
+    }
+
+    /**
+     * Run a locked orchestration block with bounded retry on transient database
+     * errors, matching the approval-transition retry posture.
+     *
+     * @param  callable(): array{action: RecommendationAction, replay: bool}  $body
+     * @return array{action: RecommendationAction, replay: bool}
+     */
+    private function runExecution(int $id, callable $body): array
+    {
+        $result = null;
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                $result = DB::transaction(function () use ($id, $body): array {
+                    $action = RecommendationAction::whereKey($id)->lockForUpdate()->first();
+                    if ($action === null) {
+                        throw (new ModelNotFoundException())->setModel(RecommendationAction::class, [$id]);
+                    }
+
+                    return $body($action);
+                });
+                break;
+            } catch (QueryException $exception) {
+                if ($attempt === 2) {
+                    throw $exception;
+                }
+                usleep(10000 * ($attempt + 1));
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Execute an approved action. Only actions with status 'approved' may execute.
+     *
+     * The execution identity derives from the action id so that replaying the
+     * same endpoint produces exactly one business effect (Order/Promotion).
+     *
+     * @return array{action: RecommendationAction, replay: bool, failed: bool}
+     */
+    public function execute(int $id, User $actor): array
+    {
+        return $this->runExecution($id, function (RecommendationAction $action) use ($actor): array {
+            // Idempotent replay: already executed → return existing outcome.
+            if ($action->status === 'executed') {
+                return ['action' => $action->load('events'), 'replay' => true, 'failed' => false];
+            }
+
+            // Gate: only approved actions execute.
+            if ($action->status !== 'approved') {
+                throw ValidationException::withMessages([
+                    'status' => "Cannot execute action with status '{$action->status}'. Only approved actions may be executed.",
+                ]);
+            }
+
+            $actionType = $action->type;
+            $payload = $action->payload;
+            $identity = 'recommendation-action:'.$action->id;
+
+            try {
+                if ($actionType === 'draft_order') {
+                    return $this->executeDraftOrder($action, $payload, $identity, $actor);
+                }
+
+                if ($actionType === 'draft_campaign') {
+                    // T8 will implement this branch. For T7 it is not supported.
+                    throw ValidationException::withMessages([
+                        'status' => 'Campaign execution not yet supported.',
+                    ]);
+                }
+
+                throw ValidationException::withMessages([
+                    'status' => "Unknown action type '{$actionType}'.",
+                ]);
+            } catch (ValidationException $e) {
+                // Business failure (stock, overlap, etc.) → mark failed, persist
+                // execution_result with the message, append 'failed' event, commit.
+                // The inner service has already rolled back its savepoint.
+                $action->forceFill([
+                    'status' => 'failed',
+                    'executed_by' => $actor->id,
+                    'executed_at' => now(),
+                    'execution_result' => ['error' => $e->getMessage()],
+                ])->save();
+
+                $this->appendEvent($action, 'failed', $actor->id, [
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Return failed outcome (HTTP 200 with data.status='failed').
+                return ['action' => $action->load('events'), 'replay' => false, 'failed' => true];
+            }
+        });
+    }
+
+    /**
+     * Execute a draft_order by delegating to OrderCreationService.
+     *
+     * @param  array{items: array<int, array{product_id: int, quantity: int}>}  $payload
+     */
+    private function executeDraftOrder(RecommendationAction $action, array $payload, string $identity, User $actor): array
+    {
+        $outlet = Outlet::findOrFail($action->outlet_id);
+        $validated = ['items' => $payload['items']];
+
+        // OrderCreationService runs in a nested transaction (savepoint).
+        // On success, the order is committed. On ValidationException, the
+        // savepoint rolls back and we catch above to mark the action failed.
+        $result = $this->orderCreationService->create($validated, $outlet, $identity);
+
+        $order = $result['order'];
+
+        $action->forceFill([
+            'status' => 'executed',
+            'executed_by' => $actor->id,
+            'executed_at' => now(),
+            'execution_result' => [
+                'order_id' => $order->id,
+                'created' => $result['created'],
+            ],
+        ])->save();
+
+        $this->appendEvent($action, 'executed', $actor->id, [
+            'order_id' => $order->id,
+        ]);
+
+        return ['action' => $action->load('events'), 'replay' => false, 'failed' => false];
     }
 
     /**

@@ -85,6 +85,130 @@ class RecommendationActionService
     }
 
     /**
+     * Approve a draft action (draft -> approved).
+     *
+     * The status transition and the append-only audit row are written inside a
+     * single row-locked transaction, mirroring OrderController::runApprovalTransaction.
+     * A replay against an already-approved action is idempotent: it returns the
+     * same row without appending a second audit event. Any other status is an
+     * illegal transition (422).
+     *
+     * Actor is always taken from the $actor argument, never from payload.
+     *
+     * @return array{action: RecommendationAction, replay: bool}
+     */
+    public function approve(int $id, User $actor): array
+    {
+        return $this->runTransition($id, function (RecommendationAction $action) use ($actor): array {
+            if ($action->status === 'approved') {
+                return ['action' => $action->load('events'), 'replay' => true];
+            }
+
+            if ($action->status !== 'draft') {
+                throw ValidationException::withMessages([
+                    'status' => "Cannot approve action with status '{$action->status}'.",
+                ]);
+            }
+
+            $action->forceFill([
+                'status' => 'approved',
+                'approved_by' => $actor->id,
+                'approved_at' => now(),
+                'rejection_reason' => null,
+            ])->save();
+
+            $this->appendEvent($action, 'approved', $actor->id);
+
+            return ['action' => $action->load('events'), 'replay' => false];
+        });
+    }
+
+    /**
+     * Reject a draft action (draft -> rejected).
+     *
+     * A rejection reason is mandatory. As with approve(), the transition and its
+     * audit row are committed in one row-locked transaction, and a replay against
+     * an already-rejected action does not duplicate the audit event.
+     *
+     * @return array{action: RecommendationAction, replay: bool}
+     */
+    public function reject(int $id, User $actor, string $reason): array
+    {
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'reason' => 'A rejection reason is required.',
+            ]);
+        }
+
+        return $this->runTransition($id, function (RecommendationAction $action) use ($actor, $reason): array {
+            if ($action->status === 'rejected') {
+                return ['action' => $action->load('events'), 'replay' => true];
+            }
+
+            if ($action->status !== 'draft') {
+                throw ValidationException::withMessages([
+                    'status' => "Cannot reject action with status '{$action->status}'.",
+                ]);
+            }
+
+            $action->forceFill([
+                'status' => 'rejected',
+                'rejection_reason' => $reason,
+            ])->save();
+
+            $this->appendEvent($action, 'rejected', $actor->id, ['reason' => $reason]);
+
+            return ['action' => $action->load('events'), 'replay' => false];
+        });
+    }
+
+    /**
+     * Run a status transition under a row lock with bounded retry on transient
+     * database errors, matching OrderController::runApprovalTransaction.
+     *
+     * @param  callable(RecommendationAction): array{action: RecommendationAction, replay: bool}  $mutator
+     * @return array{action: RecommendationAction, replay: bool}
+     */
+    private function runTransition(int $id, callable $mutator): array
+    {
+        $result = null;
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                $result = DB::transaction(function () use ($id, $mutator): array {
+                    $action = RecommendationAction::whereKey($id)->lockForUpdate()->first();
+                    if ($action === null) {
+                        throw (new ModelNotFoundException())->setModel(RecommendationAction::class, [$id]);
+                    }
+
+                    return $mutator($action);
+                });
+                break;
+            } catch (QueryException $exception) {
+                if ($attempt === 2) {
+                    throw $exception;
+                }
+                usleep(10000 * ($attempt + 1));
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Append-only audit row for a transition. No update/delete path exists.
+     */
+    private function appendEvent(RecommendationAction $action, string $eventType, ?int $actorId, array $extra = []): void
+    {
+        RecommendationActionEvent::create([
+            'recommendation_action_id' => $action->id,
+            'event_type' => $eventType,
+            'actor_id' => $actorId,
+            'metadata' => array_merge(['at' => now()->toISOString()], $extra),
+        ]);
+    }
+
+    /**
      * Validate payload structure.
      *
      * @param  array{

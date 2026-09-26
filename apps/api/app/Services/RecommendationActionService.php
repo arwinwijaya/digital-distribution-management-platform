@@ -18,8 +18,8 @@ class RecommendationActionService
     public const VALID_TYPES = ['draft_order', 'draft_campaign'];
 
     public function __construct(
-        private readonly OrderCreationService $orderCreationService,
-        private readonly PromotionService $promotionService,
+        private readonly ?OrderCreationService $orderCreationService = null,
+        private readonly ?PromotionService $promotionService = null,
     ) {}
 
     /**
@@ -280,10 +280,7 @@ class RecommendationActionService
                 }
 
                 if ($actionType === 'draft_campaign') {
-                    // T8 will implement this branch. For T7 it is not supported.
-                    throw ValidationException::withMessages([
-                        'status' => 'Campaign execution not yet supported.',
-                    ]);
+                    return $this->executeDraftCampaign($action, $payload, $identity, $actor);
                 }
 
                 throw ValidationException::withMessages([
@@ -319,11 +316,12 @@ class RecommendationActionService
     {
         $outlet = Outlet::findOrFail($action->outlet_id);
         $validated = ['items' => $payload['items']];
+        $orders = $this->orderCreationService ?? app(OrderCreationService::class);
 
         // OrderCreationService runs in a nested transaction (savepoint).
         // On success, the order is committed. On ValidationException, the
         // savepoint rolls back and we catch above to mark the action failed.
-        $result = $this->orderCreationService->create($validated, $outlet, $identity);
+        $result = $orders->create($validated, $outlet, $identity);
 
         $order = $result['order'];
 
@@ -339,6 +337,45 @@ class RecommendationActionService
 
         $this->appendEvent($action, 'executed', $actor->id, [
             'order_id' => $order->id,
+        ]);
+
+        return ['action' => $action->load('events'), 'replay' => false, 'failed' => false];
+    }
+
+    /**
+     * Execute a draft_campaign by delegating to PromotionService::create() for
+     * overlap checking and actor audit (created_by is the session actor).
+     *
+     * @param  array{campaign: array<string, mixed>}  $payload
+     */
+    private function executeDraftCampaign(RecommendationAction $action, array $payload, string $identity, User $actor): array
+    {
+        if (! isset($payload['campaign']) || ! is_array($payload['campaign'])) {
+            throw ValidationException::withMessages([
+                'payload' => 'Campaign payload is missing required fields.',
+            ]);
+        }
+
+        $campaign = $payload['campaign'];
+        $promotions = $this->promotionService ?? app(PromotionService::class);
+
+        // PromotionService::create() performs the overlap check + persists
+        // with created_by = actor (session). It runs in its own nested
+        // transaction (savepoint); on overlap/validation failure the
+        // savepoint rolls back and we catch above to mark failed.
+        $promotion = $promotions->create($campaign, $actor->id);
+
+        $action->forceFill([
+            'status' => 'executed',
+            'executed_by' => $actor->id,
+            'executed_at' => now(),
+            'execution_result' => [
+                'promotion_id' => $promotion->id,
+            ],
+        ])->save();
+
+        $this->appendEvent($action, 'executed', $actor->id, [
+            'promotion_id' => $promotion->id,
         ]);
 
         return ['action' => $action->load('events'), 'replay' => false, 'failed' => false];

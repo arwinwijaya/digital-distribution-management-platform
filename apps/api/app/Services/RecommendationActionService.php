@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\RecommendationAction;
 use App\Models\RecommendationActionEvent;
+use App\Models\Outlet;
 use App\Models\User;
+use App\Services\OrderCreationService;
+use App\Services\PromotionService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +16,11 @@ use Illuminate\Validation\ValidationException;
 class RecommendationActionService
 {
     public const VALID_TYPES = ['draft_order', 'draft_campaign'];
+
+    public function __construct(
+        private readonly ?OrderCreationService $orderCreationService = null,
+        private readonly ?PromotionService $promotionService = null,
+    ) {}
 
     /**
      * Create a draft recommendation action with idempotency.
@@ -82,6 +90,295 @@ class RecommendationActionService
         }
 
         throw new \LogicException('Unable to create draft action.');
+    }
+
+    /**
+     * Approve a draft action (draft -> approved).
+     *
+     * The status transition and the append-only audit row are written inside a
+     * single row-locked transaction, mirroring OrderController::runApprovalTransaction.
+     * A replay against an already-approved action is idempotent: it returns the
+     * same row without appending a second audit event. Any other status is an
+     * illegal transition (422).
+     *
+     * Actor is always taken from the $actor argument, never from payload.
+     *
+     * @return array{action: RecommendationAction, replay: bool}
+     */
+    public function approve(int $id, User $actor): array
+    {
+        return $this->runTransition($id, function (RecommendationAction $action) use ($actor): array {
+            if ($action->status === 'approved') {
+                return ['action' => $action->load('events'), 'replay' => true];
+            }
+
+            if ($action->status !== 'draft') {
+                throw ValidationException::withMessages([
+                    'status' => "Cannot approve action with status '{$action->status}'.",
+                ]);
+            }
+
+            $action->forceFill([
+                'status' => 'approved',
+                'approved_by' => $actor->id,
+                'approved_at' => now(),
+                'rejection_reason' => null,
+            ])->save();
+
+            $this->appendEvent($action, 'approved', $actor->id);
+
+            return ['action' => $action->load('events'), 'replay' => false];
+        });
+    }
+
+    /**
+     * Reject a draft action (draft -> rejected).
+     *
+     * A rejection reason is mandatory. As with approve(), the transition and its
+     * audit row are committed in one row-locked transaction, and a replay against
+     * an already-rejected action does not duplicate the audit event.
+     *
+     * @return array{action: RecommendationAction, replay: bool}
+     */
+    public function reject(int $id, User $actor, string $reason): array
+    {
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'reason' => 'A rejection reason is required.',
+            ]);
+        }
+
+        return $this->runTransition($id, function (RecommendationAction $action) use ($actor, $reason): array {
+            if ($action->status === 'rejected') {
+                return ['action' => $action->load('events'), 'replay' => true];
+            }
+
+            if ($action->status !== 'draft') {
+                throw ValidationException::withMessages([
+                    'status' => "Cannot reject action with status '{$action->status}'.",
+                ]);
+            }
+
+            $action->forceFill([
+                'status' => 'rejected',
+                'rejection_reason' => $reason,
+            ])->save();
+
+            $this->appendEvent($action, 'rejected', $actor->id, ['reason' => $reason]);
+
+            return ['action' => $action->load('events'), 'replay' => false];
+        });
+    }
+
+    /**
+     * Run a status transition under a row lock with bounded retry on transient
+     * database errors, matching OrderController::runApprovalTransaction.
+     *
+     * @param  callable(RecommendationAction): array{action: RecommendationAction, replay: bool}  $mutator
+     * @return array{action: RecommendationAction, replay: bool}
+     */
+    private function runTransition(int $id, callable $mutator): array
+    {
+        $result = null;
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                $result = DB::transaction(function () use ($id, $mutator): array {
+                    $action = RecommendationAction::whereKey($id)->lockForUpdate()->first();
+                    if ($action === null) {
+                        throw (new ModelNotFoundException())->setModel(RecommendationAction::class, [$id]);
+                    }
+
+                    return $mutator($action);
+                });
+                break;
+            } catch (QueryException $exception) {
+                if ($attempt === 2) {
+                    throw $exception;
+                }
+                usleep(10000 * ($attempt + 1));
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Append-only audit row for a transition. No update/delete path exists.
+     */
+    private function appendEvent(RecommendationAction $action, string $eventType, ?int $actorId, array $extra = []): void
+    {
+        RecommendationActionEvent::create([
+            'recommendation_action_id' => $action->id,
+            'event_type' => $eventType,
+            'actor_id' => $actorId,
+            'metadata' => array_merge(['at' => now()->toISOString()], $extra),
+        ]);
+    }
+
+    /**
+     * Run a locked orchestration block with bounded retry on transient database
+     * errors, matching the approval-transition retry posture.
+     *
+     * @param  callable(): array{action: RecommendationAction, replay: bool}  $body
+     * @return array{action: RecommendationAction, replay: bool}
+     */
+    private function runExecution(int $id, callable $body): array
+    {
+        $result = null;
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                $result = DB::transaction(function () use ($id, $body): array {
+                    $action = RecommendationAction::whereKey($id)->lockForUpdate()->first();
+                    if ($action === null) {
+                        throw (new ModelNotFoundException())->setModel(RecommendationAction::class, [$id]);
+                    }
+
+                    return $body($action);
+                });
+                break;
+            } catch (QueryException $exception) {
+                if ($attempt === 2) {
+                    throw $exception;
+                }
+                usleep(10000 * ($attempt + 1));
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Execute an approved action. Only actions with status 'approved' may execute.
+     *
+     * The execution identity derives from the action id so that replaying the
+     * same endpoint produces exactly one business effect (Order/Promotion).
+     *
+     * @return array{action: RecommendationAction, replay: bool, failed: bool}
+     */
+    public function execute(int $id, User $actor): array
+    {
+        return $this->runExecution($id, function (RecommendationAction $action) use ($actor): array {
+            // Idempotent replay: already executed → return existing outcome.
+            if ($action->status === 'executed') {
+                return ['action' => $action->load('events'), 'replay' => true, 'failed' => false];
+            }
+
+            // Gate: only approved actions execute.
+            if ($action->status !== 'approved') {
+                throw ValidationException::withMessages([
+                    'status' => "Cannot execute action with status '{$action->status}'. Only approved actions may be executed.",
+                ]);
+            }
+
+            $actionType = $action->type;
+            $payload = $action->payload;
+            $identity = 'recommendation-action:'.$action->id;
+
+            try {
+                if ($actionType === 'draft_order') {
+                    return $this->executeDraftOrder($action, $payload, $identity, $actor);
+                }
+
+                if ($actionType === 'draft_campaign') {
+                    return $this->executeDraftCampaign($action, $payload, $identity, $actor);
+                }
+
+                throw ValidationException::withMessages([
+                    'status' => "Unknown action type '{$actionType}'.",
+                ]);
+            } catch (ValidationException $e) {
+                // Business failure (stock, overlap, etc.) → mark failed, persist
+                // execution_result with the message, append 'failed' event, commit.
+                // The inner service has already rolled back its savepoint.
+                $action->forceFill([
+                    'status' => 'failed',
+                    'executed_by' => $actor->id,
+                    'executed_at' => now(),
+                    'execution_result' => ['error' => $e->getMessage()],
+                ])->save();
+
+                $this->appendEvent($action, 'failed', $actor->id, [
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Return failed outcome (HTTP 200 with data.status='failed').
+                return ['action' => $action->load('events'), 'replay' => false, 'failed' => true];
+            }
+        });
+    }
+
+    /**
+     * Execute a draft_order by delegating to OrderCreationService.
+     *
+     * @param  array{items: array<int, array{product_id: int, quantity: int}>}  $payload
+     */
+    private function executeDraftOrder(RecommendationAction $action, array $payload, string $identity, User $actor): array
+    {
+        $outlet = Outlet::findOrFail($action->outlet_id);
+        $validated = ['items' => $payload['items']];
+        $orders = $this->orderCreationService ?? app(OrderCreationService::class);
+
+        // OrderCreationService runs in a nested transaction (savepoint).
+        // On success, the order is committed. On ValidationException, the
+        // savepoint rolls back and we catch above to mark the action failed.
+        $result = $orders->create($validated, $outlet, $identity);
+
+        $order = $result['order'];
+
+        $action->forceFill([
+            'status' => 'executed',
+            'executed_by' => $actor->id,
+            'executed_at' => now(),
+            'execution_result' => [
+                'order_id' => $order->id,
+                'created' => $result['created'],
+            ],
+        ])->save();
+
+        $this->appendEvent($action, 'executed', $actor->id, [
+            'order_id' => $order->id,
+        ]);
+
+        return ['action' => $action->load('events'), 'replay' => false, 'failed' => false];
+    }
+
+    /**
+     * Execute a draft_campaign by delegating to PromotionService::create() for
+     * overlap checking and actor audit (created_by is the session actor).
+     *
+     * @param  array{campaign: array<string, mixed>}  $payload
+     */
+    private function executeDraftCampaign(RecommendationAction $action, array $payload, string $identity, User $actor): array
+    {
+        if (! isset($payload['campaign']) || ! is_array($payload['campaign'])) {
+            throw ValidationException::withMessages([
+                'payload' => 'Campaign payload is missing required fields.',
+            ]);
+        }
+
+        $campaign = $payload['campaign'];
+        $promotions = $this->promotionService ?? app(PromotionService::class);
+
+        // PromotionService::create() performs the overlap check + persists
+        // with created_by = actor (session). It runs in its own nested
+        // transaction (savepoint); on overlap/validation failure the
+        // savepoint rolls back and we catch above to mark failed.
+        $promotion = $promotions->create($campaign, $actor->id);
+
+        $action->forceFill([
+            'status' => 'executed',
+            'executed_by' => $actor->id,
+            'executed_at' => now(),
+            'execution_result' => [
+                'promotion_id' => $promotion->id,
+            ],
+        ])->save();
+
+        $this->appendEvent($action, 'executed', $actor->id, [
+            'promotion_id' => $promotion->id,
+        ]);
+
+        return ['action' => $action->load('events'), 'replay' => false, 'failed' => false];
     }
 
     /**

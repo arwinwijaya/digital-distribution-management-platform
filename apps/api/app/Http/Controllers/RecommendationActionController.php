@@ -93,6 +93,55 @@ class RecommendationActionController extends Controller
     }
 
     /**
+     * POST /api/admin/recommendation-actions/{id}/approve — transition draft -> approved.
+     *
+     * Actor is always the authenticated session user; any `approved_by` field in
+     * the request body is ignored.
+     */
+    public function approve(Request $request, int $id): JsonResponse
+    {
+        $result = $this->service->approve($id, $request->user());
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $this->formatAction($result['action'], ! $result['replay']),
+        ]);
+    }
+
+    /**
+     * POST /api/admin/recommendation-actions/{id}/reject — transition draft -> rejected.
+     *
+     * The rejection reason is required; actor comes from the session only.
+     */
+    public function reject(Request $request, int $id): JsonResponse
+    {
+        $reason = trim((string) $request->input('reason', ''));
+
+        $result = $this->service->reject($id, $request->user(), $reason);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $this->formatAction($result['action'], ! $result['replay']),
+        ]);
+    }
+
+    /**
+     * POST /api/admin/recommendation-actions/{id}/execute — approval-gated execution.
+     *
+     * Only `approved` actions run. `draft_order` delegates to OrderCreationService.
+     * Actor comes from the session only.
+     */
+    public function execute(Request $request, int $id): JsonResponse
+    {
+        $result = $this->service->execute($id, $request->user());
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $this->formatAction($result['action'], ! $result['replay']),
+        ]);
+    }
+
+    /**
      * Apply common list filters.
      */
     private function applyFilters(Builder $query, Request $request): Builder

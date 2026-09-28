@@ -70,15 +70,26 @@ class ProductController extends Controller
      *
      * Supplier-less products stay eligible for legacy compatibility, but
      * products owned by an inactive supplier must never be exposed.
+     *
+     * Additive: when `include_unpurchasable=1` is present (admin context),
+     * the supplier-eligibility clause is skipped entirely. The `is_active`
+     * filtering is not applied by this endpoint (preserving legacy behavior).
      */
     private function applyCatalogFilters(Builder $query, Request $request): Builder
     {
-        return $query
-            ->search($request->query('search'))
-            ->where(function (Builder $supplierQuery) {
+        $query = $query->search($request->query('search'));
+
+        // Admin context flag: when true, skip ONLY the supplier-eligibility clause.
+        $includeUnpurchasable = $request->boolean('include_unpurchasable');
+
+        if (! $includeUnpurchasable) {
+            $query->where(function (Builder $supplierQuery) {
                 $supplierQuery->whereNull('supplier_id')
                     ->orWhereHas('supplier', fn ($supplier) => $supplier->where('subscription_status', 'active'));
             });
+        }
+
+        return $query;
     }
 
     /**

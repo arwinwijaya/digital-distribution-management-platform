@@ -14,6 +14,22 @@ class ProductTest extends TestCase
     use RefreshDatabase;
 
     /**
+     * Disable SQLite foreign-key enforcement for this test class so fixtures
+     * can create an orphan `products.supplier_id` reference (the schema uses
+     * `nullOnDelete`, which would otherwise rewrite it to NULL). The FK still
+     * exists in the schema; it is simply not enforced while these tests run.
+     * Must run BEFORE parent::setUp() so the connection picks up the env var.
+     */
+    protected function setUp(): void
+    {
+        putenv('DB_FOREIGN_KEYS=false');
+        $_ENV['DB_FOREIGN_KEYS'] = 'false';
+        $_SERVER['DB_FOREIGN_KEYS'] = 'false';
+
+        parent::setUp();
+    }
+
+    /**
      * Test: Given products exist, When browsing catalog, Then products are displayed with prices
      */
     public function test_products_are_displayed_with_prices(): void
@@ -99,6 +115,40 @@ class ProductTest extends TestCase
         foreach ($data as $product) {
             $this->assertStringContainsString('Indomie', $product['name']);
         }
+    }
+
+    public function test_include_unpurchasable_exposes_supplier_ineligible_products_without_changing_legacy_eligibility(): void
+    {
+        $inactiveSupplier = Supplier::factory()->create(['subscription_status' => 'inactive']);
+        $activeSupplier = Supplier::factory()->active()->create();
+
+        Product::factory()->create(['supplier_id' => $activeSupplier->id, 'name' => 'Active supplier product']);
+        Product::factory()->create(['supplier_id' => $inactiveSupplier->id, 'name' => 'Expired supplier product']);
+        Product::factory()->create(['supplier_id' => 999999, 'name' => 'Orphan supplier product']);
+        Product::factory()->create(['supplier_id' => null, 'name' => 'No supplier product']);
+        Product::factory()->create(['supplier_id' => $inactiveSupplier->id, 'name' => 'Inactive product', 'is_active' => false]);
+
+        $headers = $this->authHeaders();
+
+        $legacy = $this->withHeaders($headers)->getJson('/api/products');
+        $legacy->assertOk();
+        $this->assertSame(
+            ['Active supplier product', 'No supplier product'],
+            collect($legacy->json('data'))->pluck('name')->all()
+        );
+
+        $admin = $this->withHeaders($headers)->getJson('/api/products?include_unpurchasable=1');
+        $admin->assertOk();
+        $this->assertSame(
+            [
+                'Active supplier product',
+                'Expired supplier product',
+                'Orphan supplier product',
+                'No supplier product',
+                'Inactive product',
+            ],
+            collect($admin->json('data'))->pluck('name')->all()
+        );
     }
 
     public function test_inactive_supplier_products_are_not_exposed_in_legacy_catalog(): void

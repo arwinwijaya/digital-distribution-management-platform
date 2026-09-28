@@ -5,6 +5,10 @@ import {
   STOCK_UNIT_LABEL,
   STOCK_VALUE_LABEL,
   STOCK_UNIT_NOTE,
+  deriveDisplayStatus,
+  deriveProductDetailFacts,
+  DisplayStatus,
+  categoryDisplay,
 } from './product-clarity';
 
 describe('product clarity stock helpers', () => {
@@ -28,5 +32,53 @@ describe('product clarity stock helpers', () => {
     expect(STOCK_UNIT_LABEL).toBe('Stok (unit)');
     expect(STOCK_VALUE_LABEL).toBe('Nilai stok');
     expect(STOCK_UNIT_NOTE).toBe('Satuan belum terdefinisi di sistem');
+  });
+});
+
+describe('product clarity status helpers', () => {
+  const activeSupplier = { id: 1, name: 'PT Sumber Rejeki', subscription_status: 'active' };
+  const inactiveSupplier = { id: 2, name: 'CV Lama Jaya', subscription_status: 'expired' };
+
+  it.each([
+    ['active product / active supplier', { is_active: true, supplier: activeSupplier }, 'Aktif'],
+    ['active product / non-active supplier', { is_active: true, supplier: inactiveSupplier }, 'Tidak bisa dibeli'],
+    ['active product / orphan supplier', { is_active: true, supplier: null }, 'Aktif'],
+    ['inactive product / active supplier', { is_active: false, supplier: activeSupplier }, 'Nonaktif'],
+    ['inactive product / non-active supplier', { is_active: false, supplier: inactiveSupplier }, 'Nonaktif'],
+    ['active product / null supplier', { is_active: true, supplier: undefined }, 'Aktif'],
+  ])('%s → %s', (_label, product, expected) => {
+    expect(deriveDisplayStatus(product as never)).toBe(expected as DisplayStatus);
+  });
+
+  it('never marks orphan/null supplier as Tidak bisa dibeli even when is_active is absent', () => {
+    expect(deriveDisplayStatus({ supplier: null } as never)).toBe('Aktif');
+    expect(deriveDisplayStatus({ supplier_id: 9, supplier: null } as never)).toBe('Aktif');
+  });
+
+  it('is_active wins over supplier status', () => {
+    expect(deriveDisplayStatus({ is_active: false, supplier: inactiveSupplier } as never)).toBe('Nonaktif');
+  });
+
+  it('retains both product and supplier facts for the detail panel', () => {
+    expect(deriveProductDetailFacts({ is_active: false, supplier: inactiveSupplier } as never)).toEqual({
+      status: 'Nonaktif',
+      productActive: false,
+      supplierName: 'CV Lama Jaya',
+      supplierStatus: 'Tidak aktif',
+    });
+    expect(deriveProductDetailFacts({ is_active: true, supplier: null } as never)).toEqual({
+      status: 'Aktif',
+      productActive: true,
+      supplierName: '—',
+      supplierStatus: '—',
+    });
+  });
+
+  it('renders category trim-only with em dash fallback', () => {
+    expect(categoryDisplay('  Minuman  ')).toBe('Minuman');
+    expect(categoryDisplay('')).toBe('—');
+    expect(categoryDisplay('   ')).toBe('—');
+    expect(categoryDisplay(null)).toBe('—');
+    expect(categoryDisplay(undefined)).toBe('—');
   });
 });

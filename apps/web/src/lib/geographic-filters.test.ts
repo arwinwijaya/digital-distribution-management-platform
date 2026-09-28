@@ -133,3 +133,37 @@ describe('computeFilteredCounts', () => {
     expect(result.salesCents).toBe(30);
   });
 });
+
+describe('safe fallbacks', () => {
+  it('falls back to {New, Confirmed} for an unknown status', () => {
+    expect(normalizeStatuses(['Bogus'])).toEqual(['New', 'Confirmed']);
+  });
+
+  it('falls back to the 30d range for an unknown period', () => {
+    expect(periodToRange(window, 'banana')).toEqual({
+      start: '2026-08-27',
+      end: '2026-09-25',
+    });
+  });
+
+  it('returns a zero legacy result for a point without status maps', () => {
+    const result = computeFilteredCounts({}, ['New'], '30d', window);
+    expect(result.filteredOrders).toBe(0);
+    expect(result.legacyOnly).toBe(true);
+    expect(result.salesCents).toBe(0);
+  });
+
+  it('returns a zero legacy result for a point without daily detail', () => {
+    const result = computeFilteredCounts({}, ['New'], '7d', window);
+    expect(result.filteredOrders).toBe(0);
+    expect(result.legacyOnly).toBe(true);
+    expect(result.hasDailyDetail).toBe(false);
+  });
+
+  it('keeps an intentional empty status selection empty', () => {
+    expect(normalizeStatuses([])).toEqual([]);
+    const result = computeFilteredCounts(v2Point, [], '30d', window);
+    expect(result.filteredOrders).toBe(0);
+    expect(result.statusCounts).toEqual({});
+  });
+});

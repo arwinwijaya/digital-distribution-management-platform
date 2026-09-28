@@ -143,7 +143,7 @@ export function computeFilteredCounts(
   let salesCents = 0;
 
   if (effectivePeriod === '30d') {
-    const orders = point.orders_by_status!;
+    const orders = point.orders_by_status ?? {};
     const sales = point.sales_by_status ?? {};
     for (const status of selected) {
       const count = toCount(orders[status]);
@@ -153,7 +153,7 @@ export function computeFilteredCounts(
     }
   } else {
     for (const status of selected) statusCounts[status] = 0;
-    const buckets = point.daily_by_status!;
+    const buckets = Array.isArray(point.daily_by_status) ? point.daily_by_status : [];
     for (const bucket of buckets) {
       if (bucket.date < range.start || bucket.date > range.end) continue;
       for (const status of selected) {

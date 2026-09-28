@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, PageHeader } from '@/components/ui';
 import LoginForm from '@/components/LoginForm';
@@ -18,12 +18,26 @@ import {
   type SupplierPerformanceData,
   type StockPlanningData,
 } from '@/lib/data-intelligence-api';
+import {
+  computeFilteredCounts,
+  type EligibleStatus,
+  type Period,
+} from '@/lib/geographic-filters';
 import TerritoryTable from '@/components/data-intelligence/TerritoryTable';
 import SupplierPerformanceTable from '@/components/data-intelligence/SupplierPerformanceTable';
 import StockPlanningTable from '@/components/data-intelligence/StockPlanningTable';
 import MeasurementCards from '@/components/data-intelligence/MeasurementCards';
 
 const GeoMap = dynamic(() => import('@/components/data-intelligence/GeoMap'), { ssr: false });
+
+const STATUS_CHIPS: readonly EligibleStatus[] = ['New', 'Confirmed', 'Delivered', 'Partially Paid'];
+const PERIOD_CHIPS: readonly { value: Period; label: string }[] = [
+  { value: 'today', label: 'Hari ini' },
+  { value: '7d', label: '7 hari' },
+  { value: '30d', label: '30 hari' },
+];
+const DEFAULT_STATUSES: readonly EligibleStatus[] = ['New', 'Confirmed'];
+const DEFAULT_PERIOD: Period = '30d';
 
 type DataIntelligenceSnapshot = {
   geographic: GeographicData | null;
@@ -64,6 +78,8 @@ export default function DataIntelligencePage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statuses, setStatuses] = useState<EligibleStatus[]>([...DEFAULT_STATUSES]);
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -98,6 +114,25 @@ export default function DataIntelligencePage() {
     if (token) void loadAll();
   });
 
+  const window = snapshot.geographic?.window ?? null;
+  const visiblePoints = useMemo(() => {
+    if (!snapshot.geographic || !window) return [];
+    return snapshot.geographic.map_points.filter(
+      (point) => computeFilteredCounts(point, statuses, period, window).filteredOrders > 0,
+    );
+  }, [snapshot.geographic, window, statuses, period]);
+  const showMap = Boolean(snapshot.geographic) && visiblePoints.length > 0;
+
+  function toggleStatus(status: EligibleStatus) {
+    setStatuses((current) =>
+      current.includes(status) ? current.filter((item) => item !== status) : [...current, status],
+    );
+  }
+
+  function toggleSemua() {
+    setStatuses((current) => (current.length === STATUS_CHIPS.length ? [] : [...STATUS_CHIPS]));
+  }
+
   if (!ready) return <p className="text-sm text-gray-500">Memuat…</p>;
   if (!token) {
     return (
@@ -123,7 +158,45 @@ export default function DataIntelligencePage() {
             <h3 className="text-base font-semibold text-gray-900">Wilayah</h3>
             <p className="mt-0.5 text-xs text-gray-500">Sebaran outlet dan penjualan per wilayah.</p>
           </div>
-          <GeoMap points={snapshot.geographic?.map_points ?? []} />
+          <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter status">
+            {STATUS_CHIPS.map((status) => (
+              <button
+                key={status}
+                type="button"
+                aria-pressed={statuses.includes(status)}
+                onClick={() => toggleStatus(status)}
+                className="rounded-full border border-gray-300 px-3 py-1 text-sm"
+              >
+                {status}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-pressed={statuses.length === STATUS_CHIPS.length}
+              onClick={toggleSemua}
+              className="rounded-full border border-gray-300 px-3 py-1 text-sm"
+            >
+              Semua
+            </button>
+          </div>
+          <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter periode">
+            {PERIOD_CHIPS.map((chip) => (
+              <button
+                key={chip.value}
+                type="button"
+                aria-pressed={period === chip.value}
+                onClick={() => setPeriod(chip.value)}
+                className="rounded-full border border-gray-300 px-3 py-1 text-sm"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+          {snapshot.geographic && !showMap ? (
+            <p>Tidak ada request pada periode ini</p>
+          ) : (
+            <GeoMap points={visiblePoints} />
+          )}
           <div className="mt-4">
             <TerritoryTable territories={snapshot.geographic?.table ?? []} loading={loading} />
           </div>

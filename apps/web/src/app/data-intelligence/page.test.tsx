@@ -153,7 +153,8 @@ describe('admin page consumes shared API contract', () => {
     (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (...args: unknown[]) => {
       const url = String(args[0]);
       let body: unknown;
-      if (url.includes('/admin/analytics/geographic')) body = geographicResponse;
+      if (url.includes('/auth/me')) body = { status: 'success', data: { role: 'admin', rbac: {} } };
+      else if (url.includes('/admin/analytics/geographic')) body = geographicResponse;
       else if (url.includes('/admin/analytics/measurement/forecasts')) body = forecastMeasurementResponse;
       else if (url.includes('/admin/analytics/measurement/recommendations')) body = recommendationMeasurementResponse;
       else if (url.includes('/admin/analytics/stock-planning')) body = stockResponse;
@@ -258,6 +259,27 @@ describe('admin page consumes shared API contract', () => {
     expect(sentBodies[0].event_uuid).toBe(stableKey);
     expect(sentBodies[1].event_uuid).toBe(stableKey);
     expect(sentBodies[0].event_type).toBe('clicked');
+  });
+
+  it('renders default status and period chips and keeps an intentionally empty selection', async () => {
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New' })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Delivered' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '30 hari' })).toHaveAttribute('aria-pressed', 'true');
+
+    // Deliberately remove both defaults: an empty selection is a real state,
+    // not an instruction to silently restore New + Confirmed.
+    await act(async () => {
+      screen.getByRole('button', { name: 'New' }).click();
+      screen.getByRole('button', { name: 'Confirmed' }).click();
+    });
+    expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Tidak ada request pada periode ini')).toBeInTheDocument();
   });
 
   it('re-fetches and shows dummy data when Mode Dummy is toggled on', async () => {

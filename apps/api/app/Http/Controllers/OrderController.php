@@ -82,6 +82,11 @@ class OrderController extends Controller
 
         $query = Order::query()->with(['items.product']);
 
+        // Additive filters (outlet_id/status/start/end). Each present filter
+        // narrows the builder; absent filters leave the query unchanged so
+        // existing unfiltered behaviour is preserved byte-for-byte.
+        $this->applyOrderFilters($query, $request);
+
         // Sort allowlist with silent fallback to created_at DESC for invalid input.
         // Reads are scalar-safe: array params (e.g. ?sort[]=x) fall back to the
         // default instead of raising an "Array to string conversion" 500.
@@ -116,6 +121,34 @@ class OrderController extends Controller
             'data' => $orders,
             'meta' => array_merge(['has_more' => $hasMore], $meta),
         ]);
+    }
+
+    /**
+     * Apply the additive order filters (outlet_id/status/start/end) to the
+     * builder. Only filters actually present in the request narrow the query;
+     * absent filters leave the builder untouched.
+     */
+    private function applyOrderFilters(Builder $query, Request $request): void
+    {
+        if ($request->query('outlet_id') !== null) {
+            $query->where('outlet_id', (int) ListQuery::scalarString($request, 'outlet_id', '0'));
+        }
+
+        if ($request->query('status') !== null) {
+            $statuses = array_values(array_unique(array_filter(
+                array_map('trim', explode(',', ListQuery::scalarString($request, 'status', ''))),
+                fn (string $status) => $status !== '',
+            )));
+            $query->whereIn('status', $statuses);
+        }
+
+        if ($request->query('start') !== null) {
+            $query->where('created_at', '>=', ListQuery::scalarString($request, 'start', '').' 00:00:00');
+        }
+
+        if ($request->query('end') !== null) {
+            $query->where('created_at', '<=', ListQuery::scalarString($request, 'end', '').' 23:59:59');
+        }
     }
 
     /**

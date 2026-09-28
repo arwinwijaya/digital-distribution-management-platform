@@ -1,6 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 
 const mockGetStoredToken = jest.fn(() => 'test-token');
 jest.mock('@/lib/api', () => ({
@@ -34,7 +34,7 @@ const updateResponse = {
 };
 
 /** A list response with meta.total/meta.summary + timestamp columns. */
-function listResponse(overrides?: { data?: unknown[]; total?: number; outOfStock?: number; hasMore?: boolean }) {
+function listResponse(overrides?: { data?: unknown[]; total?: number; outOfStock?: number; hasMore?: boolean; categories?: string[] }) {
   const data = overrides?.data ?? [
     { id: 2, name: 'Kopi Kapal', sku: 'SKU-001', price: '15000.00', stock_quantity: 40, created_at: '2026-09-05T08:00:00Z', updated_at: '2026-09-10T10:00:00Z' },
     { id: 1, name: 'Gula Pasir 1kg', sku: 'SKU-002', price: '19000.00', stock_quantity: 0, created_at: '2026-09-01T08:00:00Z', updated_at: '2026-09-11T10:00:00Z' },
@@ -50,6 +50,7 @@ function listResponse(overrides?: { data?: unknown[]; total?: number; outOfStock
       cursor: 0,
       total,
       summary: { total, out_of_stock: outOfStock },
+      ...(overrides?.categories ? { categories: overrides.categories } : {}),
     },
   };
 }
@@ -398,6 +399,151 @@ describe('admin products page', () => {
 
   // ── T4 Cycle 1: server-side filters + reset/summary/options ─────────────
   describe('server-side product filters', () => {
+    it('renders complete status and stock health options with correct labels and API values', async () => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        const requestUrl = new URL(String(url));
+        if (requestUrl.pathname.endsWith('/products')) {
+          const response = listResponse({ data: [], total: 0, outOfStock: 0, hasMore: false });
+          response.meta.categories = ['Minuman'];
+          return jsonResponse(response);
+        }
+        return jsonResponse({});
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByLabelText('Status')).toBeInTheDocument());
+
+      // Wait for categories to load from metadata
+      await waitFor(() => expect(screen.getByRole('option', { name: 'Minuman' })).toBeInTheDocument());
+
+      const statusSelect = within(screen.getByLabelText('Status'));
+      expect(statusSelect.getByRole('option', { name: 'Semua' })).toBeInTheDocument();
+      expect(statusSelect.getByRole('option', { name: 'Aktif' })).toBeInTheDocument();
+      expect(statusSelect.getByRole('option', { name: 'Nonaktif' })).toBeInTheDocument();
+      expect(statusSelect.getByRole('option', { name: 'Tidak bisa dibeli' })).toBeInTheDocument();
+
+      const healthSelect = within(screen.getByLabelText('Kesehatan stok'));
+      expect(healthSelect.getByRole('option', { name: 'Semua' })).toBeInTheDocument();
+      expect(healthSelect.getByRole('option', { name: 'Habis' })).toBeInTheDocument();
+      expect(healthSelect.getByRole('option', { name: 'Rendah' })).toBeInTheDocument();
+      expect(healthSelect.getByRole('option', { name: 'Aman' })).toBeInTheDocument();
+
+      const categorySelect = within(screen.getByLabelText('Kategori'));
+      expect(categorySelect.getByRole('option', { name: 'Semua kategori' })).toBeInTheDocument();
+      expect(categorySelect.getByRole('option', { name: 'Minuman' })).toBeInTheDocument();
+      expect(categorySelect.getByRole('option', { name: 'Tanpa kategori' })).toBeInTheDocument();
+
+      // Selecting each status sends the exact backend value
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('status=active'));
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'inactive' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('status=inactive'));
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'unpurchasable' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('status=unpurchasable'));
+
+      fireEvent.change(screen.getByLabelText('Kesehatan stok'), { target: { value: 'out' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('stock_health=out'));
+      fireEvent.change(screen.getByLabelText('Kesehatan stok'), { target: { value: 'low' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('stock_health=low'));
+      fireEvent.change(screen.getByLabelText('Kesehatan stok'), { target: { value: 'ok' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('stock_health=ok'));
+    });
+
+    it('selecting Tanpa kategori sends the explicit no-category sentinel and filters to empty rows', async () => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        const requestUrl = new URL(String(url));
+        if (requestUrl.pathname.endsWith('/products')) {
+          const isNoCat = requestUrl.searchParams.get('category') === '__none__';
+          return jsonResponse(listResponse({
+            data: isNoCat ? [{ id: 99, name: 'Uncategorized', sku: 'SKU-99', category: '', price: '1000.00', stock_quantity: 3 }] : [],
+            total: isNoCat ? 1 : 0,
+            outOfStock: 0,
+            hasMore: false,
+            categories: ['Minuman'],
+          }));
+        }
+        return jsonResponse({});
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByLabelText('Kategori')).toBeInTheDocument());
+      fireEvent.change(screen.getByLabelText('Kategori'), { target: { value: '__none__' } });
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).toContain('category=__none__');
+      });
+      await waitFor(() => expect(screen.getByText('Uncategorized')).toBeInTheDocument());
+    });
+
+    it('excludes invalid status/stock_health/category values from requests', async () => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        if (String(url).includes('/products')) {
+          return jsonResponse(listResponse({ data: [], total: 0, outOfStock: 0, hasMore: false }));
+        }
+        return jsonResponse({});
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByLabelText('Status')).toBeInTheDocument());
+
+      // Invalid status via direct onChange with bogus value (not in option list)
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'bogus' } });
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).not.toContain('status=');
+      });
+
+      // Invalid stock health
+      fireEvent.change(screen.getByLabelText('Kesehatan stok'), { target: { value: 'never' } });
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).not.toContain('stock_health=');
+      });
+
+      // Invalid category (not in metadata) — setting value not present in options
+      fireEvent.change(screen.getByLabelText('Kategori'), { target: { value: 'DoesNotExist' } });
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        // category=DoesNotExist would be sent but backend ignores invalid scalars; frontend should not include it
+        // For our implementation, we validate against metadata — expect it to be excluded
+        // But since backend ignores, the key behavior is frontend doesn't store invalid state
+        // Check that our URL doesn't contain it (we guard in adapter)
+        expect(url).not.toContain('category=DoesNotExist');
+      });
+    });
+
+    it('clearing a filter back to Semua removes its param instead of re-sending the old value', async () => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        if (String(url).includes('/products')) {
+          return jsonResponse(listResponse({ data: [], total: 0, outOfStock: 0, hasMore: false, categories: ['Minuman'] }));
+        }
+        return jsonResponse({});
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByLabelText('Status')).toBeInTheDocument());
+
+      // Apply each filter, then clear it back to its "Semua" option.
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('status=active'));
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: '' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).not.toContain('status='));
+
+      fireEvent.change(screen.getByLabelText('Kesehatan stok'), { target: { value: 'low' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('stock_health=low'));
+      fireEvent.change(screen.getByLabelText('Kesehatan stok'), { target: { value: '' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).not.toContain('stock_health='));
+
+      fireEvent.change(screen.getByLabelText('Kategori'), { target: { value: 'Minuman' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('category=Minuman'));
+      fireEvent.change(screen.getByLabelText('Kategori'), { target: { value: '' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).not.toContain('category='));
+    });
+
     it('combines filters, resets cursor, preserves sort, closes expansion, and renders filtered metadata', async () => {
       fetchMock.mockImplementation(async (url: unknown) => {
         const requestUrl = new URL(String(url));

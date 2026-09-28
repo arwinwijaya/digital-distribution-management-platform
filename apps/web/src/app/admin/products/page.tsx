@@ -66,11 +66,12 @@ export default function AdminProductsPage() {
     try {
       const nextSort = opts?.sort ?? sortRef.current;
       const nextCursor = opts?.cursor ?? (opts?.resetCursor ? 0 : cursorRef.current);
+      const selectedFilters = opts?.filters ?? filtersRef.current;
       const result = await fetchAdminProducts(authToken, {
         search: search || undefined,
-        category: opts?.filters?.category || filtersRef.current.category || undefined,
-        status: opts?.filters?.status || filtersRef.current.status || undefined,
-        stockHealth: opts?.filters?.stockHealth || filtersRef.current.stockHealth || undefined,
+        category: selectedFilters.category || undefined,
+        status: selectedFilters.status || undefined,
+        stockHealth: selectedFilters.stockHealth || undefined,
         limit: 15,
         cursor: nextCursor,
         sort: nextSort.column,
@@ -193,7 +194,7 @@ export default function AdminProductsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input label="Cari produk" placeholder="Nama atau SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
           <Select label="Kategori" value={category} onChange={(e) => {
-            const next = e.target.value;
+            const next = e.target.value === NO_CATEGORY_FILTER || categories.includes(e.target.value) ? e.target.value : '';
             setCategory(next); setExpandedProductId(null);
             if (token) void loadProducts(token, { resetCursor: true, filters: { category: next, status, stockHealth } });
           }}>
@@ -202,7 +203,7 @@ export default function AdminProductsPage() {
             <option value={NO_CATEGORY_FILTER}>Tanpa kategori</option>
           </Select>
           <Select label="Status" value={status} onChange={(e) => {
-            const next = e.target.value;
+            const next = ['active', 'inactive', 'unpurchasable'].includes(e.target.value) ? e.target.value : '';
             setStatus(next); setExpandedProductId(null);
             if (token) void loadProducts(token, { resetCursor: true, filters: { category, status: next, stockHealth } });
           }}>
@@ -212,7 +213,7 @@ export default function AdminProductsPage() {
             <option value="unpurchasable">Tidak bisa dibeli</option>
           </Select>
           <Select label="Kesehatan stok" value={stockHealth} onChange={(e) => {
-            const next = e.target.value;
+            const next = ['out', 'low', 'ok'].includes(e.target.value) ? e.target.value : '';
             setStockHealth(next); setExpandedProductId(null);
             if (token) void loadProducts(token, { resetCursor: true, filters: { category, status, stockHealth: next } });
           }}>

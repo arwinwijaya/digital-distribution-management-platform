@@ -1,8 +1,8 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
-import ProductRowDetail from './ProductRowDetail';
+import ProductRowDetail, { ProductRowTrigger, ProductRowPriceAction } from './ProductRowDetail';
 import type { AdminProduct } from './api';
 
 const fixture: AdminProduct = {
@@ -24,6 +24,92 @@ function factValue(label: string): string {
   const labelEl = screen.getByText(label);
   return labelEl.parentElement?.textContent ?? '';
 }
+
+describe('ProductRowTrigger (keyboard, ARIA and independent price action)', () => {
+  const detailId = 'product-detail-3';
+
+  /** Local composition mirroring the page: name cell trigger + action cell + detail. */
+  function Harness({ onPrice }: { onPrice: (product: AdminProduct) => void }) {
+    const [expanded, setExpanded] = React.useState(false);
+    const toggle = () => setExpanded((v) => !v);
+    return (
+      <>
+        <table>
+          <tbody>
+            <tr>
+              <td>
+                <ProductRowTrigger
+                  product={fixture}
+                  detailId={detailId}
+                  expanded={expanded}
+                  onToggle={toggle}
+                />
+              </td>
+              <td>
+                <ProductRowPriceAction product={fixture} onPrice={onPrice} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        {expanded ? <ProductRowDetail product={fixture} detailId={detailId} /> : null}
+      </>
+    );
+  }
+
+  it('toggles the detail on Enter/Space and keeps aria-expanded/aria-controls in sync', () => {
+    render(<Harness onPrice={jest.fn()} />);
+    const trigger = screen.getByRole('button', { name: /Kopi Kapal/ });
+
+    // Closed state: aria-expanded false, aria-controls already points at the panel.
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveAttribute('aria-controls', detailId);
+    expect(screen.queryByText('Nilai stok')).not.toBeInTheDocument();
+
+    // Enter opens.
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(trigger).toHaveAttribute('aria-controls', detailId);
+    expect(document.getElementById(detailId)).toBeInTheDocument();
+    expect(screen.getByText(/Nilai stok/)).toBeInTheDocument();
+
+    // Enter closes.
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(document.getElementById(detailId)).not.toBeInTheDocument();
+
+    // Space opens too.
+    fireEvent.keyDown(trigger, { key: ' ' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById(detailId)).toBeInTheDocument();
+
+    // Mouse click toggles as well.
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('runs Ubah harga independently without toggling row expansion', () => {
+    const onPrice = jest.fn();
+    render(<Harness onPrice={onPrice} />);
+    const trigger = screen.getByRole('button', { name: /Kopi Kapal/ });
+    const priceAction = screen.getByRole('button', { name: 'Ubah harga' });
+
+    priceAction.focus();
+    expect(document.activeElement).toBe(priceAction);
+
+    fireEvent.click(priceAction);
+    expect(onPrice).toHaveBeenCalledTimes(1);
+    expect(onPrice).toHaveBeenCalledWith(fixture);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Nilai stok')).not.toBeInTheDocument();
+
+    // Keyboard activation on the focused price action must not expand the row.
+    fireEvent.keyDown(priceAction, { key: 'Enter' });
+    fireEvent.keyDown(priceAction, { key: ' ' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Nilai stok')).not.toBeInTheDocument();
+  });
+});
 
 describe('ProductRowDetail', () => {
   it('renders identity, supplier/product facts, value, unit note and timestamps', () => {
@@ -78,7 +164,7 @@ describe('ProductRowDetail', () => {
           description: null,
           supplier: null,
           stock_quantity: null,
-        } as AdminProduct}
+        } as unknown as AdminProduct}
         detailId="product-detail-3"
       />,
     );

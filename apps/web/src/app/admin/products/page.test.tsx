@@ -119,13 +119,38 @@ describe('admin products page', () => {
     await waitFor(() => expect(screen.getByText('Harga produk diperbarui.')).toBeInTheDocument());
   });
 
-  it('shows price history on product click', async () => {
+  it('expands the local product detail on name trigger and keeps price action independent', async () => {
     const { default: Page } = await import('@/app/admin/products/page');
     render(<Page />);
 
     await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Kopi Kapal'));
-    await waitFor(() => expect(screen.getByText(/Riwayat harga —/)).toBeInTheDocument());
+
+    // Closed: trigger collapsed, no detail panel, aria-controls points at the panel id.
+    const trigger = screen.getByRole('button', { name: 'Kopi Kapal' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveAttribute('aria-controls', 'product-detail-1');
+    expect(screen.queryByText('Nilai stok')).not.toBeInTheDocument();
+
+    // Keyboard: Enter opens the panel, focus stays on the trigger.
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'true'));
+    expect(trigger).toHaveAttribute('aria-controls', 'product-detail-1');
+    expect(document.getElementById('product-detail-1')).toBeInTheDocument();
+    expect(screen.getByText(/Nilai stok/)).toBeInTheDocument();
+    expect(document.activeElement).toBe(trigger);
+
+    // Space closes it again.
+    fireEvent.keyDown(trigger, { key: ' ' });
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'));
+    expect(document.getElementById('product-detail-1')).not.toBeInTheDocument();
+
+    // Independent price action: opens the price editor without expanding the row.
+    const priceAction = screen.getAllByRole('button', { name: 'Ubah harga' })[0];
+    fireEvent.click(priceAction);
+    await waitFor(() => expect(screen.getByText(/Ubah harga —/)).toBeInTheDocument());
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Nilai stok')).not.toBeInTheDocument();
   });
 
   // ── Cycle 1: default sort + summary + timestamps ─────────────────────────

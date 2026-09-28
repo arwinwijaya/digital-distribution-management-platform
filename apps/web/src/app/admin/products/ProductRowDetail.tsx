@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Card } from '@/components/ui';
+import { Button, Card } from '@/components/ui';
 import { formatDateTime } from '@/lib/admin-table';
 import {
   STOCK_UNIT_NOTE,
@@ -28,6 +28,67 @@ function Fact({ label, value }: { label: string; value: ReactNode }) {
       <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
       <span className="text-sm text-gray-700">{value}</span>
     </div>
+  );
+}
+
+/**
+ * Products-local row trigger: the product name control that opens/closes the
+ * detail panel. Keyboard toggle (Enter/Space) plus click; `aria-expanded`
+ * mirrors state and `aria-controls` always points at the detail panel id.
+ */
+export function ProductRowTrigger({
+  product,
+  detailId,
+  expanded,
+  onToggle,
+}: {
+  product: AdminProduct;
+  detailId: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      aria-controls={detailId}
+      onClick={onToggle}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onToggle();
+        }
+      }}
+      className="text-left font-medium text-primary-700 hover:underline"
+    >
+      {product.name}
+    </button>
+  );
+}
+
+/**
+ * Products-local independent price action. Lives in its own cell (never
+ * inside the row trigger), so activation never toggles row expansion.
+ */
+export function ProductRowPriceAction({
+  product,
+  onPrice,
+}: {
+  product: AdminProduct;
+  onPrice: (product: AdminProduct) => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onPrice(product);
+      }}
+    >
+      Ubah harga
+    </Button>
   );
 }
 

@@ -72,6 +72,12 @@ export default function GeoMap({ points, onSelectOutlet, resetSignal }: Props) {
 
   const validPoints = useMemo(() => points.filter(isValidPoint), [points]);
 
+  /* A ref that always holds the latest valid points by outlet_id so retained
+     markers' click handlers can look up the current point at click time,
+     avoiding stale closures when points are updated (e.g., coordinates/counts). */
+  const pointsByOutletIdRef = useRef<Map<number, GeographicMapPoint>>(new Map());
+  pointsByOutletIdRef.current = new Map(validPoints.map((p) => [p.outlet_id, p]));
+
   /* Stable Leaflet lifecycle. The map is created once when the container node
      attaches and destroyed when it detaches (empty state / unmount). Filter
      changes never recreate the instance or the tile layer — only the marker
@@ -133,7 +139,10 @@ export default function GeoMap({ points, onSelectOutlet, resetSignal }: Props) {
       const marker = L.marker([point.latitude, point.longitude], { icon: MARKER_ICON })
         .addTo(map)
         .bindPopup(popupHtml(point));
-      marker.on('click', () => onSelectRef.current?.(point));
+      marker.on('click', () => {
+        const current = pointsByOutletIdRef.current.get(point.outlet_id) ?? point;
+        onSelectRef.current?.(current);
+      });
       markersRef.current.set(point.outlet_id, marker);
     });
   }, [validPoints, mapReady]);

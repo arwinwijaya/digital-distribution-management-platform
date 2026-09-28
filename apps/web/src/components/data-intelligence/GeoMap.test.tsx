@@ -291,6 +291,31 @@ describe('marker_layer_diff_with_stable_map_instance', () => {
     expect(markerC?.popup).toContain('Outlet C');
   });
 
+  it('reuses a retained marker but sends the fresh point when it is clicked after an update', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const onSelectOutlet = jest.fn();
+    const updatedPointA: GeographicMapPoint = {
+      ...POINT_A,
+      latitude: -6.21,
+      longitude: 106.81,
+      orders: 9,
+      sales: '90000.00',
+    };
+    const { rerender } = render(<GeoMap points={[POINT_A, POINT_B]} onSelectOutlet={onSelectOutlet} />);
+
+    const markerA = mockLeafletMarkers.find(
+      (marker) => Array.isArray(marker.latlng) && marker.latlng[0] === POINT_A.latitude && marker.latlng[1] === POINT_A.longitude,
+    );
+    expect(markerA).toBeDefined();
+
+    rerender(<GeoMap points={[updatedPointA, POINT_B]} onSelectOutlet={onSelectOutlet} />);
+
+    expect(markerA?.setLatLng).toHaveBeenCalledWith([updatedPointA.latitude, updatedPointA.longitude]);
+    expect(mockLeafletMarkers).toHaveLength(2);
+    act(() => markerA?.handlers.click());
+    expect(onSelectOutlet).toHaveBeenCalledWith(updatedPointA);
+  });
+
   it('fits valid points once initially, then preserves viewport when filters change', async () => {
     const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
     const { rerender } = render(<GeoMap points={[POINT_A, POINT_B]} />);
@@ -328,7 +353,9 @@ describe('marker_layer_diff_with_stable_map_instance', () => {
     const cases: Array<[string, unknown, unknown, boolean]> = [
       ['null latitude', null, 106.8, false],
       ['numeric string latitude', '-6.2', 106.8, false],
+      ['numeric string longitude', -6.2, '106.8', false],
       ['NaN latitude', NaN, 106.8, false],
+      ['Infinity latitude', Infinity, 106.8, false],
       ['Infinity longitude', -6.2, Infinity, false],
       ['latitude out of range', 91, 106.8, false],
       ['longitude out of range', -6.2, 181, false],

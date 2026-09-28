@@ -292,6 +292,49 @@ class ProductTest extends TestCase
         $this->assertSame(['Minuman'], $response->json('meta.categories'));
     }
 
+    public function test_invalid_scalar_array_and_malformed_query_values_are_ignored_with_200(): void
+    {
+        $activeSupplier = Supplier::factory()->active()->create();
+
+        Product::factory()->create([
+            'name' => 'Valid low drink',
+            'category' => 'Minuman',
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+        Product::factory()->create([
+            'name' => 'Other product',
+            'category' => 'Sembako',
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+
+        $headers = $this->authHeaders();
+
+        // Unknown scalar values must not filter anything out and never error.
+        $unknown = $this->withHeaders($headers)->getJson(
+            '/api/products?include_unpurchasable=1&category=__nope__&status=bogus&stock_health=never'
+        );
+        $unknown->assertOk();
+        $this->assertCount(0, $unknown->json('data'));
+        $this->assertSame(0, $unknown->json('meta.total'));
+
+        // Array/malformed forms of every new param fall back safely to the unfiltered set.
+        $arrays = $this->withHeaders($headers)->getJson(
+            '/api/products?include_unpurchasable=1&category[]=Minuman&status[]=active&stock_health[]=low&sort[]=name&category[foo]=Minuman'
+        );
+        $arrays->assertOk();
+        $this->assertCount(2, $arrays->json('data'));
+        $this->assertSame(2, $arrays->json('meta.total'));
+
+        // Invalid sort/order still resolve to the legacy default without a 500.
+        $sort = $this->withHeaders($headers)->getJson(
+            '/api/products?include_unpurchasable=1&sort=__proto__&order=sideways&category=Minuman'
+        );
+        $sort->assertOk();
+        $this->assertSame(['Valid low drink'], collect($sort->json('data'))->pluck('name')->all());
+    }
+
     public function test_products_default_ordering_is_id_asc_and_meta_total_is_additive(): void
     {
         Product::factory()->create(['name' => 'Alpha']);

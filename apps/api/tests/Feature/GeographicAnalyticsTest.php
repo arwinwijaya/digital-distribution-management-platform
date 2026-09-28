@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Outlet;
+use App\Models\Product;
 use App\Models\Territory;
 use App\Models\User;
 use App\Services\ActiveDataSnapshotReader;
@@ -10,6 +13,7 @@ use App\Services\DataPipelineService;
 use App\Services\GeographicAnalyticsService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -89,8 +93,168 @@ class GeographicAnalyticsTest extends TestCase
         return $run;
     }
 
+    protected function createStatusOrder(
+        Outlet $outlet,
+        string $status,
+        string $amount,
+        string $createdAt,
+        array $items = []
+    ): Order {
+        $order = Order::create([
+            'order_id' => 'ORD-GEO-'.uniqid(),
+            'outlet_id' => $outlet->id,
+            'status' => $status,
+            'total_amount' => $amount,
+            'paid_amount' => '0.00',
+            'commission_percentage' => '2.00',
+            'idempotency_key' => 'geo-v2-'.uniqid(),
+        ]);
+
+        DB::table('orders')->where('id', $order->id)->update([
+            'created_at' => Carbon::parse($createdAt, 'Asia/Jakarta'),
+            'updated_at' => Carbon::parse($createdAt, 'Asia/Jakarta'),
+        ]);
+
+        foreach ($items as $item) {
+            OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $item['product_id'],
+                'quantity' => $item['quantity'],
+                'unit_price' => $item['unit_price'],
+                'subtotal' => $item['subtotal'],
+            ]);
+        }
+
+        return $order->fresh();
+    }
+
     // ------------------------------------------------------------------ //
-    // Cycle 1 — territory table and map data from active snapshot         //
+    // Cycle 1 — v2 outlet payload composition                            //
+    // ------------------------------------------------------------------ //
+
+    public function test_produce_emits_deterministic_v2_outlet_payload(): void
+    {
+        $outlet = Outlet::factory()->create([
+            'name' => 'V2 Outlet',
+            'latitude' => -6.2,
+            'longitude' => 106.8,
+        ]);
+        $emptyOutlet = Outlet::factory()->create([
+            'name' => 'Empty Outlet',
+            'latitude' => -6.3,
+            'longitude' => 106.9,
+        ]);
+
+        $products = collect(range(1, 6))->mapWithKeys(function (int $number): array {
+            $product = Product::factory()->create(['name' => 'Product '.$number]);
+            return [$number => $product];
+        });
+        $item = static fn (int $productNumber, int $quantity, string $subtotal): array => [
+            'product_id' => $products[$productNumber]->id,
+            'quantity' => $quantity,
+            'unit_price' => $subtotal,
+            'subtotal' => $subtotal,
+        ];
+
+        $this->createStatusOrder($outlet, 'New', '10.10', '2026-09-20 10:00:00', [
+            $item(1, 2, '10.10'),
+            $item(3, 10, '20.00'),
+        ]);
+        $this->createStatusOrder($outlet, 'Confirmed', '20.20', '2026-09-22 10:00:00', [
+            $item(2, 5, '20.20'),
+            $item(4, 5, '20.20'),
+        ]);
+        $this->createStatusOrder($outlet, 'Delivered', '30.30', '2026-09-23 10:00:00', [
+            $item(5, 10, '30.30'),
+        ]);
+        $latest = $this->createStatusOrder($outlet, 'Partially Paid', '40.40', '2026-09-25 10:00:00', [
+            $item(6, 1, '40.40'),
+        ]);
+
+        $payloads = (new GeographicAnalyticsService())->produce([
+            'start' => '2026-09-01',
+            'end' => '2026-09-30',
+            'timezone' => 'Asia/Jakarta',
+        ]);
+
+        $row = $payloads['outlet:'.$outlet->id];
+        $this->assertSame('outlet', $row['type']);
+        $this->assertSame(4, $row['orders']);
+        $this->assertSame('101.00', $row['sales']);
+        $this->assertTrue($row['plottable']);
+        $this->assertSame([
+            'New' => 1,
+            'Confirmed' => 1,
+            'Delivered' => 1,
+            'Partially Paid' => 1,
+        ], $row['orders_by_status']);
+        $this->assertSame([
+            'New' => '10.10',
+            'Confirmed' => '20.20',
+            'Delivered' => '30.30',
+            'Partially Paid' => '40.40',
+        ], $row['sales_by_status']);
+        $this->assertSame([
+            '2026-09-20',
+            '2026-09-22',
+            '2026-09-23',
+            '2026-09-25',
+        ], array_column($row['daily_by_status'], 'date'));
+        $this->assertSame([
+            $products[3]->id,
+            $products[5]->id,
+            $products[2]->id,
+            $products[4]->id,
+            $products[1]->id,
+        ], array_column($row['product_summary'], 'product_id'));
+        $this->assertTrue($row['product_summary_truncated']);
+        $this->assertSame([
+            'order_id' => $latest->order_id,
+            'status' => 'Partially Paid',
+            'created_at' => '2026-09-25T10:00:00+07:00',
+        ], $row['latest_request']);
+
+        $emptyRow = $payloads['outlet:'.$emptyOutlet->id];
+        $this->assertNull($emptyRow['latest_request']);
+        $this->assertSame([
+            'New' => 0,
+            'Confirmed' => 0,
+            'Delivered' => 0,
+            'Partially Paid' => 0,
+        ], $emptyRow['orders_by_status']);
+        $this->assertSame([], $emptyRow['daily_by_status']);
+        $this->assertSame([], $emptyRow['product_summary']);
+        $this->assertFalse($emptyRow['product_summary_truncated']);
+    }
+
+    // ------------------------------------------------------------------ //
+    // Cycle 2 — canonical coordinate rule                               //
+    // ------------------------------------------------------------------ //
+
+    public function test_coordinate_validation_uses_the_canonical_numeric_rule(): void
+    {
+        $cases = [
+            [null, 106.8, false],
+            ['-6.2', 106.8, false],
+            [NAN, 106.8, false],
+            [INF, 106.8, false],
+            [91, 106.8, false],
+            [-6.2, 181, false],
+            [0, 0, false],
+            [-6.2, 106.8, true],
+        ];
+
+        foreach ($cases as [$latitude, $longitude, $expected]) {
+            $this->assertSame(
+                $expected,
+                GeographicAnalyticsService::isValidCoordinate($latitude, $longitude),
+                sprintf('Unexpected coordinate result for (%s, %s)', var_export($latitude, true), var_export($longitude, true))
+            );
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Existing snapshot/controller coverage                               //
     // ------------------------------------------------------------------ //
 
     public function test_territory_table_and_map_data_are_generated_from_the_active_snapshot(): void

@@ -15,6 +15,7 @@ import { buildTransactions } from '@/dummy/factory-transactions';
 import { buildAggregates, buildGeographic } from '@/dummy/aggregates';
 import type { MasterData } from '@/dummy/factory';
 import type { Transactions } from '@/dummy/factory-transactions';
+import { computeFilteredCounts } from '@/lib/geographic-filters';
 
 const TODAY = new Date('2026-02-14T10:00:00+07:00');
 
@@ -53,6 +54,7 @@ describe('buildAggregates', () => {
 
     it('all map_points inside JABODETABEK bbox', () => {
       for (const point of agg.geographic.map_points) {
+        if (point.plottable === false) continue;
         expect(point.latitude).toBeGreaterThanOrEqual(-6.9);
         expect(point.latitude).toBeLessThanOrEqual(-5.9);
         expect(point.longitude).toBeGreaterThanOrEqual(105.9);
@@ -233,6 +235,68 @@ describe('buildGeographic deterministic v2 fixture', () => {
     expect(v1).toMatchObject({ outlet_id: 105, orders: 10, sales: '1000.00', plottable: true });
     expect(v1).not.toHaveProperty('orders_by_status'); expect(v1).not.toHaveProperty('sales_by_status');
     expect(v1).not.toHaveProperty('daily_by_status'); expect(v1).not.toHaveProperty('product_summary'); expect(v1).not.toHaveProperty('latest_request');
+  });
+});
+
+describe('literal filter outcomes on deterministic fixture', () => {
+  const fixture = geographicFixture();
+  const result = buildGeographic(fixture.master, fixture.tx, fixture.window);
+  const window = { start: '2026-08-27', end: '2026-09-25', timezone: 'Asia/Jakarta' };
+  const h = result.map_points.find((p) => p.outlet_id === 101)!;
+  const e = result.map_points.find((p) => p.outlet_id === 102)!;
+  const f = result.map_points.find((p) => p.outlet_id === 103)!;
+  const c = result.map_points.find((p) => p.outlet_id === 104)!;
+  const v1 = result.map_points.find((p) => p.outlet_id === 105)!;
+
+  it('Semua+30d: H=10', () => {
+    expect(computeFilteredCounts(h, ['Semua'], '30d', window).filteredOrders).toBe(10);
+  });
+  it('Semua+7d: H=8, E=3, F=2, C hidden, V1 excluded', () => {
+    expect(computeFilteredCounts(h, ['Semua'], '7d', window).filteredOrders).toBe(8);
+    expect(computeFilteredCounts(e, ['Semua'], '7d', window).filteredOrders).toBe(3);
+    expect(computeFilteredCounts(f, ['Semua'], '7d', window).filteredOrders).toBe(2);
+    expect(computeFilteredCounts(c, ['Semua'], '7d', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['Semua'], '7d', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['Semua'], '7d', window).hasDailyDetail).toBe(false);
+  });
+  it('{New,Conf}+7d: H=5, invalid E=3, F=2, V1 excluded', () => {
+    expect(computeFilteredCounts(h, ['New', 'Confirmed'], '7d', window).filteredOrders).toBe(5);
+    expect(computeFilteredCounts(e, ['New', 'Confirmed'], '7d', window).filteredOrders).toBe(3);
+    expect(computeFilteredCounts(f, ['New', 'Confirmed'], '7d', window).filteredOrders).toBe(2);
+    expect(computeFilteredCounts(v1, ['New', 'Confirmed'], '7d', window).filteredOrders).toBe(0);
+  });
+  it('{New,Conf}+Hari ini: H=3, E=0, F=0, V1 excluded', () => {
+    expect(computeFilteredCounts(h, ['New', 'Confirmed'], 'today', window).filteredOrders).toBe(3);
+    expect(computeFilteredCounts(e, ['New', 'Confirmed'], 'today', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(f, ['New', 'Confirmed'], 'today', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['New', 'Confirmed'], 'today', window).filteredOrders).toBe(0);
+  });
+  it('Partially Paid+Hari ini: H=0 -> empty state', () => {
+    expect(computeFilteredCounts(h, ['Partially Paid'], 'today', window).filteredOrders).toBe(0);
+  });
+  it('V1 is legacy-only: legacy orders render in 30d, excluded from 7d/today detail', () => {
+    // The legacy marker count comes from the v1 `orders` field, never from the
+    // v2 filter helper (which is v2-only by design).
+    expect(v1.orders).toBe(10);
+    expect(computeFilteredCounts(v1, ['Semua'], '30d', window).legacyOnly).toBe(true);
+    expect(computeFilteredCounts(v1, ['Semua'], '7d', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['Semua'], '7d', window).legacyOnly).toBe(true);
+    expect(computeFilteredCounts(v1, ['Semua'], 'today', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['Semua'], 'today', window).legacyOnly).toBe(true);
+    // outlets_without_daily_detail = rows lacking a daily_by_status array.
+    const withoutDailyDetail = result.map_points.filter((p) => !Array.isArray((p as { daily_by_status?: unknown }).daily_by_status));
+    expect(withoutDailyDetail.map((p) => p.outlet_id)).toEqual([105]);
+  });
+  it('bbox: plottable points only (E and F excluded)', () => {
+    const plottable = result.map_points.filter((p) => p.plottable === true);
+    expect(plottable.length).toBe(3);
+    for (const p of plottable) {
+      expect(p.latitude).toBeGreaterThanOrEqual(-6.9);
+      expect(p.latitude).toBeLessThanOrEqual(-5.9);
+      expect(p.longitude).toBeGreaterThanOrEqual(105.9);
+      expect(p.longitude).toBeLessThanOrEqual(107.3);
+    }
+    expect(result.map_points.filter((p) => p.plottable === false).map((p) => p.outlet_id).sort()).toEqual([102, 103]);
   });
 });
 

@@ -22,7 +22,7 @@ export type TableDensity = 'compact' | 'default' | 'comfortable';
  */
 export const SORT_ALLOWLISTS = {
   outlets: ['created_at', 'updated_at', 'name', 'id', 'category', 'score'],
-  products: ['created_at', 'updated_at', 'name', 'sku', 'price', 'stock_quantity', 'id'],
+  products: ['created_at', 'updated_at', 'name', 'sku', 'price', 'stock_quantity', 'id', 'category', 'status'],
   users: ['created_at', 'updated_at', 'name', 'email', 'role', 'id'],
   promotions: ['created_at', 'updated_at', 'start_date', 'end_date', 'id'],
   orders: ['created_at', 'updated_at', 'order_id', 'status', 'total_amount', 'id'],

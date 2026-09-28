@@ -3,6 +3,11 @@ import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { updateDummyProductPrice } from '@/dummy/mutations';
 import { compareRows, paginate } from '@/lib/admin-table';
+import { SUPPLIER_NAMES } from '@/dummy/seed';
+import { normalizeStock, deriveDisplayStatus } from './product-clarity';
+import type { ProductSupplier } from './product-clarity';
+
+export type { ProductSupplier } from './product-clarity';
 
 // ── Dummy helpers ───────────────────────────────────────────────────────────
 interface DummyProductEntity { sku: string; name: string; category: string; price: number }
@@ -16,16 +21,36 @@ function productsDummy(): DummyAllProducts {
   return { products: entities?.products ?? [], orders: entities?.orders ?? [] };
 }
 
+/** Deterministic stock sequence covering all health boundaries. */
+function dummyStock(i: number): number {
+  const cycle = [0, 5, 10, 11, 40, 120, 3, 25, 90, 7];
+  return cycle[i % cycle.length];
+}
+
+/** Deterministic supplier projection (null = orphan/none). */
+function dummySupplier(i: number): ProductSupplier | null {
+  if (i % 4 === 3) return null; // orphan/none
+  const idx = i % SUPPLIER_NAMES.length;
+  // Mostly active; some expired/suspended for 'unpurchasable' filter parity.
+  const status = i % 5 === 1 ? 'expired' : i % 5 === 2 ? 'suspended' : 'active';
+  return { id: idx + 1, name: SUPPLIER_NAMES[idx], subscription_status: status };
+}
+
+/** Deterministic is_active: 90% active (i % 10 !== 0). */
+function dummyActive(i: number): boolean {
+  return i % 10 !== 0;
+}
+
 function baseDummyProducts(): AdminProduct[] {
   return productsDummy().products.map((p, i) => ({
     id: i + 1,
     name: p.name,
     price: p.price.toFixed(2),
     sku: p.sku,
-    stock_quantity: 40 + ((i * 11 + 7) % 160),
+    stock_quantity: dummyStock(i),
     category: p.category,
-    is_active: i % 10 !== 0,
-    supplier_id: (i % 8) + 1,
+    is_active: dummyActive(i),
+    supplier: dummySupplier(i),
     description: `Dummy product — ${p.category}`,
   } as AdminProduct));
 }
@@ -53,18 +78,88 @@ function listDummyAdminProducts(filters: ProductFilters): ProductsListResult {
     list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q));
   }
 
-  const total = list.length;
-  const outOfStock = list.filter((p) => typeof p.stock_quantity === 'number' && p.stock_quantity <= 0).length;
+  // Category filter: exact match after trim (case-sensitive).
+  if (filters.category) {
+    const cat = filters.category;
+    list = list.filter((p) => (p.category ?? '').trim() === cat);
+  }
 
+  // Status filter: 'active', 'inactive', 'unpurchasable'.
+  if (filters.status) {
+    if (filters.status === 'active') {
+      list = list.filter((p) => p.is_active !== false);
+    } else if (filters.status === 'inactive') {
+      list = list.filter((p) => p.is_active === false);
+    } else if (filters.status === 'unpurchasable') {
+      list = list.filter((p) => p.supplier !== null && p.supplier !== undefined && p.supplier.subscription_status !== 'active');
+    }
+  }
+
+  // Stock health filter: floor semantics matching backend.
+  if (filters.stockHealth) {
+    if (filters.stockHealth === 'out') {
+      list = list.filter((p) => normalizeStock(p.stock_quantity) <= 0);
+    } else if (filters.stockHealth === 'low') {
+      list = list.filter((p) => { const n = normalizeStock(p.stock_quantity); return n >= 1 && n <= 10; });
+    } else if (filters.stockHealth === 'ok') {
+      list = list.filter((p) => normalizeStock(p.stock_quantity) >= 11);
+    }
+  }
+
+  // Sorting: custom for category (nulls-last alpha + id DESC tie) and status (derived priority + id DESC tie).
   const sortCol = filters.sort || 'created_at';
   const sortOrder = filters.order === 'asc' ? 'asc' : 'desc';
-  list = [...list].sort((a, b) =>
-    compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, sortCol, sortOrder),
-  );
+  const isDesc = sortOrder === 'desc';
+
+  const idDescTie = (a: number, b: number) => b - a;
+
+  if (sortCol === 'category') {
+    list = [...list].sort((a, b) => {
+      const aVal = (a.category ?? '').trim();
+      const bVal = (b.category ?? '').trim();
+      const aNull = aVal === '';
+      const bNull = bVal === '';
+      if (aNull && bNull) return idDescTie(a.id, b.id);
+      if (aNull) return 1;
+      if (bNull) return -1;
+      let cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' });
+      if (isDesc) cmp = -cmp;
+      return cmp !== 0 ? cmp : idDescTie(a.id, b.id);
+    });
+  } else if (sortCol === 'status') {
+    list = [...list].sort((a, b) => {
+      const aPri = deriveDisplayStatus({ is_active: a.is_active, supplier: a.supplier ?? undefined }) === 'Nonaktif' ? 2
+        : deriveDisplayStatus({ is_active: a.is_active, supplier: a.supplier ?? undefined }) === 'Tidak bisa dibeli' ? 1 : 0;
+      const bPri = deriveDisplayStatus({ is_active: b.is_active, supplier: b.supplier ?? undefined }) === 'Nonaktif' ? 2
+        : deriveDisplayStatus({ is_active: b.is_active, supplier: b.supplier ?? undefined }) === 'Tidak bisa dibeli' ? 1 : 0;
+      let cmp = aPri - bPri;
+      if (isDesc) cmp = -cmp;
+      return cmp !== 0 ? cmp : idDescTie(a.id, b.id);
+    });
+  } else {
+    list = [...list].sort((a, b) =>
+      compareRows(a as unknown as Record<string, unknown>, b as unknown as Record<string, unknown>, sortCol, sortOrder),
+    );
+  }
+
+  const total = list.length;
+  const outOfStock = list.filter((p) => normalizeStock(p.stock_quantity) <= 0).length;
 
   const limit = filters.limit ?? 15;
   const cursor = filters.cursor ?? 0;
   const paginated = paginate(list, cursor, limit);
+
+  // Categories from the full filtered set (before pagination), distinct, sorted.
+  const seen = new Set<string>();
+  for (const p of list) {
+    if (!p.category) continue;
+    const trimmed = p.category.trim();
+    if (trimmed !== '') seen.add(trimmed);
+  }
+  const categories = Array.from(seen).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+  );
+
   return {
     products: paginated.page,
     hasMore: paginated.hasMore,
@@ -72,6 +167,7 @@ function listDummyAdminProducts(filters: ProductFilters): ProductsListResult {
     cursor,
     total,
     summary: { total, out_of_stock: outOfStock },
+    categories,
   };
 }
 
@@ -113,6 +209,7 @@ export interface AdminProduct {
   category?: string;
   is_active?: boolean;
   supplier_id?: number | null;
+  supplier?: ProductSupplier | null;
   description?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -120,6 +217,9 @@ export interface AdminProduct {
 
 export interface ProductFilters {
   search?: string;
+  category?: string;
+  status?: string;
+  stockHealth?: string;
   limit?: number;
   cursor?: number;
   sort?: string;
@@ -133,6 +233,7 @@ export interface ProductsListResult {
   cursor: number;
   total?: number;
   summary?: { total: number; out_of_stock: number };
+  categories?: string[];
 }
 
 export interface PriceHistoryEntry {
@@ -187,15 +288,30 @@ export async function fetchAdminProducts(token: string, filters: ProductFilters 
 async function fetchAdminProductsReal(token: string, filters: ProductFilters): Promise<ProductsListResult> {
   const query = new URLSearchParams();
   if (filters.search) query.set('search', filters.search);
+  if (filters.category) query.set('category', filters.category);
+  if (filters.status) query.set('status', filters.status);
+  if (filters.stockHealth) query.set('stock_health', filters.stockHealth);
   query.set('limit', String(filters.limit ?? 15));
   query.set('cursor', String(filters.cursor ?? 0));
   query.set('sort', filters.sort || 'created_at');
   query.set('order', filters.order || 'desc');
+  // Admin context always sends include_unpurchasable=1 to bypass supplier eligibility clause.
+  query.set('include_unpurchasable', '1');
+
   const response = await fetch(apiUrl(`/products?${query.toString()}`), { headers: authHeaders(token) });
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Daftar produk tidak dapat dimuat.'));
+
   const products = Array.isArray(data.data) ? (data.data as AdminProduct[]) : [];
-  const meta = (data.meta ?? {}) as { has_more?: boolean; limit?: number; cursor?: number; total?: number; summary?: { total: number; out_of_stock: number } };
+  const meta = (data.meta ?? {}) as {
+    has_more?: boolean;
+    limit?: number;
+    cursor?: number;
+    total?: number;
+    summary?: { total: number; out_of_stock: number };
+    categories?: string[];
+  };
+
   return {
     products,
     hasMore: Boolean(meta.has_more),
@@ -203,6 +319,7 @@ async function fetchAdminProductsReal(token: string, filters: ProductFilters): P
     cursor: Number(meta.cursor ?? filters.cursor ?? 0),
     total: meta.total !== undefined ? Number(meta.total) : undefined,
     summary: meta.summary,
+    categories: Array.isArray(meta.categories) ? meta.categories.filter((c): c is string => typeof c === 'string') : undefined,
   };
 }
 

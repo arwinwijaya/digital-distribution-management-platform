@@ -34,6 +34,8 @@ describe('SORT_ALLOWLISTS (mirror of backend controller allowlists)', () => {
       'price',
       'stock_quantity',
       'id',
+      'category',
+      'status',
     ]);
     expect(SORT_ALLOWLISTS.users).toEqual([
       'created_at',

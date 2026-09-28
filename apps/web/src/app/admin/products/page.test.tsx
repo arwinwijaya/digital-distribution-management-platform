@@ -10,6 +10,7 @@ jest.mock('@/lib/api', () => ({
 }));
 import { useDummyStore } from '@/dummy/store';
 import { installDummy } from '@/dummy/install';
+import { SORT_ALLOWLISTS } from '@/lib/admin-table';
 
 const productsResponse = {
   status: 'success',
@@ -328,8 +329,91 @@ describe('admin products page', () => {
     });
   });
 
-  // ── Cycle 3: density toggle + dummy parity ───────────────────────────────
-  describe('density toggle + dummy parity', () => {
+  // ── Cycle 3: adapter contract + dummy parity ────────────────────────────
+  describe('adapter contract + dummy parity', () => {
+    it('serializes clarity filters and parses supplier/meta contract in real mode', async () => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        if (String(url).includes('/products')) {
+          return jsonResponse({
+            status: 'success',
+            data: [{
+              id: 7,
+              name: 'Teh Botol',
+              category: 'Minuman',
+              is_active: true,
+              stock_quantity: 5,
+              supplier: { id: 4, name: 'PT Segar', subscription_status: 'active' },
+            }],
+            meta: {
+              has_more: false,
+              limit: 15,
+              cursor: 0,
+              total: 1,
+              summary: { total: 1, out_of_stock: 0 },
+              categories: ['Minuman'],
+            },
+          });
+        }
+        return jsonResponse({});
+      });
+
+      const { fetchAdminProducts } = await import('@/app/admin/products/api');
+      const result = await fetchAdminProducts('t-token', {
+        category: 'Minuman',
+        status: 'active',
+        stockHealth: 'low',
+        sort: 'status',
+        order: 'asc',
+        cursor: 0,
+      });
+
+      const url = new URL(lastProductsUrl(fetchMock));
+      expect(url.searchParams.get('category')).toBe('Minuman');
+      expect(url.searchParams.get('status')).toBe('active');
+      expect(url.searchParams.get('stock_health')).toBe('low');
+      expect(url.searchParams.get('sort')).toBe('status');
+      expect(url.searchParams.get('order')).toBe('asc');
+      expect(url.searchParams.get('cursor')).toBe('0');
+      expect(url.searchParams.get('include_unpurchasable')).toBe('1');
+      expect(result.products[0].supplier).toEqual({ id: 4, name: 'PT Segar', subscription_status: 'active' });
+      expect(result.categories).toEqual(['Minuman']);
+      expect(result.summary).toEqual({ total: 1, out_of_stock: 0 });
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('keeps category/status sorting synchronized with the backend allowlist', async () => {
+      expect(SORT_ALLOWLISTS.products).toEqual(expect.arrayContaining(['category', 'status']));
+    });
+
+    it('keeps dummy filters/sort/categories/summary parity without network calls', async () => {
+      const { fetchAdminProducts } = await import('@/app/admin/products/api');
+      useDummyStore.getState().toggle();
+      expect(useDummyStore.getState().isDummy).toBe(true);
+
+      const all = await fetchAdminProducts('t-token', { limit: 200 });
+      expect(all.categories).toEqual(Array.from(new Set(all.products.map((p) => p.category).filter(Boolean))).sort());
+      expect(all.products.every((p) => p.supplier === null || p.supplier?.subscription_status)).toBe(true);
+
+      const category = all.products.find((p) => p.category)?.category;
+      expect(category).toBeTruthy();
+      const filtered = await fetchAdminProducts('t-token', {
+        category,
+        status: 'active',
+        stockHealth: 'low',
+        sort: 'status',
+        order: 'asc',
+        limit: 200,
+      });
+      expect(filtered.products.every((p) => p.category?.trim() === category)).toBe(true);
+      expect(filtered.products.every((p) => p.is_active === true)).toBe(true);
+      expect(filtered.products.every((p) => (p.stock_quantity ?? 0) >= 1 && (p.stock_quantity ?? 0) < 11)).toBe(true);
+      expect(filtered.summary).toEqual({
+        total: filtered.total,
+        out_of_stock: filtered.products.filter((p) => (p.stock_quantity ?? 0) <= 0).length,
+      });
+      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/products')).length).toBe(0);
+    });
+
     it('density toggle changes the table padding class and persists to localStorage', async () => {
       fetchMock.mockImplementation(async (url: unknown) => {
         const urlString = String(url);

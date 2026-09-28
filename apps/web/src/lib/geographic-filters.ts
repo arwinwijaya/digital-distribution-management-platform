@@ -80,6 +80,103 @@ export function expandSemua(statuses: readonly string[]): string[] {
   return [...statuses];
 }
 
+/** Per-outlet filtered counts derived from status maps or daily buckets. */
+export interface FilteredCounts {
+  filteredOrders: number;
+  statusCounts: Record<string, number>;
+  salesCents: number;
+  legacyOnly: boolean;
+  hasDailyDetail: boolean;
+}
+
+interface DailyBucket {
+  date: string;
+  counts?: Record<string, number>;
+  sales?: Record<string, string>;
+}
+
+/** A geographic map point row; v1 rows simply omit the v2 fields. */
+export interface GeographicPoint {
+  orders_by_status?: Record<string, number> | null;
+  sales_by_status?: Record<string, string> | null;
+  daily_by_status?: DailyBucket[] | null;
+}
+
+/** Normalize an arbitrary period value; unknown periods fall back to the full 30d window. */
+function normalizePeriod(period: string): Period {
+  if (period === 'today' || period === '7d') return period;
+  return '30d';
+}
+
+function toCount(value: number | string | null | undefined): number {
+  const count = Number(value);
+  return Number.isFinite(count) ? count : 0;
+}
+
+/** Parse a money value into integer cents (mirrors the dummy aggregates `toCents` convention). */
+function toCents(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  const cleaned = String(value).replace(/[^0-9.-]/g, '');
+  if (cleaned === '' || cleaned === '-' || cleaned === '.') return 0;
+  const numeric = Number(cleaned);
+  return Number.isFinite(numeric) ? Math.round(numeric * 100) : 0;
+}
+
+/**
+ * Compose the active status selection with the active period for one outlet row.
+ *
+ * `30d` (the default/unknown-period range) uses the snapshot status-map totals; `7d` and
+ * `today` slice `daily_by_status` to the inclusive in-range dates. Money is summed as integer
+ * cents. v1 rows without status/day maps fall back to a safe empty result.
+ */
+export function computeFilteredCounts(
+  point: GeographicPoint,
+  statuses: readonly string[],
+  period: Period | string,
+  window: SnapshotWindow,
+): FilteredCounts {
+  const selected = normalizeStatuses(statuses);
+  const effectivePeriod = normalizePeriod(period);
+  const range = periodToRange(window, effectivePeriod);
+  const statusCounts: Record<string, number> = {};
+  let filteredOrders = 0;
+  let salesCents = 0;
+
+  if (effectivePeriod === '30d') {
+    const orders = point.orders_by_status!;
+    const sales = point.sales_by_status ?? {};
+    for (const status of selected) {
+      const count = toCount(orders[status]);
+      statusCounts[status] = count;
+      filteredOrders += count;
+      salesCents += toCents(sales[status]);
+    }
+  } else {
+    for (const status of selected) statusCounts[status] = 0;
+    const buckets = point.daily_by_status!;
+    for (const bucket of buckets) {
+      if (bucket.date < range.start || bucket.date > range.end) continue;
+      for (const status of selected) {
+        const count = toCount(bucket.counts?.[status]);
+        statusCounts[status] += count;
+        filteredOrders += count;
+        salesCents += toCents(bucket.sales?.[status]);
+      }
+    }
+  }
+
+  const hasStatusMap = point.orders_by_status != null;
+  const hasDailyDetail = Array.isArray(point.daily_by_status);
+
+  return {
+    filteredOrders,
+    statusCounts,
+    salesCents,
+    legacyOnly: !hasStatusMap && !hasDailyDetail,
+    hasDailyDetail,
+  };
+}
+
 /** Normalize status selections, preserving an intentional empty selection. */
 export function normalizeStatuses(statuses: readonly string[]): EligibleStatus[] {
   if (statuses.length === 0) return [];

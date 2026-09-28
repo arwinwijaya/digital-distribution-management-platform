@@ -9,6 +9,22 @@ import { render, screen, waitFor, act, within } from '@testing-library/react';
 import { useDummyStore } from '@/dummy/store';
 import { installDummy } from '@/dummy/install';
 
+jest.mock('@/components/data-intelligence/GeoMap', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ points, onSelectOutlet }: { points: Array<{ outlet_id: number; outlet_name: string }>; onSelectOutlet?: (point: unknown) => void }) => (
+      <div aria-label="Daftar outlet peta">
+        {points.map((point) => (
+          <button key={point.outlet_id} type="button" onClick={() => onSelectOutlet?.(point)}>
+            {point.outlet_name}
+          </button>
+        ))}
+      </div>
+    ),
+  };
+});
+
 const mockGetStoredToken = jest.fn(() => 'test-token');
 const mockClearStoredToken = jest.fn();
 jest.mock('@/lib/api', () => ({
@@ -432,6 +448,23 @@ describe('admin page consumes shared API contract', () => {
     expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: '30 hari' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('opens a frozen outlet drawer from a marker and shows the freeze banner after filter changes', async () => {
+    geographicPayload = geographicPayloadWith([makeV2Point({ latest_request: { order_id: '301', status: 'New', created_at: '2026-09-14T10:00:00+07:00' } })]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Outlet A' })).toBeInTheDocument());
+    await act(async () => {
+      screen.getByRole('button', { name: 'Outlet A' }).click();
+    });
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Outlet A' })).toBeInTheDocument());
+    expect(screen.getByText(/Filtered orders/)).toBeInTheDocument();
+    await act(async () => {
+      screen.getByRole('button', { name: 'Delivered' }).click();
+    });
+    await waitFor(() => expect(screen.getByTestId('outlet-drawer-freeze-banner')).toBeInTheDocument());
+    expect(screen.getByText(/Filtered orders/)).toBeInTheDocument();
   });
 
   it('re-fetches and shows dummy data when Mode Dummy is toggled on', async () => {

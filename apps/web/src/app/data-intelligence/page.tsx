@@ -29,6 +29,7 @@ import TerritoryTable from '@/components/data-intelligence/TerritoryTable';
 import SupplierPerformanceTable from '@/components/data-intelligence/SupplierPerformanceTable';
 import StockPlanningTable from '@/components/data-intelligence/StockPlanningTable';
 import MeasurementCards from '@/components/data-intelligence/MeasurementCards';
+import OutletDrawer, { type DrawerFilter } from '@/components/data-intelligence/OutletDrawer';
 
 const GeoMap = dynamic(() => import('@/components/data-intelligence/GeoMap'), { ssr: false });
 
@@ -120,6 +121,8 @@ export default function DataIntelligencePage() {
   const [error, setError] = useState<{ message: string; retryable: boolean } | null>(null);
   const [statuses, setStatuses] = useState<EligibleStatus[]>([...DEFAULT_STATUSES]);
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
+  const [selectedOutlet, setSelectedOutlet] = useState<GeographicMapPoint | null>(null);
+  const [openingFilter, setOpeningFilter] = useState<DrawerFilter | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -224,7 +227,15 @@ export default function DataIntelligencePage() {
   } else if (visiblePoints.length === 0) {
     mapContent = <p>Tidak ada request pada periode ini</p>;
   } else {
-    mapContent = <GeoMap points={visiblePoints} />;
+    mapContent = (
+      <GeoMap
+        points={visiblePoints}
+        onSelectOutlet={(point) => {
+          setSelectedOutlet(point);
+          setOpeningFilter({ statuses: [...statuses], period });
+        }}
+      />
+    );
   }
 
   function toggleStatus(status: EligibleStatus) {
@@ -236,6 +247,8 @@ export default function DataIntelligencePage() {
   function toggleSemua() {
     setStatuses((current) => (current.length === STATUS_CHIPS.length ? [] : [...STATUS_CHIPS]));
   }
+
+  const currentFilter: DrawerFilter = { statuses: [...statuses], period };
 
   if (!ready) return <p className="text-sm text-gray-500">Memuat…</p>;
   if (accessError) {
@@ -326,6 +339,18 @@ export default function DataIntelligencePage() {
           <p data-testid="outlets-without-daily-detail" className="mt-2 text-xs text-gray-500">
             {`${outletsWithoutDailyDetail} outlet tanpa detail harian`}
           </p>
+          {selectedOutlet && openingFilter && snapshotWindow && (
+            <OutletDrawer
+              point={selectedOutlet}
+              openingFilter={openingFilter}
+              currentFilter={currentFilter}
+              window={snapshotWindow}
+              onClose={() => {
+                setSelectedOutlet(null);
+                setOpeningFilter(null);
+              }}
+            />
+          )}
           <div className="mt-4">
             <TerritoryTable territories={snapshot.geographic?.table ?? []} loading={loading} />
           </div>

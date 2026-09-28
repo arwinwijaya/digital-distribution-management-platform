@@ -174,6 +174,123 @@ class OrderQueryTest extends TestCase
     }
 
     /**
+     * GWT: Given an invalid additive filter, When the admin order list is
+     * requested, Then the exact validation envelope identifies the field and
+     * no order rows are returned.
+     */
+    public function test_admin_orders_list_rejects_invalid_additive_filters(): void
+    {
+        $token = $this->loginAsAdmin();
+        $this->createOrderAt('ORD-INVALID-FILTER', '2026-09-20 08:00:00');
+        $headers = ['Authorization' => "Bearer {$token}"];
+
+        $this->withHeaders($headers)->getJson('/api/admin/orders?outlet_id=abc')
+            ->assertStatus(422)
+            ->assertExactJson([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => ['outlet_id' => 'Must be a positive integer'],
+            ]);
+
+        $this->withHeaders($headers)->getJson('/api/admin/orders?status=Unknown')
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('message', 'Validation failed')
+            ->assertJsonPath('errors.status', 'Status must be one of: New,Confirmed,Delivered,Partially Paid')
+            ->assertJsonMissingPath('data');
+
+        $this->withHeaders($headers)->getJson('/api/admin/orders?start=2026-09-31')
+            ->assertStatus(422)
+            ->assertJsonPath('errors.start', 'Must be a valid date in YYYY-MM-DD format')
+            ->assertJsonMissingPath('data');
+
+        $this->withHeaders($headers)->getJson('/api/admin/orders?start=2026-09-25&end=2026-09-19')
+            ->assertStatus(422)
+            ->assertJsonPath('errors.start', 'Start date must be before or equal to end date')
+            ->assertJsonMissingPath('data');
+
+        $this->withHeaders($headers)->getJson('/api/admin/orders?start=2026-01-01&end=2026-04-01')
+            ->assertStatus(422)
+            ->assertJsonPath('errors.end', 'Date range must not exceed 90 days')
+            ->assertJsonMissingPath('data');
+
+        $this->withHeaders($headers)->getJson('/api/admin/orders?foo=1')
+            ->assertStatus(422)
+            ->assertJsonPath('errors.foo', 'Unknown query parameter')
+            ->assertJsonMissingPath('data');
+
+        $this->withHeaders($headers)->getJson('/api/admin/orders?page_size=999')
+            ->assertStatus(422)
+            ->assertJsonPath('errors.page_size', 'Unknown query parameter')
+            ->assertJsonMissingPath('data');
+    }
+
+    /**
+     * GWT: Given no new additive filter parameters, When GET /admin/orders
+     * (with only existing pagination params), Then the response is
+     * byte-identical to the pre-change contract (status, data array, meta
+     * with has_more/limit/cursor/total in that order).
+     */
+    public function test_admin_orders_list_preserves_exact_default_contract(): void
+    {
+        $token = $this->loginAsAdmin();
+        $order = $this->createOrderAt('ORD-REGRESSION', '2026-09-20 08:00:00');
+        $headers = ['Authorization' => "Bearer {$token}"];
+
+        $response = $this->withHeaders($headers)
+            ->getJson('/api/admin/orders');
+
+        $response->assertOk()
+            ->assertExactJson([
+                'status' => 'success',
+                'data' => [
+                    [
+                        'id' => $order->id,
+                        'order_id' => 'ORD-REGRESSION',
+                        'outlet_id' => $this->outlet->id,
+                        'status' => 'New',
+                        'total_amount' => '10000.00',
+                        'paid_amount' => '0.00',
+                        'outstanding_balance' => '10000.00',
+                        'promotion_id' => null,
+                        'discount_amount' => '0.00',
+                        'commission_percentage' => '2.00',
+                        'items' => [],
+                        'created_at' => '2026-09-20T01:00:00.000000Z',
+                        'updated_at' => '2026-09-20T01:00:00.000000Z',
+                    ],
+                ],
+                'meta' => [
+                    'has_more' => false,
+                    'limit' => 100,
+                    'cursor' => 0,
+                    'total' => 1,
+                ],
+            ]);
+    }
+
+    /**
+     * GWT: Given duplicate status values and the space-containing canonical
+     * status, When filtered, Then duplicates normalize to a unique set and
+     * every canonical status (including `Partially Paid`) is accepted.
+     */
+    public function test_admin_orders_list_normalizes_duplicate_statuses(): void
+    {
+        $token = $this->loginAsAdmin();
+        $new = $this->createOrderAt('ORD-DUP-NEW', '2026-09-22 08:00:00', ['status' => 'New']);
+        $partial = $this->createOrderAt('ORD-DUP-PARTIAL', '2026-09-21 08:00:00', ['status' => 'Partially Paid']);
+        $this->createOrderAt('ORD-DUP-CANCELLED', '2026-09-20 08:00:00', ['status' => 'Cancelled']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/orders?status=New,New,Partially%20Paid')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $new->id)
+            ->assertJsonPath('data.1.id', $partial->id);
+    }
+
+    /**
      * GWT: Given an outlet (non-admin) user, When GET /admin/orders,
      * Then the existing admin guard still responds 403 (unchanged).
      */

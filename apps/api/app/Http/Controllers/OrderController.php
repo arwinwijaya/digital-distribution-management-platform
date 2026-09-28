@@ -75,6 +75,17 @@ class OrderController extends Controller
             ], 403);
         }
 
+        // Validate the additive filter contract BEFORE any query construction
+        // so an invalid request can never fall back to a broadened/unfiltered query.
+        $filters = $this->resolveOrderFilters($request);
+        if ($filters['errors'] !== []) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $filters['errors'],
+            ], 422);
+        }
+
         // Keep the legacy array response while enforcing a server-side bound.
         // Callers can request fewer rows, but never an unbounded order history.
         $limit = min(max((int) $request->query('limit', 100), 1), 100);
@@ -82,10 +93,10 @@ class OrderController extends Controller
 
         $query = Order::query()->with(['items.product']);
 
-        // Additive filters (outlet_id/status/start/end). Each present filter
-        // narrows the builder; absent filters leave the query unchanged so
-        // existing unfiltered behaviour is preserved byte-for-byte.
-        $this->applyOrderFilters($query, $request);
+        // Apply additive filters. Each present filter narrows the builder;
+        // absent filters leave the query unchanged so existing unfiltered
+        // behaviour is preserved byte-for-byte.
+        $this->applyOrderFilters($query, $filters['filters']);
 
         // Sort allowlist with silent fallback to created_at DESC for invalid input.
         // Reads are scalar-safe: array params (e.g. ?sort[]=x) fall back to the
@@ -98,7 +109,7 @@ class OrderController extends Controller
             'desc',
         );
 
-        // Aggregate total derives from the SAME unfiltered builder (before
+        // Aggregate total derives from the SAME filtered builder (before
         // limit/offset/order) — never count the paginated rows.
         $meta = array_merge(
             ['limit' => $limit, 'cursor' => $cursor],
@@ -124,30 +135,167 @@ class OrderController extends Controller
     }
 
     /**
-     * Apply the additive order filters (outlet_id/status/start/end) to the
-     * builder. Only filters actually present in the request narrow the query;
-     * absent filters leave the builder untouched.
+     * Allowed query keys for the admin orders endpoint: existing pagination/
+     * sort keys plus the four new additive filter keys. Any key outside this
+     * set is rejected with a field-level 422 error.
+     *
+     * @var array<string>
      */
-    private function applyOrderFilters(Builder $query, Request $request): void
+    private const ALLOWED_QUERY_KEYS = [
+        'limit',
+        'cursor',
+        'sort',
+        'order',
+        'outlet_id',
+        'status',
+        'start',
+        'end',
+    ];
+
+    /**
+     * Canonical statuses that may appear in the status CSV filter.
+     *
+     * @var array<string>
+     */
+    private const CANONICAL_STATUSES = ['New', 'Confirmed', 'Delivered', 'Partially Paid'];
+
+    /**
+     * Maximum inclusive date range for start/end filters (in days).
+     */
+    private const MAX_FILTER_RANGE_DAYS = 90;
+
+    /**
+     * Validate and normalize the additive order filters.
+     *
+     * Returns an array with 'errors' (field => message) and 'filters' (the
+     * parsed values). When 'errors' is non-empty the request is invalid and
+     * the endpoint must return a 422 envelope — no query is built.
+     *
+     * @return array{errors: array<string,string>, filters: array<string,mixed>}
+     */
+    private function resolveOrderFilters(Request $request): array
     {
+        $errors = [];
+        $filters = [];
+
+        // Reject any unknown query keys.
+        foreach (array_keys($request->query()) as $key) {
+            if (! in_array($key, self::ALLOWED_QUERY_KEYS, true)) {
+                $errors[$key] = 'Unknown query parameter';
+            }
+        }
+
+        // outlet_id: must be a positive integer when present.
         if ($request->query('outlet_id') !== null) {
-            $query->where('outlet_id', (int) ListQuery::scalarString($request, 'outlet_id', '0'));
+            $raw = ListQuery::scalarString($request, 'outlet_id', '');
+            if (! preg_match('/^[1-9][0-9]*$/', $raw)) {
+                $errors['outlet_id'] = 'Must be a positive integer';
+            } else {
+                $filters['outlet_id'] = (int) $raw;
+            }
         }
 
+        // status: CSV of canonical statuses; duplicates normalized; each value exact match.
         if ($request->query('status') !== null) {
-            $statuses = array_values(array_unique(array_filter(
-                array_map('trim', explode(',', ListQuery::scalarString($request, 'status', ''))),
-                fn (string $status) => $status !== '',
-            )));
-            $query->whereIn('status', $statuses);
+            $raw = ListQuery::scalarString($request, 'status', '');
+            $statuses = $this->parseStatuses($raw);
+            if ($statuses === null) {
+                $errors['status'] = 'Status must be one of: New,Confirmed,Delivered,Partially Paid';
+            } else {
+                $filters['statuses'] = $statuses;
+            }
         }
 
-        if ($request->query('start') !== null) {
-            $query->where('created_at', '>=', ListQuery::scalarString($request, 'start', '').' 00:00:00');
+        // start/end: valid YYYY-MM-DD, start <= end, inclusive range <= 90 days.
+        $start = $request->query('start') !== null ? ListQuery::scalarString($request, 'start', '') : null;
+        $end = $request->query('end') !== null ? ListQuery::scalarString($request, 'end', '') : null;
+
+        $startDate = $start !== null ? $this->parseDate($start) : null;
+        $endDate = $end !== null ? $this->parseDate($end) : null;
+
+        if ($start !== null && $startDate === false) {
+            $errors['start'] = 'Must be a valid date in YYYY-MM-DD format';
+        }
+        if ($end !== null && $endDate === false) {
+            $errors['end'] = 'Must be a valid date in YYYY-MM-DD format';
         }
 
-        if ($request->query('end') !== null) {
-            $query->where('created_at', '<=', ListQuery::scalarString($request, 'end', '').' 23:59:59');
+        if (is_string($startDate) && is_string($endDate)) {
+            if ($startDate > $endDate) {
+                $errors['start'] = 'Start date must be before or equal to end date';
+            } else {
+                $diffDays = (new \DateTimeImmutable($startDate))->diff(new \DateTimeImmutable($endDate))->days;
+                if ($diffDays + 1 > self::MAX_FILTER_RANGE_DAYS) {
+                    $errors['end'] = 'Date range must not exceed 90 days';
+                }
+            }
+        }
+
+        if (is_string($startDate)) $filters['start'] = $startDate;
+        if (is_string($endDate)) $filters['end'] = $endDate;
+
+        return ['errors' => $errors, 'filters' => $filters];
+    }
+
+    /**
+     * Parse a comma-separated status string into a unique array of canonical
+     * statuses. Returns null if the string is empty or contains any value
+     * outside the canonical set.
+     */
+    private function parseStatuses(string $raw): ?array
+    {
+        $parts = explode(',', $raw);
+
+        if ($parts === [] || in_array('', $parts, true)) {
+            return null;
+        }
+
+        foreach ($parts as $part) {
+            if (! in_array($part, self::CANONICAL_STATUSES, true)) {
+                return null;
+            }
+        }
+
+        return array_values(array_unique($parts));
+    }
+
+    /**
+     * Parse a YYYY-MM-DD string into a validated DateTimeImmutable date string.
+     * Returns false if the format is invalid or the date does not exist.
+     */
+    private function parseDate(string $value): string|bool
+    {
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return false;
+        }
+        [$y, $m, $d] = explode('-', $value);
+        if (! checkdate((int) $m, (int) $d, (int) $y)) {
+            return false;
+        }
+        return $value;
+    }
+
+    /**
+     * Apply the additive order filters to the builder.
+     *
+     * @param  array{outlet_id?:int,statuses?:array<string>,start?:string,end?:string}  $filters
+     */
+    private function applyOrderFilters(Builder $query, array $filters): void
+    {
+        if (isset($filters['outlet_id'])) {
+            $query->where('outlet_id', $filters['outlet_id']);
+        }
+
+        if (isset($filters['statuses'])) {
+            $query->whereIn('status', $filters['statuses']);
+        }
+
+        if (isset($filters['start'])) {
+            $query->where('created_at', '>=', $filters['start'].' 00:00:00');
+        }
+
+        if (isset($filters['end'])) {
+            $query->where('created_at', '<=', $filters['end'].' 23:59:59');
         }
     }
 

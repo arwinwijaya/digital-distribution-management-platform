@@ -215,10 +215,159 @@ describe('admin products page', () => {
 
       const row = screen.getByText('Produk Tanpa Tanggal').closest('tr') as HTMLTableRowElement;
       const cells = Array.from(row.querySelectorAll('td'));
-      // Columns: name, sku, price, stock_quantity, created_at, updated_at, action
-      expect(cells[4]).toHaveTextContent('\u2014');
-      expect(cells[5]).toHaveTextContent('\u2014');
+      // Columns: name, sku, category, status, price, stock, created_at, updated_at, action
+      expect(cells[6]).toHaveTextContent('\u2014');
+      expect(cells[7]).toHaveTextContent('\u2014');
       expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── Cycle 1: identity columns, fallbacks and status precedence ──────────
+  describe('identity columns, fallbacks and status precedence', () => {
+    const identityData = [
+      {
+        id: 11,
+        name: 'Kopi Kapal',
+        sku: 'SKU-001',
+        category: 'Minuman',
+        price: '15000.00',
+        stock_quantity: 40,
+        is_active: true,
+        supplier: { id: 1, name: 'PT Segar', subscription_status: 'active' },
+        created_at: '2026-09-05T08:00:00Z',
+        updated_at: '2026-09-10T10:00:00Z',
+      },
+      {
+        id: 12,
+        name: 'Gula Pasir 1kg',
+        sku: 'SKU-002',
+        category: null,
+        price: '19000.00',
+        stock_quantity: null,
+        is_active: true,
+        supplier: { id: 1, name: 'PT Segar', subscription_status: 'active' },
+        created_at: null,
+        updated_at: null,
+      },
+      {
+        id: 13,
+        name: 'Beras Premium',
+        sku: 'SKU-003',
+        category: 'Sembako',
+        price: '65000.00',
+        stock_quantity: 5,
+        is_active: true,
+        supplier: { id: 2, name: 'CV Tani', subscription_status: 'expired' },
+        created_at: null,
+        updated_at: null,
+      },
+      {
+        id: 14,
+        name: 'Produk Lama',
+        sku: 'SKU-004',
+        category: 'Sembako',
+        price: '10000.00',
+        stock_quantity: 0,
+        is_active: false,
+        supplier: { id: 2, name: 'CV Tani', subscription_status: 'expired' },
+        created_at: null,
+        updated_at: null,
+      },
+      {
+        id: 15,
+        name: 'Tanpa Supplier',
+        sku: 'SKU-005',
+        category: 'Lain',
+        price: '20000.00',
+        stock_quantity: 3,
+        is_active: true,
+        supplier: null,
+        created_at: null,
+        updated_at: null,
+      },
+    ];
+
+    beforeEach(() => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        const urlString = String(url);
+        if (urlString.includes('/products')) {
+          return jsonResponse({
+            status: 'success',
+            data: identityData,
+            meta: {
+              has_more: false,
+              limit: 15,
+              cursor: 0,
+              total: identityData.length,
+              summary: { total: identityData.length, out_of_stock: 1 },
+            },
+          });
+        }
+        return jsonResponse({});
+      });
+    });
+
+    it('renders the required identity headers in order', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      const headers = Array.from(document.querySelectorAll('thead th')).map((th) => th.textContent ?? '');
+      // Sortable headers append a direction glyph; strip it for comparison.
+      const labels = headers.map((h) => h.replace(/[↑↓↕]/g, '').trim());
+      expect(labels).toEqual(['Nama', 'SKU', 'Kategori', 'Status', 'Harga Jual', 'Stok (unit)', 'Dibuat', 'Diperbarui', 'Aksi']);
+    });
+
+    it('shows the category cell with an em dash fallback for null/empty category', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      const cellsOf = (name: string) =>
+        Array.from((screen.getByText(name).closest('tr') as HTMLTableRowElement).querySelectorAll('td'));
+
+      expect(cellsOf('Kopi Kapal')[2]).toHaveTextContent('Minuman');
+      expect(cellsOf('Gula Pasir 1kg')[2]).toHaveTextContent('\u2014');
+      expect(cellsOf('Gula Pasir 1kg')[2]).not.toHaveTextContent('Minuman');
+    });
+
+    it('explains the order price via a tooltip on the price column', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      const tooltips = screen.getAllByTitle('Harga jual yang digunakan dalam order');
+      expect(tooltips.length).toBeGreaterThan(0);
+      expect(tooltips[0]).toHaveTextContent(/Rp\s*15\.000/);
+    });
+
+    it('renders null stock as normalized 0 with Habis', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Gula Pasir 1kg')).toBeInTheDocument());
+
+      const row = screen.getByText('Gula Pasir 1kg').closest('tr') as HTMLTableRowElement;
+      const stockCell = row.querySelectorAll('td')[5];
+      expect(stockCell).toHaveTextContent('0');
+      expect(stockCell).toHaveTextContent('Habis');
+      expect(stockCell).not.toHaveTextContent('\u2014');
+    });
+
+    it('derives one main status badge with Nonaktif > Tidak bisa dibeli > Aktif precedence', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      const statusOf = (name: string) => {
+        const row = screen.getByText(name).closest('tr') as HTMLTableRowElement;
+        return row.querySelectorAll('td')[3].textContent ?? '';
+      };
+
+      expect(statusOf('Kopi Kapal').trim()).toBe('Aktif');
+      expect(statusOf('Tanpa Supplier').trim()).toBe('Aktif');
+      expect(statusOf('Beras Premium').trim()).toBe('Tidak bisa dibeli');
+      expect(statusOf('Produk Lama').trim()).toBe('Nonaktif');
+      expect(statusOf('Produk Lama')).not.toContain('Tidak bisa dibeli');
     });
   });
 
@@ -241,7 +390,7 @@ describe('admin products page', () => {
       render(<Page />);
       await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
 
-      fireEvent.click(screen.getByText('Harga'));
+      fireEvent.click(screen.getByText('Harga Jual'));
       await waitFor(() => {
         const url = lastProductsUrl(fetchMock);
         expect(url).toContain('sort=price');
@@ -249,8 +398,8 @@ describe('admin products page', () => {
         expect(url).toContain('cursor=0');
       });
 
-      await waitFor(() => expect(screen.getByText('Harga')).toBeInTheDocument());
-      fireEvent.click(screen.getByText('Harga'));
+      await waitFor(() => expect(screen.getByText('Harga Jual')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Harga Jual'));
       await waitFor(() => {
         const url = lastProductsUrl(fetchMock);
         expect(url).toContain('sort=price');
@@ -289,8 +438,8 @@ describe('admin products page', () => {
       fireEvent.click(screen.getByText('Cari'));
       await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('search=Kopi'));
 
-      await waitFor(() => expect(screen.getByText('Harga')).toBeInTheDocument());
-      fireEvent.click(screen.getByText('Harga'));
+      await waitFor(() => expect(screen.getByText('Harga Jual')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Harga Jual'));
       await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('sort=price'));
 
       await waitFor(() => expect(screen.getByText('Berikutnya')).toBeInTheDocument());
@@ -425,19 +574,19 @@ describe('admin products page', () => {
       render(<Page />);
       await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
 
-      let headerCell = screen.getByText('Nama Produk').closest('th') as HTMLTableCellElement;
+      let headerCell = screen.getByText('Nama', { selector: 'th' }).closest('th') as HTMLTableCellElement;
       expect(headerCell).toHaveClass('py-3');
 
       fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
       await waitFor(() => {
-        headerCell = screen.getByText('Nama Produk').closest('th') as HTMLTableCellElement;
+        headerCell = screen.getByText('Nama', { selector: 'th' }).closest('th') as HTMLTableCellElement;
         expect(headerCell).toHaveClass('py-2');
       });
       expect(localStorage.getItem('admin:table-density')).toBe('compact');
 
       fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
       await waitFor(() => {
-        headerCell = screen.getByText('Nama Produk').closest('th') as HTMLTableCellElement;
+        headerCell = screen.getByText('Nama', { selector: 'th' }).closest('th') as HTMLTableCellElement;
         expect(headerCell).toHaveClass('py-4');
       });
       expect(localStorage.getItem('admin:table-density')).toBe('comfortable');

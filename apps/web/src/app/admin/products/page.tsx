@@ -5,9 +5,28 @@ import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { fetchAdminProducts, updateProductPrice, fetchPriceHistory, type AdminProduct, type PriceHistoryEntry } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Card, EmptyState, Input, PageHeader, Table, TableSummary, TablePagination, TableDensityToggle } from '@/components/ui';
+import { Button, Badge, Card, EmptyState, Input, PageHeader, Table, TableSummary, TablePagination, TableDensityToggle } from '@/components/ui';
 import { useTableDensity } from '@/hooks/useTableDensity';
 import { toggleSort, formatDateTime, type ColumnSort } from '@/lib/admin-table';
+import {
+  STOCK_UNIT_LABEL,
+  categoryDisplay,
+  classifyStockHealth,
+  deriveDisplayStatus,
+  normalizeStock,
+  stockHealthLabel,
+  type DisplayStatus,
+} from './product-clarity';
+
+/** Badge colour per derived display status (single badge, explicit precedence). */
+const STATUS_BADGE_VARIANT: Record<DisplayStatus, 'green' | 'yellow' | 'gray'> = {
+  Aktif: 'green',
+  'Tidak bisa dibeli': 'yellow',
+  Nonaktif: 'gray',
+};
+
+/** Tooltip copy for the price column: what the value actually represents. */
+const PRICE_TOOLTIP = 'Harga jual yang digunakan dalam order';
 
 export default function AdminProductsPage() {
   const [token, setToken] = useState<string | null>(null);
@@ -102,27 +121,46 @@ export default function AdminProductsPage() {
   const columns = [
     {
       key: 'name',
-      header: 'Nama Produk',
+      header: 'Nama',
       render: (p: AdminProduct) => <button onClick={() => selectProduct(p)} className="font-medium text-primary-700 hover:underline text-left">{p.name}</button>,
     },
     { key: 'sku', header: 'SKU', render: (p: AdminProduct) => <span className="text-sm text-gray-600">{p.sku ?? '—'}</span> },
     {
+      key: 'category',
+      header: 'Kategori',
+      render: (p: AdminProduct) => <span className="text-sm text-gray-600">{categoryDisplay(p.category)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (p: AdminProduct) => {
+        const status = deriveDisplayStatus({ is_active: p.is_active, supplier: p.supplier ?? undefined });
+        return <Badge variant={STATUS_BADGE_VARIANT[status]}>{status}</Badge>;
+      },
+    },
+    {
       key: 'price',
-      header: 'Harga',
+      header: 'Harga Jual',
       render: (p: AdminProduct) => (
-        <span className="font-medium">
+        <span className="font-medium" title={PRICE_TOOLTIP}>
           Rp {Number(p.price ?? 0).toLocaleString('id-ID')}
         </span>
       ),
     },
     {
       key: 'stock_quantity',
-      header: 'Stok',
-      render: (p: AdminProduct) => (
-        <span className={`font-medium ${typeof p.stock_quantity === 'number' && p.stock_quantity <= 0 ? 'text-danger-600' : 'text-gray-800'}`}>
-          {typeof p.stock_quantity === 'number' ? p.stock_quantity : '—'}
-        </span>
-      ),
+      header: STOCK_UNIT_LABEL,
+      render: (p: AdminProduct) => {
+        const stock = normalizeStock(p.stock_quantity);
+        const health = classifyStockHealth(p.stock_quantity);
+        const tone = health === 'out' ? 'text-danger-600' : health === 'low' ? 'text-warning-700' : 'text-success-700';
+        return (
+          <span className="inline-flex items-baseline gap-2">
+            <span className={`font-medium ${tone}`}>{stock}</span>
+            <span className="text-xs">{stockHealthLabel(health)}</span>
+          </span>
+        );
+      },
     },
     {
       key: 'created_at',
@@ -172,7 +210,7 @@ export default function AdminProductsPage() {
               rows={products}
               rowKey={(p) => p.id}
               density={density}
-              sortableColumns={['name', 'sku', 'price', 'stock_quantity', 'created_at', 'updated_at']}
+              sortableColumns={['name', 'sku', 'category', 'status', 'price', 'stock_quantity', 'created_at', 'updated_at']}
               sort={sort}
               onSort={(column) => {
                 const next = toggleSort(sortRef.current, column);

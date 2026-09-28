@@ -10,10 +10,12 @@ import { useDummyStore } from '@/dummy/store';
 import { installDummy } from '@/dummy/install';
 
 const mockGetStoredToken = jest.fn(() => 'test-token');
+const mockClearStoredToken = jest.fn();
 jest.mock('@/lib/api', () => ({
   apiUrl: (p: string) => `http://localhost:8000/api${p}`,
   authHeaders: (token: string) => ({ Authorization: `Bearer ${token}` }),
   getStoredToken: (...args: unknown[]) => (mockGetStoredToken as (...a: unknown[]) => string | null)(...args),
+  clearStoredToken: (...args: unknown[]) => mockClearStoredToken(...args),
 }));
 
 const geographicResponse = {
@@ -368,6 +370,68 @@ describe('admin page consumes shared API contract', () => {
     await waitFor(() => expect(screen.getByTestId('outlets-without-daily-detail')).toHaveTextContent('0'));
     screen.getByRole('button', { name: '7 hari' }).click();
     await waitFor(() => expect(screen.getByTestId('outlets-without-daily-detail')).toHaveTextContent('1'));
+  });
+
+  it('classifies a temporary server error and offers retry without stale map data', async () => {
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    fetchMock.mockImplementation(async (url: unknown) => String(url).includes('/auth/me')
+      ? ({ ok: true, status: 200, json: async () => ({ status: 'success', data: { role: 'admin', rbac: {} } }) } as Response)
+      : ({ ok: false, status: 500, json: async () => ({ status: 'error', message: 'Internal error' }) } as Response));
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Tidak dapat memuat data peta'));
+    expect(screen.getByRole('button', { name: 'Coba lagi' })).toBeInTheDocument();
+    expect(screen.queryByText('Outlet A')).not.toBeInTheDocument();
+  });
+
+  it('classifies forbidden as access denied without retry', async () => {
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    fetchMock.mockImplementation(async (url: unknown) => String(url).includes('/auth/me')
+      ? ({ ok: true, status: 200, json: async () => ({ status: 'success', data: { role: 'admin', rbac: {} } }) } as Response)
+      : ({ ok: false, status: 403, json: async () => ({ status: 'error', message: 'Forbidden' }) } as Response));
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Akses ditolak'));
+    expect(screen.queryByRole('button', { name: 'Coba lagi' })).not.toBeInTheDocument();
+  });
+
+  it('clears the token and shows the session-expired state on 401', async () => {
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    fetchMock.mockImplementation(async (url: unknown) => String(url).includes('/auth/me')
+      ? ({ ok: true, status: 200, json: async () => ({ status: 'success', data: { role: 'admin', rbac: {} } }) } as Response)
+      : ({ ok: false, status: 401, json: async () => ({ status: 'error', message: 'Unauthenticated' }) } as Response));
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Sesi berakhir. Silakan masuk kembali')).toBeInTheDocument());
+    expect(mockClearStoredToken).toHaveBeenCalled();
+  });
+
+  it('checks role before reading dummy data and denies non-admin users', async () => {
+    useDummyStore.getState().toggle();
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    const calls: string[] = [];
+    fetchMock.mockImplementation(async (url: unknown) => {
+      calls.push(String(url));
+      if (String(url).includes('/auth/me')) {
+        return { ok: true, status: 200, json: async () => ({ status: 'success', data: { role: 'sales', rbac: {} } }) } as Response;
+      }
+      throw new Error('dummy data must not be read before role check');
+    });
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Akses ditolak')).toBeInTheDocument());
+    expect(calls.some((url) => url.includes('/auth/me'))).toBe(true);
+    expect(calls.some((url) => url.includes('/admin/analytics/geographic'))).toBe(false);
+  });
+
+  it('shows freshness from snapshot window end and safely falls back for unknown deep-link filters', async () => {
+    window.history.pushState({}, '', '/data-intelligence?status=unknown&period=tomorrow');
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText(/Data per 14 Sep 2026 \(Asia\/Jakarta\)/)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '30 hari' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('re-fetches and shows dummy data when Mode Dummy is toggled on', async () => {

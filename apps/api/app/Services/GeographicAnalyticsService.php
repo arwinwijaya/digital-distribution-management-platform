@@ -9,274 +9,213 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Stage producer for the named `geographic` snapshot section.
- *
- * Aggregates 30-day eligible orders by territory, producing:
- * - Per-outlet payloads keyed by `outlet:{id}` (includes coordinates and territory).
- * - Per-territory summary payloads keyed by `territory:{name}`.
- *
- * Coordinates outside valid ranges (null, non-numeric, out-of-range lat/lng)
- * are reported with `plottable=false` (never dropped from the payload) but
- * remain visible in territory table aggregates. Outlets with no territory are
- * grouped under "Unassigned".
- */
+/** Stage producer for the `geographic` snapshot section. Per-outlet rows carry v1 totals plus v2 detail; territory rows are pre-aggregated. Money is integer cents (never float). Invalid coords => `plottable=false`; no territory => Unassigned. */
 class GeographicAnalyticsService
 {
     private const ELIGIBLE_ORDER_STATUSES = ['New', 'Confirmed', 'Delivered', 'Partially Paid'];
+    private const PRODUCT_SUMMARY_LIMIT = 5;
 
-    /**
-     * Return a callback compatible with DataPipelineService::registerStage().
-     *
-     * The callback receives the window `['start','end','timezone']` and returns
-     * an array keyed by `dimension_key` carrying typed payloads.
-     */
+    /** Callback compatible with DataPipelineService::registerStage(). */
     public function stageCallback(): callable
     {
-        return function (array $window): array {
-            return $this->produce($window);
-        };
+        return fn (array $window): array => $this->produce($window);
     }
 
-    /**
-     * Produce the geographic section payloads for a given window.
-     *
-     * Each outlet row carries the v1 totals (`orders`, `sales`) plus the v2
-     * detail used by the Outlet Request Map Dashboard: `plottable`,
-     * `orders_by_status`, `sales_by_status`, `daily_by_status`,
-     * `product_summary`, `product_summary_truncated`, and `latest_request`.
-     * Territory rows are pre-aggregated here and remain unchanged in shape.
-     *
-     * Monetary aggregation is integer-cent safe: database decimal strings are
-     * converted to cents before summing and never cast to float.
-     *
-     * @return array<string, array{type: string, territory: string, ...}>
-     */
+    /** Produce the geographic section payloads for a window. */
     public function produce(array $window): array
     {
         $timezone = $window['timezone'] ?? DataPipelineService::TIMEZONE;
         $start = Carbon::parse($window['start'], $timezone)->startOfDay();
         $end = Carbon::parse($window['end'], $timezone)->endOfDay();
+        $statuses = self::ELIGIBLE_ORDER_STATUSES;
 
-        // Fetch all active outlets with their territory names in a single query.
-        $outlets = Outlet::query()
-            ->where('is_active', true)
-            ->with('territory')
-            ->orderBy('id')
-            ->get()
-            ->keyBy('id');
-
+        $outlets = $this->fetchOutlets();
         if ($outlets->isEmpty()) {
             return [];
         }
 
-        $statuses = self::ELIGIBLE_ORDER_STATUSES;
+        $buckets = $this->accumulateOrders($outlets, $statuses, $start, $end, $timezone);
+        $productsByOutlet = $this->fetchProductsByOutlet($outlets, $statuses, $start, $end);
 
-        // Eligible orders for the window, deterministically ordered so the
-        // latest-request tie-break is stable across runs.
+        return $this->mergeWithTerritories(
+            $this->buildOutletPayloads($outlets, $buckets, $productsByOutlet, $statuses));
+    }
+
+    /** Active outlets with territory names, keyed by id. */
+    private function fetchOutlets()
+    {
+        return Outlet::query()->where('is_active', true)->with('territory')
+            ->orderBy('id')->get()->keyBy('id');
+    }
+
+    /** Accumulate eligible orders into per-outlet buckets (totals, status maps, sparse daily buckets, latest request). Deterministic order for stable latest-request tie-break. */
+    private function accumulateOrders($outlets, array $statuses, $start, $end, string $timezone): array
+    {
         $orders = Order::query()
             ->whereIn('status', $statuses)
             ->whereBetween('created_at', [$start, $end])
             ->whereIn('outlet_id', $outlets->keys())
-            ->orderBy('created_at')
-            ->orderBy('id')
+            ->orderBy('created_at')->orderBy('id')
             ->get(['id', 'order_id', 'outlet_id', 'status', 'total_amount', 'created_at']);
 
-        // Per-outlet accumulation buckets, keyed by outlet id.
-        $aggregates = [];
+        $buckets = [];
         foreach ($outlets->keys() as $outletId) {
-            $aggregates[$outletId] = [
-                'orders' => 0,
-                'cents' => 0,
+            $buckets[$outletId] = ['orders' => 0, 'cents' => 0,
                 'counts' => array_fill_keys($statuses, 0),
                 'status_cents' => array_fill_keys($statuses, 0),
-                'days' => [],
-                'latest' => null,
-            ];
+                'days' => [], 'latest' => null];
         }
 
         foreach ($orders as $order) {
-            $outletId = (int) $order->outlet_id;
             $status = (string) $order->status;
             $cents = self::decimalToCents($order->total_amount);
             $day = $order->created_at->copy()->setTimezone($timezone)->toDateString();
-
-            $bucket = &$aggregates[$outletId];
+            $bucket = &$buckets[(int) $order->outlet_id];
             $bucket['orders']++;
             $bucket['cents'] += $cents;
             $bucket['counts'][$status]++;
             $bucket['status_cents'][$status] += $cents;
-
             if (! isset($bucket['days'][$day])) {
-                $bucket['days'][$day] = [
-                    'counts' => array_fill_keys($statuses, 0),
-                    'cents' => array_fill_keys($statuses, 0),
-                ];
+                $bucket['days'][$day] = ['counts' => array_fill_keys($statuses, 0),
+                    'cents' => array_fill_keys($statuses, 0)];
             }
             $bucket['days'][$day]['counts'][$status]++;
             $bucket['days'][$day]['cents'][$status] += $cents;
-
             $createdAt = $order->created_at->copy()->setTimezone($timezone);
             $bucket['latest'] = self::pickLatest($bucket['latest'], [
-                'id' => (int) $order->id,
-                'order_id' => (string) $order->order_id,
-                'status' => $status,
-                'created_at' => $createdAt->toIso8601String(),
+                'id' => (int) $order->id, 'order_id' => (string) $order->order_id,
+                'status' => $status, 'created_at' => $createdAt->toIso8601String(),
             ], $createdAt);
             unset($bucket);
         }
 
-        // Product summary: accumulate quantity (int) and subtotal (integer
-        // cents) per product in PHP so no monetary value is ever summed as
-        // a float. Each stored subtotal has at most two decimals, so the
-        // string-to-cents conversion below is exact.
+        return $buckets;
+    }
+
+    /** Quantity (int) and subtotal (integer cents) per product per outlet. Exact string-to-cents conversion (subtotals ≤ 2 decimals). */
+    private function fetchProductsByOutlet($outlets, array $statuses, $start, $end): array
+    {
         $itemRows = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->whereIn('orders.status', $statuses)
             ->whereBetween('orders.created_at', [$start, $end])
             ->whereIn('orders.outlet_id', $outlets->keys())
             ->select('orders.outlet_id as outlet_id', 'order_items.product_id as product_id', 'order_items.quantity as quantity', 'order_items.subtotal as subtotal')
-            ->orderBy('orders.outlet_id')
-            ->orderBy('order_items.product_id')
+            ->orderBy('orders.outlet_id')->orderBy('order_items.product_id')
             ->get();
 
-        $productNames = $itemRows->isEmpty()
-            ? collect()
-            : Product::query()
-                ->whereIn('id', $itemRows->pluck('product_id')->unique()->all())
-                ->pluck('name', 'id');
+        $productNames = $itemRows->isEmpty() ? collect() : Product::query()
+            ->whereIn('id', $itemRows->pluck('product_id')->unique()->all())->pluck('name', 'id');
 
         $productsByOutlet = [];
         foreach ($itemRows as $itemRow) {
             $outletId = (int) $itemRow->outlet_id;
             $productId = (int) $itemRow->product_id;
             if (! isset($productsByOutlet[$outletId][$productId])) {
-                $productsByOutlet[$outletId][$productId] = [
-                    'product_id' => $productId,
+                $productsByOutlet[$outletId][$productId] = ['product_id' => $productId,
                     'product_name' => (string) ($productNames[$productId] ?? ''),
-                    'quantity' => 0,
-                    'cents' => 0,
-                ];
+                    'quantity' => 0, 'cents' => 0];
             }
             $productsByOutlet[$outletId][$productId]['quantity'] += (int) $itemRow->quantity;
             $productsByOutlet[$outletId][$productId]['cents'] += self::decimalToCents((string) $itemRow->subtotal);
         }
 
-        // Build per-outlet payloads.
-        $outletPayloads = [];
+        return $productsByOutlet;
+    }
+
+    /** Per-outlet payloads keyed by `outlet:{id}`. */
+    private function buildOutletPayloads($outlets, array $buckets, array $productsByOutlet, array $statuses): array
+    {
+        $payloads = [];
         foreach ($outlets as $outlet) {
-            $bucket = $aggregates[$outlet->id];
-            $territoryName = $outlet->territory?->name ?? 'Unassigned';
-
-            $ordersByStatus = [];
-            $salesByStatus = [];
-            foreach ($statuses as $status) {
-                $ordersByStatus[$status] = (int) $bucket['counts'][$status];
-                $salesByStatus[$status] = self::formatCents((int) $bucket['status_cents'][$status]);
-            }
-
-            $days = $bucket['days'];
-            ksort($days, SORT_STRING);
-            $dailyByStatus = [];
-            foreach ($days as $date => $dayBucket) {
-                $dayCounts = [];
-                $daySales = [];
-                foreach ($statuses as $status) {
-                    $dayCounts[$status] = (int) $dayBucket['counts'][$status];
-                    $daySales[$status] = self::formatCents((int) $dayBucket['cents'][$status]);
-                }
-                $dailyByStatus[] = [
-                    'date' => $date,
-                    'counts' => $dayCounts,
-                    'sales' => $daySales,
-                ];
-            }
-
-            $products = array_values($productsByOutlet[$outlet->id] ?? []);
-            usort($products, static function (array $a, array $b): int {
-                return $b['quantity'] <=> $a['quantity']
-                    ?: $a['product_id'] <=> $b['product_id'];
-            });
-            $productSummaryTruncated = count($products) > 5;
-            $productSummary = array_map(static function (array $product): array {
-                return [
-                    'product_id' => $product['product_id'],
-                    'product_name' => $product['product_name'],
-                    'quantity' => $product['quantity'],
-                    'subtotal' => self::formatCents($product['cents']),
-                ];
-            }, array_slice($products, 0, 5));
-
-            $outletPayloads["outlet:{$outlet->id}"] = [
-                'type' => 'outlet',
-                'outlet_id' => $outlet->id,
-                'outlet_name' => $outlet->name,
-                'territory' => $territoryName,
-                'latitude' => $outlet->latitude,
-                'longitude' => $outlet->longitude,
-                'plottable' => self::isValidCoordinate(
-                    $outlet->latitude === null ? null : (float) $outlet->latitude,
-                    $outlet->longitude === null ? null : (float) $outlet->longitude,
-                ),
-                'orders' => (int) $bucket['orders'],
-                'sales' => self::formatCents((int) $bucket['cents']),
-                'orders_by_status' => $ordersByStatus,
-                'sales_by_status' => $salesByStatus,
-                'daily_by_status' => $dailyByStatus,
-                'product_summary' => $productSummary,
-                'product_summary_truncated' => $productSummaryTruncated,
-                'latest_request' => $bucket['latest'] === null ? null : [
-                    'order_id' => $bucket['latest']['order_id'],
-                    'status' => $bucket['latest']['status'],
-                    'created_at' => $bucket['latest']['created_at'],
-                ],
-            ];
+            $payloads["outlet:{$outlet->id}"] = $this->buildOutletPayload(
+                $outlet, $buckets[$outlet->id], $productsByOutlet[$outlet->id] ?? [], $statuses);
         }
 
-        // Aggregate per-territory from outlet payloads using integer cents.
-        $territoryAggregates = [];
+        return $payloads;
+    }
+
+    /** Single outlet row: v1 totals plus v2 status/daily/product detail. */
+    private function buildOutletPayload($outlet, array $bucket, array $products, array $statuses): array
+    {
+        $ordersByStatus = [];
+        $salesByStatus = [];
+        foreach ($statuses as $status) {
+            $ordersByStatus[$status] = (int) $bucket['counts'][$status];
+            $salesByStatus[$status] = self::formatCents((int) $bucket['status_cents'][$status]);
+        }
+        [$productSummary, $truncated] = $this->buildProductSummary($products);
+
+        return ['type' => 'outlet', 'outlet_id' => $outlet->id, 'outlet_name' => $outlet->name,
+            'territory' => $outlet->territory?->name ?? 'Unassigned',
+            'latitude' => $outlet->latitude, 'longitude' => $outlet->longitude,
+            'plottable' => self::isValidCoordinate(
+                $outlet->latitude === null ? null : (float) $outlet->latitude,
+                $outlet->longitude === null ? null : (float) $outlet->longitude),
+            'orders' => (int) $bucket['orders'], 'sales' => self::formatCents((int) $bucket['cents']),
+            'orders_by_status' => $ordersByStatus, 'sales_by_status' => $salesByStatus,
+            'daily_by_status' => $this->buildDailyBuckets($bucket['days'], $statuses),
+            'product_summary' => $productSummary, 'product_summary_truncated' => $truncated,
+            'latest_request' => $bucket['latest'] === null ? null : [
+                'order_id' => $bucket['latest']['order_id'], 'status' => $bucket['latest']['status'],
+                'created_at' => $bucket['latest']['created_at']],
+        ];
+    }
+
+    /** Sparse daily buckets, strictly ascending by YYYY-MM-DD. */
+    private function buildDailyBuckets(array $days, array $statuses): array
+    {
+        ksort($days, SORT_STRING);
+        $daily = [];
+        foreach ($days as $date => $dayBucket) {
+            $counts = [];
+            $sales = [];
+            foreach ($statuses as $status) {
+                $counts[$status] = (int) $dayBucket['counts'][$status];
+                $sales[$status] = self::formatCents((int) $dayBucket['cents'][$status]);
+            }
+            $daily[] = ['date' => $date, 'counts' => $counts, 'sales' => $sales];
+        }
+
+        return $daily;
+    }
+
+    /** Top-5 products by quantity desc, product_id asc tie-break. */
+    private function buildProductSummary(array $products): array
+    {
+        $products = array_values($products);
+        usort($products, static fn (array $a, array $b): int =>
+            $b['quantity'] <=> $a['quantity'] ?: $a['product_id'] <=> $b['product_id']);
+
+        return [array_map(static fn (array $product): array => [
+            'product_id' => $product['product_id'], 'product_name' => $product['product_name'],
+            'quantity' => $product['quantity'], 'subtotal' => self::formatCents($product['cents']),
+        ], array_slice($products, 0, self::PRODUCT_SUMMARY_LIMIT)), count($products) > self::PRODUCT_SUMMARY_LIMIT];
+    }
+
+    /** Outlet payloads plus per-territory aggregates (integer cents). */
+    private function mergeWithTerritories(array $outletPayloads): array
+    {
+        $aggregates = [];
         foreach ($outletPayloads as $payload) {
             $name = $payload['territory'];
-            if (!isset($territoryAggregates[$name])) {
-                $territoryAggregates[$name] = [
-                    'type' => 'territory',
-                    'territory' => $name,
-                    'cents' => 0,
-                    'orders' => 0,
-                    'outlets' => 0,
-                ];
-            }
-            $territoryAggregates[$name]['cents'] += self::decimalToCents($payload['sales']);
-            $territoryAggregates[$name]['orders'] += $payload['orders'];
-            $territoryAggregates[$name]['outlets'] += 1;
+            $aggregates[$name] ??= ['cents' => 0, 'orders' => 0, 'outlets' => 0];
+            $aggregates[$name]['cents'] += self::decimalToCents($payload['sales']);
+            $aggregates[$name]['orders'] += $payload['orders'];
+            $aggregates[$name]['outlets']++;
         }
 
-        $result = [];
-        // Include per-outlet payloads for map points.
-        foreach ($outletPayloads as $key => $payload) {
-            $result[$key] = $payload;
-        }
-
-        foreach ($territoryAggregates as $name => $agg) {
-            $result["territory:{$name}"] = [
-                'type' => 'territory',
-                'territory' => $name,
+        $result = $outletPayloads;
+        foreach ($aggregates as $name => $agg) {
+            $result["territory:{$name}"] = ['type' => 'territory', 'territory' => $name,
                 'sales' => self::formatCents($agg['cents']),
-                'orders' => $agg['orders'],
-                'outlets' => $agg['outlets'],
-            ];
+                'orders' => $agg['orders'], 'outlets' => $agg['outlets']];
         }
 
         return $result;
     }
 
-    /**
-     * Pick the latest eligible request deterministically (created_at, then id).
-     *
-     * @param array{id: int, order_id: string, status: string, created_at: string}|null $current
-     * @param array{id: int, order_id: string, status: string, created_at: string} $candidate
-     * @return array{id: int, order_id: string, status: string, created_at: string}
-     */
+    /** Latest eligible request, deterministically (created_at, then id). */
     private static function pickLatest(?array $current, array $candidate, CarbonInterface $candidateCreatedAt): array
     {
         if ($current === null) {
@@ -294,11 +233,7 @@ class GeographicAnalyticsService
         return $current;
     }
 
-    /**
-     * Convert a database decimal/string monetary value to integer cents without
-     * ever casting to float. Floats are deliberately not accepted so a float
-     * monetary value fails loudly instead of being summed imprecisely.
-     */
+    /** Database decimal/string money to integer cents without float casts. Floats rejected to fail loudly. */
     private static function decimalToCents(string|int|null $value): int
     {
         if ($value === null) {
@@ -325,9 +260,7 @@ class GeographicAnalyticsService
         return $negative ? -$cents : $cents;
     }
 
-    /**
-     * Format integer cents as a fixed two-decimal string.
-     */
+    /** Integer cents as a fixed two-decimal string. */
     private static function formatCents(int $cents): string
     {
         $negative = $cents < 0;
@@ -337,16 +270,7 @@ class GeographicAnalyticsService
         return $negative ? '-'.$formatted : $formatted;
     }
 
-    /**
-     * Validate that a latitude/longitude pair is plottable on the map.
-     *
-     * This is the canonical coordinate authority shared with the frontend
-     * `isValidPoint()`. It deliberately performs no casting: values must be
-     * finite `int`/`float` numbers (numeric strings are rejected), within
-     * latitude [-90, 90] and longitude [-180, 180], and not exactly (0, 0).
-     * Callers holding database decimal strings must cast to `float` at this
-     * boundary before calling.
-     */
+    /** Canonical coordinate authority (shared with frontend `isValidPoint()`). Finite int/float only; lat [-90,90], lng [-180,180]; never (0,0). Callers cast DB decimals to float. */
     public static function isValidCoordinate(mixed $lat, mixed $lng): bool
     {
         if (!is_int($lat) && !is_float($lat)) {

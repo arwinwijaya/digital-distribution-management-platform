@@ -232,6 +232,66 @@ class ProductTest extends TestCase
         $this->assertIsArray($byName->get('Normal')['supplier']);
     }
 
+    public function test_category_status_and_stock_health_filters_use_and_semantics_and_filtered_summary(): void
+    {
+        $activeSupplier = Supplier::factory()->active()->create();
+        $inactiveSupplier = Supplier::factory()->create(['subscription_status' => 'inactive']);
+
+        Product::factory()->create([
+            'name' => 'Matching low active drink',
+            'category' => 'Minuman',
+            'is_active' => true,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 10,
+        ]);
+        Product::factory()->create([
+            'name' => 'Wrong stock drink',
+            'category' => 'Minuman',
+            'is_active' => true,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 11,
+        ]);
+        Product::factory()->create([
+            'name' => 'Wrong category low active',
+            'category' => 'Sembako',
+            'is_active' => true,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+        Product::factory()->create([
+            'name' => 'Inactive low drink',
+            'category' => 'Minuman',
+            'is_active' => false,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+        Product::factory()->create([
+            'name' => 'Unpurchasable low drink',
+            'category' => 'Minuman',
+            'is_active' => true,
+            'supplier_id' => $inactiveSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+        Product::factory()->create([
+            'name' => 'Matching out drink',
+            'category' => 'Minuman',
+            'is_active' => true,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 0,
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders())->getJson(
+            '/api/products?include_unpurchasable=1&category=Minuman&status=active&stock_health=low'
+        );
+
+        $response->assertOk();
+        $this->assertSame(['Matching low active drink', 'Unpurchasable low drink'], collect($response->json('data'))->pluck('name')->all());
+        $this->assertSame(2, $response->json('meta.total'));
+        $this->assertSame(2, $response->json('meta.summary.total'));
+        $this->assertSame(0, $response->json('meta.summary.out_of_stock'));
+        $this->assertSame(['Minuman'], $response->json('meta.categories'));
+    }
+
     public function test_products_default_ordering_is_id_asc_and_meta_total_is_additive(): void
     {
         Product::factory()->create(['name' => 'Alpha']);

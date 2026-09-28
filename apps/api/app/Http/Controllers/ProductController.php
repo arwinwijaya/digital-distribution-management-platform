@@ -13,7 +13,9 @@ class ProductController extends Controller
     /**
      * Sortable columns allowlist (invalid values silently fall back to default).
      */
-    private const SORT_ALLOWLIST = ['created_at', 'updated_at', 'name', 'sku', 'price', 'stock_quantity', 'id'];
+    private const SORT_ALLOWLIST = ['created_at', 'updated_at', 'name', 'sku', 'price', 'stock_quantity', 'id', 'category', 'status'];
+    private const STOCK_HEALTH_VALUES = ['out', 'low', 'ok'];
+    private const STATUS_VALUES = ['active', 'inactive', 'unpurchasable'];
 
     /**
      * Hard cap for the public catalog when no explicit limit is requested.
@@ -30,6 +32,7 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = $this->applyCatalogFilters(Product::query()->with('supplier'), $request);
+        $query = $this->applyClarityFilters($query, $request);
 
         $limit = $this->resolveLimit($request);
         $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
@@ -44,7 +47,7 @@ class ProductController extends Controller
             'total' => $total,
             'summary' => [
                 'total' => $total,
-                'out_of_stock' => (clone $query)->where('stock_quantity', '<=', 0)->count(),
+                'out_of_stock' => (clone $query)->whereRaw('COALESCE(stock_quantity, 0) < 1')->count(),
             ],
             'categories' => $this->resolveCategories($query),
         ];
@@ -132,6 +135,47 @@ class ProductController extends Controller
                 $supplierQuery->whereNull('supplier_id')
                     ->orWhereHas('supplier', fn ($supplier) => $supplier->where('subscription_status', 'active'));
             });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Apply the additive Products clarity filters. Every value is normalized
+     * from scalar strings and invalid values are silently ignored.
+     */
+    private function applyClarityFilters(Builder $query, Request $request): Builder
+    {
+        $category = ListQuery::scalarString($request, 'category', '');
+        if ($category !== '') {
+            $query->whereRaw('TRIM(category) = ?', [$category]);
+        }
+
+        $status = ListQuery::scalarString($request, 'status', '');
+        if (in_array($status, self::STATUS_VALUES, true)) {
+            if ($status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($status === 'inactive') {
+                $query->where('is_active', false);
+            } else {
+                $query->whereNotNull('supplier_id')
+                    ->whereHas('supplier', fn (Builder $supplier) => $supplier->where('subscription_status', '!=', 'active'));
+            }
+        }
+
+        $stockHealth = ListQuery::scalarString($request, 'stock_health', '');
+        if (in_array($stockHealth, self::STOCK_HEALTH_VALUES, true)) {
+            // Floor semantics expressed portably (SQLite lacks FLOOR):
+            //   floor(x) <= 0   <=>  x < 1
+            //   1..10           <=>  x >= 1 AND x < 11
+            //   floor(x) >= 11  <=>  x >= 11
+            // NULL coalesces to 0.
+            $stock = 'COALESCE(stock_quantity, 0)';
+            match ($stockHealth) {
+                'out' => $query->whereRaw($stock.' < 1'),
+                'low' => $query->whereRaw($stock.' >= 1 AND '.$stock.' < 11'),
+                'ok' => $query->whereRaw($stock.' >= 11'),
+            };
         }
 
         return $query;

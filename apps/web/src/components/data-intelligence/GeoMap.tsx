@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { GeographicMapPoint } from '@/lib/data-intelligence-api';
 
 interface Props {
   points: GeographicMapPoint[];
+  onSelectOutlet?: (point: GeographicMapPoint) => void;
+  resetSignal?: number;
 }
 
 const DEFAULT_CENTER: L.LatLngExpression = [-6.2, 106.8];
@@ -37,57 +39,135 @@ const MARKER_ICON = L.divIcon({
   popupAnchor: [0, -40],
 });
 
+/**
+ * Coordinate validation mirroring the backend authority
+ * `GeographicAnalyticsService::isValidCoordinate()`. Same case table, same
+ * booleans: rejects non-`number` values (numeric strings like "-6.2"), non
+ * finite (`NaN`/`Infinity`), out-of-range latitude/longitude, and the exact
+ * `(0,0)` Null-Island pair.
+ */
 export function isValidPoint(point: GeographicMapPoint): boolean {
   const { latitude, longitude } = point;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return false;
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
-  return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return false;
+  if (latitude === 0 && longitude === 0) return false;
+  return true;
 }
 
-export default function GeoMap({ points }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
+function popupHtml(point: GeographicMapPoint): string {
+  return `${point.outlet_name} — ${point.territory} — ${point.orders} pesanan — ${point.sales}`;
+}
+
+export default function GeoMap({ points, onSelectOutlet, resetSignal }: Props) {
   const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<Map<number, L.Marker>>(new Map());
+  const didInitialFitRef = useRef(false);
+  const lastResetRef = useRef(resetSignal);
+  const onSelectRef = useRef(onSelectOutlet);
+  onSelectRef.current = onSelectOutlet;
 
-  const validPoints = points.filter(isValidPoint);
+  const [mapReady, setMapReady] = useState(false);
+  const [tileFailed, setTileFailed] = useState(false);
 
-  /* Leaflet lifecycle. Must stay ABOVE the empty-state early return so the hook
-     count is identical on every render (empty <-> non-empty transitions).
-     `validPoints` derives from `points`, so `points` is the sole dependency.
-     Tradeoff: a new `points` identity tears down and rebuilds the map + tiles. */
-  useEffect(() => {
-    const node = containerRef.current;
-    /* Empty state renders no container div -> nothing to initialize. */
-    if (!node) return;
+  const validPoints = useMemo(() => points.filter(isValidPoint), [points]);
 
-    /* Defensive: if a stale Leaflet instance remains (e.g. from a remount that
-       bypassed normal cleanup), remove it before creating a new one. */
-    const maybeLeafletNode = node as unknown as { _leaflet_id?: number };
-    if (maybeLeafletNode._leaflet_id != null) {
+  /* A ref that always holds the latest valid points by outlet_id so retained
+     markers' click handlers can look up the current point at click time,
+     avoiding stale closures when points are updated (e.g., coordinates/counts). */
+  const pointsByOutletIdRef = useRef<Map<number, GeographicMapPoint>>(new Map());
+  pointsByOutletIdRef.current = new Map(validPoints.map((p) => [p.outlet_id, p]));
+
+  /* Stable Leaflet lifecycle. The map is created once when the container node
+     attaches and destroyed when it detaches (empty state / unmount). Filter
+     changes never recreate the instance or the tile layer — only the marker
+     layer below is diffed. */
+  const setContainer = useCallback((node: HTMLDivElement | null) => {
+    if (!node) {
       mapRef.current?.remove();
       mapRef.current = null;
+      markersRef.current.clear();
+      setMapReady(false);
+      return;
     }
+
+    /* Defensive: clear a stale Leaflet instance left on a recycled node. */
+    const record = node as unknown as { _leaflet_id?: number };
+    if (record._leaflet_id != null) {
+      mapRef.current?.remove();
+      mapRef.current = null;
+      markersRef.current.clear();
+    }
+
+    if (mapRef.current) return;
 
     const map = L.map(node).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
     mapRef.current = map;
+    didInitialFitRef.current = false;
+    setTileFailed(false);
 
-    L.tileLayer(TILE_URL, { attribution: OSM_ATTRIBUTION }).addTo(map);
+    const tiles = L.tileLayer(TILE_URL, { attribution: OSM_ATTRIBUTION });
+    tiles.on('tileerror', () => setTileFailed(true));
+    tiles.addTo(map);
 
-    validPoints.forEach((p) => {
-      L.marker([p.latitude, p.longitude], { icon: MARKER_ICON })
-        .addTo(map)
-        .bindPopup(
-          `${p.outlet_name} — ${p.territory} — ${p.orders} pesanan — ${p.sales}`,
-        );
+    setMapReady(true);
+  }, []);
+
+  /* Marker-layer diff keyed by outlet_id. Runs whenever the visible point set
+     changes (filter/period) or the map (re)attaches. The map instance itself
+     is untouched — only markers are added, removed, or repositioned. */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const next = new Map(validPoints.map((p) => [p.outlet_id, p]));
+
+    markersRef.current.forEach((marker, outletId) => {
+      if (!next.has(outletId)) {
+        marker.remove();
+        markersRef.current.delete(outletId);
+      }
     });
 
-    return () => {
-      map.remove();          // deletes _leaflet_id from the container
-      mapRef.current = null;
-    };
-  }, [points]);
+    validPoints.forEach((point) => {
+      const existing = markersRef.current.get(point.outlet_id);
+      if (existing) {
+        existing.setLatLng([point.latitude, point.longitude]);
+        existing.bindPopup(popupHtml(point));
+        return;
+      }
+      const marker = L.marker([point.latitude, point.longitude], { icon: MARKER_ICON })
+        .addTo(map)
+        .bindPopup(popupHtml(point));
+      marker.on('click', () => {
+        const current = pointsByOutletIdRef.current.get(point.outlet_id) ?? point;
+        onSelectRef.current?.(current);
+      });
+      markersRef.current.set(point.outlet_id, marker);
+    });
+  }, [validPoints, mapReady]);
+
+  /* fitBounds scope: only on the first render with valid data (initial load) or
+     on an explicit reset request. Filter changes preserve center/zoom. */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const resetChanged = resetSignal !== lastResetRef.current;
+    lastResetRef.current = resetSignal;
+
+    if (validPoints.length === 0) return;
+    if (didInitialFitRef.current && !resetChanged) return;
+
+    map.fitBounds(
+      L.latLngBounds(validPoints.map((p) => [p.latitude, p.longitude])),
+      { padding: [24, 24] },
+    );
+    didInitialFitRef.current = true;
+  }, [validPoints, mapReady, resetSignal]);
 
   /* ---------- empty state ---------- */
-  if (points.length === 0 || validPoints.length === 0) {
+  if (points.length === 0) {
     return (
       <div
         data-testid="geo-map-empty"
@@ -100,12 +180,41 @@ export default function GeoMap({ points }: Props) {
   }
 
   return (
-    <div
-      data-testid="geo-map"
-      className="h-[420px] w-full rounded-lg border border-gray-200 overflow-hidden"
-      style={{ height: 420 }}
-    >
-      <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
+    <div className="w-full">
+      <div
+        data-testid="geo-map"
+        className="h-[420px] w-full overflow-hidden rounded-lg border border-gray-200"
+        style={{ height: 420 }}
+      >
+        <div ref={setContainer} style={{ height: '100%', width: '100%' }} />
+      </div>
+      {tileFailed && (
+        <p
+          data-testid="geo-map-tile-fallback"
+          role="status"
+          className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+        >
+          Citra peta tidak dapat dimuat. Daftar outlet di bawah tetap dapat digunakan.
+        </p>
+      )}
+      <ul aria-label="Daftar outlet peta" className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+        {validPoints.map((point) => (
+          <li key={point.outlet_id}>
+            <button
+              type="button"
+              onClick={() => onSelectRef.current?.(point)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelectRef.current?.(point);
+                }
+              }}
+            >
+              {point.outlet_name} — {point.territory} — {point.orders} pesanan
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

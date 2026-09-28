@@ -1,15 +1,36 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import type { GeographicMapPoint } from '@/lib/data-intelligence-api';
 
 /* ------------------------------------------------------------------ */
 /* Leaflet mock with a faithful _leaflet_id guard.                     */
 /* ------------------------------------------------------------------ */
 
-const mockLeafletMarkers: Array<{ latlng: unknown; popup: string | null; icon: any }> = [];
+const mockLeafletMarkers: Array<{
+  latlng: unknown;
+  popup: string | null;
+  icon: any;
+  remove: jest.Mock;
+  on: jest.Mock;
+  setLatLng: jest.Mock;
+  handlers: Record<string, (...args: any[]) => void>;
+}> = [];
+const mockMapInstances: any[] = [];
+const mockTileLayers: any[] = [];
 const mockMapFn = jest.fn<void, [HTMLElement]>();
-const mockTileLayerFn = jest.fn(() => ({ addTo: jest.fn() }));
+const mockTileLayerFn = jest.fn((url: string, opts?: unknown) => {
+  const layer: any = {
+    handlers: {} as Record<string, (...args: any[]) => void>,
+    addTo: jest.fn(() => layer),
+    on: jest.fn((event: string, handler: (...args: any[]) => void) => {
+      layer.handlers[event] = handler;
+      return layer;
+    }),
+  };
+  mockTileLayers.push(layer);
+  return layer;
+});
 const mockLatLngBoundsFn = jest.fn((xs: unknown) => ({ latlngs: xs }));
 const mockDivIconFn = jest.fn((opts: unknown) => ({ options: opts }));
 
@@ -29,11 +50,26 @@ jest.mock('leaflet', () => {
         delete record._leaflet_id;
       }),
     };
+    mockMapInstances.push(self);
     return self;
   }
 
   function marker(latlng: unknown, opts?: { icon?: unknown }) {
-    const entry = { latlng, popup: null as string | null, icon: opts?.icon };
+    const entry = {
+      latlng,
+      popup: null as string | null,
+      icon: opts?.icon,
+      remove: jest.fn(),
+      on: jest.fn((event: string, handler: (...args: any[]) => void) => {
+        entry.handlers[event] = handler;
+        return self;
+      }),
+      setLatLng: jest.fn((next: unknown) => {
+        entry.latlng = next;
+        return self;
+      }),
+      handlers: {} as Record<string, (...args: any[]) => void>,
+    };
     mockLeafletMarkers.push(entry);
     let self: any;
     self = {
@@ -42,6 +78,9 @@ jest.mock('leaflet', () => {
         entry.popup = html;
         return self;
       }),
+      on: entry.on,
+      remove: entry.remove,
+      setLatLng: entry.setLatLng,
     };
     return self;
   }
@@ -62,6 +101,8 @@ jest.mock('leaflet/dist/leaflet.css', () => {});
 
 beforeEach(() => {
   mockLeafletMarkers.length = 0;
+  mockMapInstances.length = 0;
+  mockTileLayers.length = 0;
   mockMapFn.mockClear();
   mockTileLayerFn.mockClear();
   mockLatLngBoundsFn.mockClear();
@@ -161,9 +202,9 @@ describe('leaflet_map_renders_client_only_with_attribution_and_stable_height', (
       </React.StrictMode>,
     );
 
-    // StrictMode runs effects twice: effect -> cleanup -> effect.
-    // The second create would throw if cleanup did not clear _leaflet_id.
-    expect(mockMapFn).toHaveBeenCalledTimes(2);
+    // Stable instance: StrictMode's double-invocation must NOT rebuild the map.
+    // (The legacy `useEffect([points])` pattern created it twice.)
+    expect(mockMapFn).toHaveBeenCalledTimes(1);
 
     const mapNode = container.querySelector('[data-testid="geo-map"] > div');
     expect(mapNode).not.toBeNull();
@@ -184,5 +225,174 @@ describe('leaflet_map_renders_client_only_with_attribution_and_stable_height', (
     expect(screen.getByTestId('geo-map-empty')).toBeInTheDocument();
     // cleanup removed the map: no live _leaflet_id remains on the detached node
     expect(mockMapFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Points for Cycle 1 marker diff test
+const POINT_A: GeographicMapPoint = {
+  outlet_id: 1,
+  outlet_name: 'Outlet A',
+  territory: 'Jakarta Selatan',
+  latitude: -6.2,
+  longitude: 106.8,
+  orders: 5,
+  sales: '50000.00',
+};
+const POINT_B: GeographicMapPoint = {
+  outlet_id: 2,
+  outlet_name: 'Outlet B',
+  territory: 'Bandung',
+  latitude: -6.9175,
+  longitude: 107.6191,
+  orders: 3,
+  sales: '30000.00',
+};
+const POINT_C: GeographicMapPoint = {
+  outlet_id: 3,
+  outlet_name: 'Outlet C',
+  territory: 'Surabaya',
+  latitude: -7.25,
+  longitude: 112.75,
+  orders: 7,
+  sales: '70000.00',
+};
+
+describe('marker_layer_diff_with_stable_map_instance', () => {
+  it('given points A+B rendered, when points change to A+C, then L.Map instance is identical, B marker removed, C marker added, center/zoom unchanged', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const { rerender } = render(<GeoMap points={[POINT_A, POINT_B]} />);
+
+    // Initial render: 2 markers, 1 map instance
+    expect(mockMapInstances).toHaveLength(1);
+    const mapInstance = mockMapInstances[0];
+    expect(mockLeafletMarkers).toHaveLength(2);
+    const markerB = mockLeafletMarkers.find((m) => Array.isArray(m.latlng) && m.latlng[0] === -6.9175 && m.latlng[1] === 107.6191);
+    expect(markerB).toBeDefined();
+    expect(mapInstance.setView).toHaveBeenCalledTimes(1);
+    expect(mapInstance.setView).toHaveBeenCalledWith([-6.2, 106.8], 10);
+
+    // Rerender with A+C (B removed, C added)
+    rerender(<GeoMap points={[POINT_A, POINT_C]} />);
+
+    // Map instance must be identical
+    expect(mockMapInstances).toHaveLength(1);
+    expect(mockMapInstances[0]).toBe(mapInstance);
+
+    // setView NOT called again (center/zoom preserved)
+    expect(mapInstance.setView).toHaveBeenCalledTimes(1);
+
+    // B's marker remove() called
+    expect(markerB?.remove).toHaveBeenCalled();
+
+    // C's marker added (total markers should be 2: A and C)
+    expect(mockLeafletMarkers).toHaveLength(3); // A+B from first render, C from second
+    const markerC = mockLeafletMarkers.find((m) => Array.isArray(m.latlng) && m.latlng[0] === -7.25 && m.latlng[1] === 112.75);
+    expect(markerC).toBeDefined();
+    expect(markerC?.popup).toContain('Outlet C');
+  });
+
+  it('reuses a retained marker but sends the fresh point when it is clicked after an update', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const onSelectOutlet = jest.fn();
+    const updatedPointA: GeographicMapPoint = {
+      ...POINT_A,
+      latitude: -6.21,
+      longitude: 106.81,
+      orders: 9,
+      sales: '90000.00',
+    };
+    const { rerender } = render(<GeoMap points={[POINT_A, POINT_B]} onSelectOutlet={onSelectOutlet} />);
+
+    const markerA = mockLeafletMarkers.find(
+      (marker) => Array.isArray(marker.latlng) && marker.latlng[0] === POINT_A.latitude && marker.latlng[1] === POINT_A.longitude,
+    );
+    expect(markerA).toBeDefined();
+
+    rerender(<GeoMap points={[updatedPointA, POINT_B]} onSelectOutlet={onSelectOutlet} />);
+
+    expect(markerA?.setLatLng).toHaveBeenCalledWith([updatedPointA.latitude, updatedPointA.longitude]);
+    expect(mockLeafletMarkers).toHaveLength(2);
+    act(() => markerA?.handlers.click());
+    expect(onSelectOutlet).toHaveBeenCalledWith(updatedPointA);
+  });
+
+  it('fits valid points once initially, then preserves viewport when filters change', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const { rerender } = render(<GeoMap points={[POINT_A, POINT_B]} />);
+
+    const mapInstance = mockMapInstances[0];
+    expect(mapInstance.fitBounds).toHaveBeenCalledTimes(1);
+    expect(mapInstance.fitBounds).toHaveBeenCalledWith(
+      expect.objectContaining({ latlngs: [[-6.2, 106.8], [-6.9175, 107.6191]] }),
+      { padding: [24, 24] },
+    );
+
+    rerender(<GeoMap points={[POINT_A, POINT_C]} />);
+
+    expect(mockMapInstances[0]).toBe(mapInstance);
+    expect(mapInstance.fitBounds).toHaveBeenCalledTimes(1);
+    expect(mapInstance.setView).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls fitBounds again when resetSignal changes', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const { rerender } = render(<GeoMap points={[POINT_A, POINT_B]} resetSignal={0} />);
+
+    const mapInstance = mockMapInstances[0];
+    expect(mapInstance.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(<GeoMap points={[POINT_A, POINT_B]} resetSignal={1} />);
+
+    expect(mockMapInstances[0]).toBe(mapInstance);
+    expect(mapInstance.fitBounds).toHaveBeenCalledTimes(2);
+    expect(mapInstance.setView).toHaveBeenCalledTimes(1);
+  });
+
+  it('matches backend coordinate parity and exposes a keyboard outlet list with Enter selection', async () => {
+    const { isValidPoint } = await import('@/components/data-intelligence/GeoMap');
+    const cases: Array<[string, unknown, unknown, boolean]> = [
+      ['null latitude', null, 106.8, false],
+      ['numeric string latitude', '-6.2', 106.8, false],
+      ['numeric string longitude', -6.2, '106.8', false],
+      ['NaN latitude', NaN, 106.8, false],
+      ['Infinity latitude', Infinity, 106.8, false],
+      ['Infinity longitude', -6.2, Infinity, false],
+      ['latitude out of range', 91, 106.8, false],
+      ['longitude out of range', -6.2, 181, false],
+      ['Null Island', 0, 0, false],
+      ['Jakarta coordinate', -6.2, 106.8, true],
+    ];
+    for (const [, latitude, longitude, expected] of cases) {
+      expect(isValidPoint({ ...POINT_A, latitude: latitude as number, longitude: longitude as number })).toBe(expected);
+    }
+
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const onSelectOutlet = jest.fn();
+    render(<GeoMap points={[POINT_A, POINT_B]} onSelectOutlet={onSelectOutlet} />);
+
+    const outletList = screen.getByRole('list', { name: /daftar outlet peta/i });
+    expect(outletList).toBeInTheDocument();
+    const outletButtons = screen.getAllByRole('button');
+    expect(outletButtons).toHaveLength(2);
+    expect(outletButtons[0]).toHaveAccessibleName(/outlet a.*jakarta selatan/i);
+    expect(outletButtons[1]).toHaveAccessibleName(/outlet b.*bandung/i);
+
+    fireEvent.keyDown(outletButtons[0], { key: 'Enter' });
+    expect(onSelectOutlet).toHaveBeenCalledWith(POINT_A);
+  });
+
+  it('renders tile fallback while keeping the outlet list usable', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const onSelectOutlet = jest.fn();
+    render(<GeoMap points={[POINT_A]} onSelectOutlet={onSelectOutlet} />);
+
+    expect(mockTileLayers).toHaveLength(1);
+    act(() => mockTileLayers[0].handlers.tileerror());
+
+    expect(await screen.findByTestId('geo-map-tile-fallback')).toHaveTextContent(/citra peta tidak dapat dimuat/i);
+    expect(screen.getByRole('list', { name: /daftar outlet peta/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /outlet a/i }));
+    expect(onSelectOutlet).toHaveBeenCalledWith(POINT_A);
   });
 });

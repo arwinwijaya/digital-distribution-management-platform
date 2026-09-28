@@ -290,4 +290,36 @@ describe('marker_layer_diff_with_stable_map_instance', () => {
     expect(markerC).toBeDefined();
     expect(markerC?.popup).toContain('Outlet C');
   });
+
+  it('fits valid points once initially, then preserves viewport when filters change', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const { rerender } = render(<GeoMap points={[POINT_A, POINT_B]} />);
+
+    const mapInstance = mockMapInstances[0];
+    expect(mapInstance.fitBounds).toHaveBeenCalledTimes(1);
+    expect(mapInstance.fitBounds).toHaveBeenCalledWith(
+      expect.objectContaining({ latlngs: [[-6.2, 106.8], [-6.9175, 107.6191]] }),
+      { padding: [24, 24] },
+    );
+
+    rerender(<GeoMap points={[POINT_A, POINT_C]} />);
+
+    expect(mockMapInstances[0]).toBe(mapInstance);
+    expect(mapInstance.fitBounds).toHaveBeenCalledTimes(1);
+    expect(mapInstance.setView).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls fitBounds again when resetSignal changes', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const { rerender } = render(<GeoMap points={[POINT_A, POINT_B]} resetSignal={0} />);
+
+    const mapInstance = mockMapInstances[0];
+    expect(mapInstance.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(<GeoMap points={[POINT_A, POINT_B]} resetSignal={1} />);
+
+    expect(mockMapInstances[0]).toBe(mapInstance);
+    expect(mapInstance.fitBounds).toHaveBeenCalledTimes(2);
+    expect(mapInstance.setView).toHaveBeenCalledTimes(1);
+  });
 });

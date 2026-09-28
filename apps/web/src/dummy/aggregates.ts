@@ -414,70 +414,155 @@ function buildAnalytics(
 
 // ─── Geographic ──────────────────────────────────────────────────────────────
 
-function buildGeographic(
+export const GEOGRAPHIC_STATUSES = ['New', 'Confirmed', 'Delivered', 'Partially Paid'] as const;
+type GeographicStatus = (typeof GEOGRAPHIC_STATUSES)[number];
+type GeographicV2Point = GeographicMapPoint & {
+  plottable: boolean;
+  orders_by_status: Record<GeographicStatus, number>;
+  sales_by_status: Record<GeographicStatus, string>;
+  daily_by_status: Array<{
+    date: string;
+    counts: Record<GeographicStatus, number>;
+    sales: Record<GeographicStatus, string>;
+  }>;
+  product_summary: Array<{ product_id: number; product_name: string; quantity: number; subtotal: string }>;
+  product_summary_truncated: boolean;
+  latest_request: { order_id: string; status: GeographicStatus; created_at: string } | null;
+};
+
+function geographicStatus(status: string): GeographicStatus | null {
+  if ((GEOGRAPHIC_STATUSES as readonly string[]).includes(status)) return status as GeographicStatus;
+  // The older dummy transaction factory uses the pre-snapshot vocabulary.
+  if (status === 'pending') return 'New';
+  if (status === 'confirmed') return 'Confirmed';
+  if (status === 'shipped' || status === 'delivered') return 'Delivered';
+  return null;
+}
+
+function validGeographicCoordinate(lat: unknown, lon: unknown): boolean {
+  return typeof lat === 'number' && typeof lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon)
+    && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && !(lat === 0 && lon === 0);
+}
+
+/** Build the geographic snapshot, including v2 details for non-legacy rows. */
+export function buildGeographic(
   master: MasterData,
   tx: Transactions,
   window: DateWindow,
 ): Aggregates['geographic'] {
-  // ── Map points: one per outlet (within 40..60 spec range) ────────────
-  const mapPoints: GeographicMapPoint[] = master.outlets.map((outlet) => {
+  const outletById = new Map(master.outlets.map((outlet) => [pickOutletNumericId(outlet), outlet]));
+  const productById = new Map(master.products.map((product, index) => [index + 1, product]));
+  const inWindow = (order: DummyOrder): boolean => {
+    const day = String(order.created_at).slice(0, 10);
+    return day >= window.start && day <= window.end;
+  };
+  const isLegacy = (outlet: DummyOutlet): boolean => {
+    const candidate = outlet as DummyOutlet & { legacy_only?: boolean };
+    // Legacy capability is per-row, matching the API's field-presence contract.
+    return candidate.legacy_only === true;
+  };
+  const emptyCounts = (): Record<GeographicStatus, number> => ({ New: 0, Confirmed: 0, Delivered: 0, 'Partially Paid': 0 });
+
+  const mapPoints = master.outlets.map((outlet): GeographicMapPoint => {
     const numericId = pickOutletNumericId(outlet);
+    const outletOrders = tx.orders.filter((order) => order.outlet_id === numericId && inWindow(order));
+    const eligibleOrders = outletOrders.filter((order) => geographicStatus(order.status) !== null);
+    const legacy = isLegacy(outlet);
     let orders = 0;
-    let sales = 0;
-    for (const order of tx.orders) {
-      if (order.outlet_id === numericId) {
-        orders += 1;
-        sales += order.items.reduce(
-          (sum, item) => sum + item.quantity * Number(String(item.unit_price).replace(/[^0-9.]/g, '')),
-          0,
-        );
-      }
+    let salesCents = 0;
+    for (const order of eligibleOrders) {
+      orders += 1;
+      salesCents += toCents(order.total_amount);
     }
-    return {
+    const base = {
       outlet_id: numericId,
       outlet_name: outlet.name,
       territory: outlet.city,
       latitude: outlet.lat,
       longitude: outlet.lon,
+      plottable: validGeographicCoordinate(outlet.lat, outlet.lon),
       orders,
-      sales: money(sales),
+      sales: fromCents(salesCents),
     };
+    if (legacy) return base as GeographicMapPoint;
+
+    const ordersByStatus = emptyCounts();
+    const salesCentsByStatus: Record<GeographicStatus, number> = { New: 0, Confirmed: 0, Delivered: 0, 'Partially Paid': 0 };
+    const daily = new Map<string, { counts: Record<GeographicStatus, number>; sales: Record<GeographicStatus, number> }>();
+    const products = new Map<number, { quantity: number; cents: number }>();
+    let latest: DummyOrder | null = null;
+    for (const order of outletOrders) {
+      const status = geographicStatus(order.status);
+      if (!status) continue;
+      const cents = toCents(order.total_amount);
+      ordersByStatus[status] += 1;
+      salesCentsByStatus[status] += cents;
+      const day = String(order.created_at).slice(0, 10);
+      const dayBucket = daily.get(day) ?? { counts: emptyCounts(), sales: { New: 0, Confirmed: 0, Delivered: 0, 'Partially Paid': 0 } };
+      dayBucket.counts[status] += 1;
+      dayBucket.sales[status] += cents;
+      daily.set(day, dayBucket);
+      for (const item of order.items) {
+        const product = products.get(item.product_id) ?? { quantity: 0, cents: 0 };
+        product.quantity += item.quantity;
+        product.cents += toCents(item.subtotal);
+        products.set(item.product_id, product);
+      }
+      if (latest === null || String(order.created_at) > String(latest.created_at) ||
+          (String(order.created_at) === String(latest.created_at) && order.id > latest.id)) latest = order;
+    }
+    const productEntries = Array.from(products.entries()).sort((a, b) => b[1].quantity - a[1].quantity || a[0] - b[0]);
+    const productSummary = productEntries.slice(0, 5).map(([productId, value]) => ({
+      product_id: productId,
+      product_name: productById.get(productId)?.name ?? '',
+      quantity: value.quantity,
+      subtotal: fromCents(value.cents),
+    }));
+    const v2: GeographicV2Point = {
+      ...base,
+      orders_by_status: ordersByStatus,
+      sales_by_status: Object.fromEntries(GEOGRAPHIC_STATUSES.map((status) => [status, fromCents(salesCentsByStatus[status])])) as Record<GeographicStatus, string>,
+      daily_by_status: Array.from(daily.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({
+        date,
+        counts: value.counts,
+        sales: Object.fromEntries(GEOGRAPHIC_STATUSES.map((status) => [status, fromCents(value.sales[status])])) as Record<GeographicStatus, string>,
+      })),
+      product_summary: productSummary,
+      product_summary_truncated: productEntries.length > 5,
+      latest_request: latest === null ? null : {
+        order_id: latest.order_id,
+        status: geographicStatus(latest.status) as GeographicStatus,
+        created_at: latest.created_at,
+      },
+    };
+    return v2 as GeographicMapPoint;
   });
 
-  // ── Table: 5 rows per territory ──────────────────────────────────────
-  const territoryMap = new Map<
-    string,
-    { sales: number; orders: number; outlets: Set<string> }
-  >();
+  // Territory aggregates retain the legacy full-order behavior and use an ID
+  // lookup rather than array position (the parity fixture uses IDs 101–105).
+  const territoryMap = new Map<string, { salesCents: number; orders: number; outlets: Set<string> }>();
   for (const outlet of master.outlets) {
-    if (!territoryMap.has(outlet.city)) {
-      territoryMap.set(outlet.city, { sales: 0, orders: 0, outlets: new Set() });
-    }
+    if (!territoryMap.has(outlet.city)) territoryMap.set(outlet.city, { salesCents: 0, orders: 0, outlets: new Set() });
     territoryMap.get(outlet.city)!.outlets.add(outlet.id);
   }
   for (const order of tx.orders) {
-    const outlet = master.outlets[order.outlet_id - 1];
-    const agg = territoryMap.get(outlet.city)!;
-    agg.orders += 1;
-    agg.sales += order.items.reduce(
-      (sum, item) => sum + item.quantity * Number(String(item.unit_price).replace(/[^0-9.]/g, '')),
-      0,
-    );
+    const outlet = outletById.get(order.outlet_id);
+    if (!outlet) continue;
+    const aggregate = territoryMap.get(outlet.city);
+    if (!aggregate) continue;
+    aggregate.orders += 1;
+    aggregate.salesCents += toCents(order.total_amount);
   }
-
-  const table: GeographicTableRow[] = Array.from(territoryMap.entries()).map(
-    ([name, data]) => ({
-      territory: name,
-      sales: money(data.sales),
-      orders: data.orders,
-      outlets: data.outlets.size,
-    }),
-  );
-
+  const table: GeographicTableRow[] = Array.from(territoryMap.entries()).map(([name, data]) => ({
+    territory: name,
+    sales: fromCents(data.salesCents),
+    orders: data.orders,
+    outlets: data.outlets.size,
+  }));
   return {
     table,
     map_points: mapPoints,
-    snapshot_version: 1,
+    snapshot_version: 2,
     window: { start: window.start, end: window.end, timezone: 'Asia/Jakarta' },
   };
 }

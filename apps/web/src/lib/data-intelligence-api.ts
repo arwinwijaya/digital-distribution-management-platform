@@ -58,6 +58,34 @@ export interface GeographicTableRow {
   outlets: number;
 }
 
+/** One sparse daily bucket inside a v2 outlet row. */
+export interface GeographicDailyBucket {
+  date: string;
+  counts: Record<string, number>;
+  sales: Record<string, string>;
+}
+
+/** Top product inside a v2 outlet row's `product_summary` (top-5 by quantity). */
+export interface GeographicProductSummaryEntry {
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  subtotal: string;
+}
+
+/** Latest eligible request inside a v2 outlet row. */
+export interface GeographicLatestRequest {
+  order_id: string;
+  status: string;
+  created_at: string;
+}
+
+/**
+ * One map row: v1 totals plus optional v2 status/day/product detail.
+ *
+ * v1-only rows (no v2 detail) simply omit every optional field below — the
+ * frontend must not assume v2 fields exist.
+ */
 export interface GeographicMapPoint {
   outlet_id: number;
   outlet_name: string;
@@ -66,6 +94,14 @@ export interface GeographicMapPoint {
   longitude: number;
   orders: number;
   sales: string;
+  /** Valid-coordinate authority; `false` rows are excluded from map rendering. */
+  plottable?: boolean;
+  orders_by_status?: Record<string, number>;
+  sales_by_status?: Record<string, string>;
+  daily_by_status?: GeographicDailyBucket[];
+  product_summary?: GeographicProductSummaryEntry[];
+  product_summary_truncated?: boolean;
+  latest_request?: GeographicLatestRequest | null;
 }
 
 export interface GeographicData {

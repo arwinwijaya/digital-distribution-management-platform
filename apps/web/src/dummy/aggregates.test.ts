@@ -12,7 +12,10 @@ import { dummyWindow } from '@/dummy/dates';
 import { DUMMY_SEED } from '@/dummy/seed';
 import { buildMasterData } from '@/dummy/factory';
 import { buildTransactions } from '@/dummy/factory-transactions';
-import { buildAggregates } from '@/dummy/aggregates';
+import { buildAggregates, buildGeographic } from '@/dummy/aggregates';
+import type { MasterData } from '@/dummy/factory';
+import type { Transactions } from '@/dummy/factory-transactions';
+import { computeFilteredCounts } from '@/lib/geographic-filters';
 
 const TODAY = new Date('2026-02-14T10:00:00+07:00');
 
@@ -51,6 +54,7 @@ describe('buildAggregates', () => {
 
     it('all map_points inside JABODETABEK bbox', () => {
       for (const point of agg.geographic.map_points) {
+        if (point.plottable === false) continue;
         expect(point.latitude).toBeGreaterThanOrEqual(-6.9);
         expect(point.latitude).toBeLessThanOrEqual(-5.9);
         expect(point.longitude).toBeGreaterThanOrEqual(105.9);
@@ -171,3 +175,128 @@ describe('buildAggregates', () => {
     });
   });
 });
+
+// Deterministic v2 fixture: IDs and expected values are fixed literals (no RNG).
+function geographicFixture(): { master: MasterData; tx: Transactions; window: { start: string; end: string } } {
+  const outlet = (id: number, name: string, lat: number | null, lon: number | null, city = 'Jakarta', legacy_only = false) => ({
+    id: String(id), name, territoryId: city.toLowerCase(), city, lat, lon, legacy_only,
+  });
+  const master = {
+    territories: [],
+    outlets: [
+      outlet(101, 'Outlet H', -6.2, 106.8), outlet(102, 'Outlet E', null, 106.8),
+      outlet(103, 'Outlet F', 0, 0), outlet(104, 'Outlet C', -6.3, 106.9), outlet(105, 'Outlet V1', -6.4, 107.0, 'Jakarta', true),
+    ], products: [
+      { sku: 'P-1', name: 'Produk A', category: 'A', price: 100 },
+      { sku: 'P-2', name: 'Produk B', category: 'B', price: 200 },
+      { sku: 'P-3', name: 'Produk C', category: 'C', price: 300 },
+    ], suppliers: [], driverProfiles: [],
+  } as unknown as MasterData;
+  let orderId = 1001;
+  const orders: Transactions['orders'] = [];
+  const add = (outlet_id: number, status: string, date: string, amount: number, product_id = 1) => {
+    const id = orderId++;
+    const item = { id: id * 10, product_id, sku: `P-${product_id}`, product_name: `Produk ${String.fromCharCode(64 + product_id)}`, quantity: 1, unit_price: amount.toFixed(2), subtotal: amount.toFixed(2) };
+    orders.push({ id, order_id: `ORD-${id}`, outlet_id, outlet_code: String(outlet_id), status, total_amount: amount.toFixed(2), paid_amount: '0.00', created_at: `${date}T10:00:00+07:00`, items: [item], status_history: [{ status, created_at: `${date}T10:00:00+07:00` }] });
+  };
+  add(101, 'New', '2026-09-20', 100); add(101, 'Delivered', '2026-09-20', 300, 2);
+  add(101, 'Confirmed', '2026-09-22', 200); add(101, 'Partially Paid', '2026-09-22', 400, 3);
+  add(101, 'New', '2026-09-25', 110); add(101, 'New', '2026-09-25', 120);
+  add(101, 'Confirmed', '2026-09-25', 210, 2); add(101, 'Delivered', '2026-09-25', 310, 2);
+  add(101, 'New', '2026-09-10', 130, 3); add(101, 'Confirmed', '2026-09-10', 220);
+  add(102, 'New', '2026-09-21', 150); add(102, 'New', '2026-09-21', 160, 2); add(102, 'New', '2026-09-10', 170, 3); add(102, 'Confirmed', '2026-09-24', 180); add(102, 'Confirmed', '2026-09-10', 190, 2);
+  add(103, 'New', '2026-09-23', 150); add(103, 'Confirmed', '2026-09-23', 160, 2);
+  for (let i = 0; i < 10; i++) add(105, 'New', `2026-09-${String(16 + i).padStart(2, '0')}`, 100);
+  return { master, tx: { orders, payments: [], invoices: [], deliveries: [], visits: [] }, window: { start: '2026-08-27', end: '2026-09-25' } };
+}
+
+describe('buildGeographic deterministic v2 fixture', () => {
+  it('emits exact v2 literals and keeps the legacy row v1-shaped', () => {
+    const fixture = geographicFixture();
+    const result = buildGeographic(fixture.master, fixture.tx, fixture.window);
+    const h = result.map_points.find((point) => point.outlet_id === 101) as any;
+    expect(h).toMatchObject({ outlet_id: 101, outlet_name: 'Outlet H', latitude: -6.2, longitude: 106.8, plottable: true, orders: 10, sales: '2100.00', orders_by_status: { New: 4, Confirmed: 3, Delivered: 2, 'Partially Paid': 1 }, sales_by_status: { New: '460.00', Confirmed: '630.00', Delivered: '610.00', 'Partially Paid': '400.00' }, product_summary_truncated: false, latest_request: { order_id: 'ORD-1008', status: 'Delivered', created_at: '2026-09-25T10:00:00+07:00' } });
+    expect(h.daily_by_status).toEqual([
+      { date: '2026-09-10', counts: { New: 1, Confirmed: 1, Delivered: 0, 'Partially Paid': 0 }, sales: { New: '130.00', Confirmed: '220.00', Delivered: '0.00', 'Partially Paid': '0.00' } },
+      { date: '2026-09-20', counts: { New: 1, Confirmed: 0, Delivered: 1, 'Partially Paid': 0 }, sales: { New: '100.00', Confirmed: '0.00', Delivered: '300.00', 'Partially Paid': '0.00' } },
+      { date: '2026-09-22', counts: { New: 0, Confirmed: 1, Delivered: 0, 'Partially Paid': 1 }, sales: { New: '0.00', Confirmed: '200.00', Delivered: '0.00', 'Partially Paid': '400.00' } },
+      { date: '2026-09-25', counts: { New: 2, Confirmed: 1, Delivered: 1, 'Partially Paid': 0 }, sales: { New: '230.00', Confirmed: '210.00', Delivered: '310.00', 'Partially Paid': '0.00' } },
+    ]);
+    expect(h.product_summary).toEqual([
+      { product_id: 1, product_name: 'Produk A', quantity: 5, subtotal: '750.00' },
+      { product_id: 2, product_name: 'Produk B', quantity: 3, subtotal: '820.00' },
+      { product_id: 3, product_name: 'Produk C', quantity: 2, subtotal: '530.00' },
+    ]);
+    const e = result.map_points.find((point) => point.outlet_id === 102) as any;
+    const f = result.map_points.find((point) => point.outlet_id === 103) as any;
+    const c = result.map_points.find((point) => point.outlet_id === 104) as any;
+    const v1 = result.map_points.find((point) => point.outlet_id === 105) as any;
+    expect(e.plottable).toBe(false); expect(f.plottable).toBe(false); expect(c.orders).toBe(0);
+    expect(v1).toMatchObject({ outlet_id: 105, orders: 10, sales: '1000.00', plottable: true });
+    expect(v1).not.toHaveProperty('orders_by_status'); expect(v1).not.toHaveProperty('sales_by_status');
+    expect(v1).not.toHaveProperty('daily_by_status'); expect(v1).not.toHaveProperty('product_summary'); expect(v1).not.toHaveProperty('latest_request');
+  });
+});
+
+describe('literal filter outcomes on deterministic fixture', () => {
+  const fixture = geographicFixture();
+  const result = buildGeographic(fixture.master, fixture.tx, fixture.window);
+  const window = { start: '2026-08-27', end: '2026-09-25', timezone: 'Asia/Jakarta' };
+  const h = result.map_points.find((p) => p.outlet_id === 101)!;
+  const e = result.map_points.find((p) => p.outlet_id === 102)!;
+  const f = result.map_points.find((p) => p.outlet_id === 103)!;
+  const c = result.map_points.find((p) => p.outlet_id === 104)!;
+  const v1 = result.map_points.find((p) => p.outlet_id === 105)!;
+
+  it('Semua+30d: H=10', () => {
+    expect(computeFilteredCounts(h, ['Semua'], '30d', window).filteredOrders).toBe(10);
+  });
+  it('Semua+7d: H=8, E=3, F=2, C hidden, V1 excluded', () => {
+    expect(computeFilteredCounts(h, ['Semua'], '7d', window).filteredOrders).toBe(8);
+    expect(computeFilteredCounts(e, ['Semua'], '7d', window).filteredOrders).toBe(3);
+    expect(computeFilteredCounts(f, ['Semua'], '7d', window).filteredOrders).toBe(2);
+    expect(computeFilteredCounts(c, ['Semua'], '7d', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['Semua'], '7d', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['Semua'], '7d', window).hasDailyDetail).toBe(false);
+  });
+  it('{New,Conf}+7d: H=5, invalid E=3, F=2, V1 excluded', () => {
+    expect(computeFilteredCounts(h, ['New', 'Confirmed'], '7d', window).filteredOrders).toBe(5);
+    expect(computeFilteredCounts(e, ['New', 'Confirmed'], '7d', window).filteredOrders).toBe(3);
+    expect(computeFilteredCounts(f, ['New', 'Confirmed'], '7d', window).filteredOrders).toBe(2);
+    expect(computeFilteredCounts(v1, ['New', 'Confirmed'], '7d', window).filteredOrders).toBe(0);
+  });
+  it('{New,Conf}+Hari ini: H=3, E=0, F=0, V1 excluded', () => {
+    expect(computeFilteredCounts(h, ['New', 'Confirmed'], 'today', window).filteredOrders).toBe(3);
+    expect(computeFilteredCounts(e, ['New', 'Confirmed'], 'today', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(f, ['New', 'Confirmed'], 'today', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['New', 'Confirmed'], 'today', window).filteredOrders).toBe(0);
+  });
+  it('Partially Paid+Hari ini: H=0 -> empty state', () => {
+    expect(computeFilteredCounts(h, ['Partially Paid'], 'today', window).filteredOrders).toBe(0);
+  });
+  it('V1 is legacy-only: legacy orders render in 30d, excluded from 7d/today detail', () => {
+    // The legacy marker count comes from the v1 `orders` field, never from the
+    // v2 filter helper (which is v2-only by design).
+    expect(v1.orders).toBe(10);
+    expect(computeFilteredCounts(v1, ['Semua'], '30d', window).legacyOnly).toBe(true);
+    expect(computeFilteredCounts(v1, ['Semua'], '7d', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['Semua'], '7d', window).legacyOnly).toBe(true);
+    expect(computeFilteredCounts(v1, ['Semua'], 'today', window).filteredOrders).toBe(0);
+    expect(computeFilteredCounts(v1, ['Semua'], 'today', window).legacyOnly).toBe(true);
+    // outlets_without_daily_detail = rows lacking a daily_by_status array.
+    const withoutDailyDetail = result.map_points.filter((p) => !Array.isArray((p as { daily_by_status?: unknown }).daily_by_status));
+    expect(withoutDailyDetail.map((p) => p.outlet_id)).toEqual([105]);
+  });
+  it('bbox: plottable points only (E and F excluded)', () => {
+    const plottable = result.map_points.filter((p) => p.plottable === true);
+    expect(plottable.length).toBe(3);
+    for (const p of plottable) {
+      expect(p.latitude).toBeGreaterThanOrEqual(-6.9);
+      expect(p.latitude).toBeLessThanOrEqual(-5.9);
+      expect(p.longitude).toBeGreaterThanOrEqual(105.9);
+      expect(p.longitude).toBeLessThanOrEqual(107.3);
+    }
+    expect(result.map_points.filter((p) => p.plottable === false).map((p) => p.outlet_id).sort()).toEqual([102, 103]);
+  });
+});
+

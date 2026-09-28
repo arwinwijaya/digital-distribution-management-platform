@@ -106,6 +106,46 @@ class OrderQueryTest extends TestCase
     }
 
     /**
+     * GWT: Given orders across outlets, statuses, and dates, When additive
+     * filters are supplied, Then only the matching orders and filtered total
+     * are returned while the existing pagination/sort contract is preserved.
+     */
+    public function test_admin_orders_list_applies_additive_outlet_status_and_date_filters(): void
+    {
+        $token = $this->loginAsAdmin();
+        $matchingOutlet = Outlet::factory()->create();
+        $matchingOne = $this->createOrderAt('ORD-FILTER-MATCH-1', '2026-09-25 08:00:00', [
+            'outlet_id' => $matchingOutlet->id,
+            'status' => 'New',
+        ]);
+        $matchingTwo = $this->createOrderAt('ORD-FILTER-MATCH-2', '2026-09-20 08:00:00', [
+            'outlet_id' => $matchingOutlet->id,
+            'status' => 'Confirmed',
+        ]);
+        $this->createOrderAt('ORD-FILTER-WRONG-OUTLET', '2026-09-24 08:00:00', [
+            'status' => 'New',
+        ]);
+        $this->createOrderAt('ORD-FILTER-WRONG-STATUS', '2026-09-23 08:00:00', [
+            'outlet_id' => $matchingOutlet->id,
+            'status' => 'Delivered',
+        ]);
+        $this->createOrderAt('ORD-FILTER-WRONG-DATE', '2026-09-18 08:00:00', [
+            'outlet_id' => $matchingOutlet->id,
+            'status' => 'New',
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/orders?outlet_id='.$matchingOutlet->id.'&status=New,Confirmed&start=2026-09-19&end=2026-09-25');
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonPath('data.0.id', $matchingOne->id)
+            ->assertJsonPath('data.1.id', $matchingTwo->id)
+            ->assertJsonCount(2, 'data');
+    }
+
+    /**
      * GWT: Given three orders, When GET /admin/orders?limit=1&cursor=1,
      * Then the SECOND page (by OFFSET) is returned and meta.total stays the full count.
      */

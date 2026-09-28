@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -50,6 +51,23 @@ class ProductTest extends TestCase
         }
 
         $this->refreshBeginDatabaseTransaction();
+
+        if ($this->allowOrphanSupplierFixtures) {
+            $this->beforeApplicationDestroyed(function () {
+                foreach (RefreshDatabaseState::$inMemoryConnections as $pdo) {
+                    if ($pdo instanceof \PDO) {
+                        $pdo->exec('PRAGMA foreign_keys = ON');
+                    }
+                }
+
+                try {
+                    $this->app->make('db')->connection()->getSchemaBuilder()->enableForeignKeyConstraints();
+                } catch (\Throwable) {
+                    // RefreshDatabase disconnects the live connection first;
+                    // the cached PDO restore above prevents FK leakage.
+                }
+            });
+        }
     }
 
     /**

@@ -11,7 +11,8 @@ use App\Services\WhatsAppService;
 use App\Http\Requests\CancelOrderRequest;
 use App\Support\ConcurrencyTestBarrier;
 use App\Support\ListQuery;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\OrderFormatter;
+use App\Support\OrderListFilters;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -68,16 +69,14 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        if (! $request->user()->isAdmin()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized. Only admins can list orders.',
-            ], 403);
+        $guard = $this->indexGuard($request);
+        if ($guard instanceof JsonResponse) {
+            return $guard;
         }
 
         // Validate the additive filter contract BEFORE any query construction
         // so an invalid request can never fall back to a broadened/unfiltered query.
-        $filters = $this->resolveOrderFilters($request);
+        $filters = app(OrderListFilters::class)->resolve($request);
         if ($filters['errors'] !== []) {
             return response()->json([
                 'status' => 'error',
@@ -86,21 +85,43 @@ class OrderController extends Controller
             ], 422);
         }
 
-        // Keep the legacy array response while enforcing a server-side bound.
-        // Callers can request fewer rows, but never an unbounded order history.
+        $list = $this->buildOrderList($request, $filters['filters']);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $list['orders'],
+            'meta' => $list['meta'],
+        ]);
+    }
+
+    private function indexGuard(Request $request): ?JsonResponse
+    {
+        if ($request->user()->isAdmin()) {
+            return null;
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Unauthorized. Only admins can list orders.',
+        ], 403);
+    }
+
+    /**
+     * Build the paginated order list payload. Additive filters narrow the
+     * builder; absent filters leave the query unchanged so existing
+     * default behaviour is preserved byte-for-byte.
+     *
+     * @param  array<string,mixed>  $filters
+     * @return array{orders: mixed, meta: array<string,mixed>}
+     */
+    private function buildOrderList(Request $request, array $filters): array
+    {
         $limit = min(max((int) $request->query('limit', 100), 1), 100);
         $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
 
-        $query = Order::query()->with(['items.product']);
-
-        // Apply additive filters. Each present filter narrows the builder;
-        // absent filters leave the query unchanged so existing unfiltered
-        // behaviour is preserved byte-for-byte.
-        $this->applyOrderFilters($query, $filters['filters']);
-
-        // Sort allowlist with silent fallback to created_at DESC for invalid input.
-        // Reads are scalar-safe: array params (e.g. ?sort[]=x) fall back to the
-        // default instead of raising an "Array to string conversion" 500.
+        // Sort allowlist with silent fallback to created_at DESC for invalid
+        // input. Reads are scalar-safe: array params fall back to the default
+        // instead of raising an "Array to string conversion" 500.
         [$sortColumn, $sortOrder] = ListQuery::resolveSort(
             self::SORT_ALLOWLIST,
             ListQuery::scalarString($request, 'sort', ''),
@@ -109,205 +130,29 @@ class OrderController extends Controller
             'desc',
         );
 
-        // Aggregate total derives from the SAME filtered builder (before
-        // limit/offset/order) — never count the paginated rows.
+        $query = Order::query()->with(['items.product']);
+        app(OrderListFilters::class)->apply($query, $filters);
+
         $meta = array_merge(
             ['limit' => $limit, 'cursor' => $cursor],
-            $this->buildListMeta(clone $query),
+            // Aggregate total from the SAME filtered builder (before
+            // limit/offset/order) — never count the paginated rows.
+            ListQuery::meta((clone $query)->count()),
         );
 
-        // limit+1 technique: fetch one extra row to determine has_more.
-        $orders = $query
+        // limit+1 technique: fetch one extra row to derive `has_more`.
+        $raw = $query
             ->orderByRaw(ListQuery::rawOrder($sortColumn, $sortOrder))
             ->limit($limit + 1)
             ->offset($cursor)
             ->get();
+        $hasMore = $raw->count() > $limit;
+        $orders = $raw->take($limit)->map(fn (Order $row) => $this->formatOrderResponse($row));
 
-        $hasMore = $orders->count() > $limit;
-        $orders = $orders->take($limit)
-            ->map(fn (Order $order) => $this->formatOrderResponse($order));
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $orders,
+        return [
+            'orders' => $orders,
             'meta' => array_merge(['has_more' => $hasMore], $meta),
-        ]);
-    }
-
-    /**
-     * Allowed query keys for the admin orders endpoint: existing pagination/
-     * sort keys plus the four new additive filter keys. Any key outside this
-     * set is rejected with a field-level 422 error.
-     *
-     * @var array<string>
-     */
-    private const ALLOWED_QUERY_KEYS = [
-        'limit',
-        'cursor',
-        'sort',
-        'order',
-        'outlet_id',
-        'status',
-        'start',
-        'end',
-    ];
-
-    /**
-     * Canonical statuses that may appear in the status CSV filter.
-     *
-     * @var array<string>
-     */
-    private const CANONICAL_STATUSES = ['New', 'Confirmed', 'Delivered', 'Partially Paid'];
-
-    /**
-     * Maximum inclusive date range for start/end filters (in days).
-     */
-    private const MAX_FILTER_RANGE_DAYS = 90;
-
-    /**
-     * Validate and normalize the additive order filters.
-     *
-     * Returns an array with 'errors' (field => message) and 'filters' (the
-     * parsed values). When 'errors' is non-empty the request is invalid and
-     * the endpoint must return a 422 envelope — no query is built.
-     *
-     * @return array{errors: array<string,string>, filters: array<string,mixed>}
-     */
-    private function resolveOrderFilters(Request $request): array
-    {
-        $errors = [];
-        $filters = [];
-
-        // Reject any unknown query keys.
-        foreach (array_keys($request->query()) as $key) {
-            if (! in_array($key, self::ALLOWED_QUERY_KEYS, true)) {
-                $errors[$key] = 'Unknown query parameter';
-            }
-        }
-
-        // outlet_id: must be a positive integer when present.
-        if ($request->query('outlet_id') !== null) {
-            $raw = ListQuery::scalarString($request, 'outlet_id', '');
-            if (! preg_match('/^[1-9][0-9]*$/', $raw)) {
-                $errors['outlet_id'] = 'Must be a positive integer';
-            } else {
-                $filters['outlet_id'] = (int) $raw;
-            }
-        }
-
-        // status: CSV of canonical statuses; duplicates normalized; each value exact match.
-        if ($request->query('status') !== null) {
-            $raw = ListQuery::scalarString($request, 'status', '');
-            $statuses = $this->parseStatuses($raw);
-            if ($statuses === null) {
-                $errors['status'] = 'Status must be one of: New,Confirmed,Delivered,Partially Paid';
-            } else {
-                $filters['statuses'] = $statuses;
-            }
-        }
-
-        // start/end: valid YYYY-MM-DD, start <= end, inclusive range <= 90 days.
-        $start = $request->query('start') !== null ? ListQuery::scalarString($request, 'start', '') : null;
-        $end = $request->query('end') !== null ? ListQuery::scalarString($request, 'end', '') : null;
-
-        $startDate = $start !== null ? $this->parseDate($start) : null;
-        $endDate = $end !== null ? $this->parseDate($end) : null;
-
-        if ($start !== null && $startDate === false) {
-            $errors['start'] = 'Must be a valid date in YYYY-MM-DD format';
-        }
-        if ($end !== null && $endDate === false) {
-            $errors['end'] = 'Must be a valid date in YYYY-MM-DD format';
-        }
-
-        if (is_string($startDate) && is_string($endDate)) {
-            if ($startDate > $endDate) {
-                $errors['start'] = 'Start date must be before or equal to end date';
-            } else {
-                $diffDays = (new \DateTimeImmutable($startDate))->diff(new \DateTimeImmutable($endDate))->days;
-                if ($diffDays + 1 > self::MAX_FILTER_RANGE_DAYS) {
-                    $errors['end'] = 'Date range must not exceed 90 days';
-                }
-            }
-        }
-
-        if (is_string($startDate)) $filters['start'] = $startDate;
-        if (is_string($endDate)) $filters['end'] = $endDate;
-
-        return ['errors' => $errors, 'filters' => $filters];
-    }
-
-    /**
-     * Parse a comma-separated status string into a unique array of canonical
-     * statuses. Returns null if the string is empty or contains any value
-     * outside the canonical set.
-     */
-    private function parseStatuses(string $raw): ?array
-    {
-        $parts = explode(',', $raw);
-
-        if ($parts === [] || in_array('', $parts, true)) {
-            return null;
-        }
-
-        foreach ($parts as $part) {
-            if (! in_array($part, self::CANONICAL_STATUSES, true)) {
-                return null;
-            }
-        }
-
-        return array_values(array_unique($parts));
-    }
-
-    /**
-     * Parse a YYYY-MM-DD string into a validated DateTimeImmutable date string.
-     * Returns false if the format is invalid or the date does not exist.
-     */
-    private function parseDate(string $value): string|bool
-    {
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
-            return false;
-        }
-        [$y, $m, $d] = explode('-', $value);
-        if (! checkdate((int) $m, (int) $d, (int) $y)) {
-            return false;
-        }
-        return $value;
-    }
-
-    /**
-     * Apply the additive order filters to the builder.
-     *
-     * @param  array{outlet_id?:int,statuses?:array<string>,start?:string,end?:string}  $filters
-     */
-    private function applyOrderFilters(Builder $query, array $filters): void
-    {
-        if (isset($filters['outlet_id'])) {
-            $query->where('outlet_id', $filters['outlet_id']);
-        }
-
-        if (isset($filters['statuses'])) {
-            $query->whereIn('status', $filters['statuses']);
-        }
-
-        if (isset($filters['start'])) {
-            $query->where('created_at', '>=', $filters['start'].' 00:00:00');
-        }
-
-        if (isset($filters['end'])) {
-            $query->where('created_at', '<=', $filters['end'].' 23:59:59');
-        }
-    }
-
-    /**
-     * Build the aggregate meta payload from the SAME unfiltered builder (never
-     * counts the limited rows).
-     *
-     * @return array<string, mixed>
-     */
-    private function buildListMeta(Builder $query): array
-    {
-        return ListQuery::meta((clone $query)->count());
+        ];
     }
 
     /**
@@ -441,45 +286,6 @@ class OrderController extends Controller
      */
     private function formatOrderResponse(Order $order, bool $includeHistory = false): array
     {
-        $data = [
-            'id' => $order->id,
-            'order_id' => $order->order_id,
-            'outlet_id' => $order->outlet_id,
-            'status' => $order->status,
-            'total_amount' => $order->total_amount,
-            'paid_amount' => $order->paid_amount,
-            'outstanding_balance' => number_format(max(0, ((float) $order->total_amount) - ((float) $order->paid_amount)), 2, '.', ''),
-            'promotion_id' => $order->promotion_id,
-            'discount_amount' => $order->discount_amount,
-            'commission_percentage' => $order->commission_percentage,
-            'items' => $order->items->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'product_id' => $item->product_id,
-                    'product_name' => $item->product->name ?? null,
-                    'quantity' => $item->quantity,
-                    'unit_price' => $item->unit_price,
-                    'subtotal' => $item->subtotal,
-                ];
-            }),
-            'created_at' => $order->created_at,
-            'updated_at' => $order->updated_at,
-        ];
-
-        if ($includeHistory) {
-            $data['status_history'] = $order->statusHistory->map(function ($history) {
-                return [
-                    'status' => $history->status,
-                    'notes' => $history->notes,
-                    'created_at' => $history->created_at,
-                ];
-            });
-        }
-
-        if ($order->relationLoaded('invoice') && $order->invoice) {
-            $data['invoice'] = app(InvoiceService::class)->format($order->invoice);
-        }
-
-        return $data;
+        return app(OrderFormatter::class)->format($order, $includeHistory);
     }
 }

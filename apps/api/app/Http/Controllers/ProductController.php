@@ -29,7 +29,7 @@ class ProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = $this->applyCatalogFilters(Product::query(), $request);
+        $query = $this->applyCatalogFilters(Product::query()->with('supplier'), $request);
 
         $limit = $this->resolveLimit($request);
         $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
@@ -46,6 +46,7 @@ class ProductController extends Controller
                 'total' => $total,
                 'out_of_stock' => (clone $query)->where('stock_quantity', '<=', 0)->count(),
             ],
+            'categories' => $this->resolveCategories($query),
         ];
 
         // limit+1 technique: fetch one extra row to determine has_more.
@@ -60,9 +61,53 @@ class ProductController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $data,
+            'data' => $data->map(fn (Product $product) => $this->serializeProduct($product)),
             'meta' => array_merge(['has_more' => $hasMore], $meta),
         ]);
+    }
+
+    /**
+     * Serialize a product row with the additive nested supplier object.
+     *
+     * The supplier is restricted to `{id,name,subscription_status}`;
+     * products with a null/orphan supplier serialize `supplier: null` and
+     * never fail the list.
+     *
+     * @return array<string, mixed>
+     */
+    private function serializeProduct(Product $product): array
+    {
+        $attributes = $product->attributesToArray();
+
+        $supplier = $product->getRelation('supplier');
+
+        $attributes['supplier'] = $supplier
+            ? $supplier->only(['id', 'name', 'subscription_status'])
+            : null;
+
+        return $attributes;
+    }
+
+    /**
+     * Resolve the distinct, non-empty, trimmed category metadata for the
+     * SAME filtered builder (before limit/offset/order).
+     *
+     * @return array<int, string>
+     */
+    private function resolveCategories(Builder $query): array
+    {
+        $categories = (clone $query)
+            ->select('category')
+            ->distinct()
+            ->pluck('category');
+
+        return $categories
+            ->map(fn ($category) => is_string($category) ? trim($category) : '')
+            ->filter(fn (string $category) => $category !== '')
+            ->unique()
+            ->sort(SORT_STRING)
+            ->values()
+            ->all();
     }
 
     /**

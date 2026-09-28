@@ -11,22 +11,45 @@ use Tests\TestCase;
 
 class ProductTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase {
+        beginDatabaseTransaction as protected refreshBeginDatabaseTransaction;
+    }
 
     /**
-     * Disable SQLite foreign-key enforcement for this test class so fixtures
-     * can create an orphan `products.supplier_id` reference (the schema uses
-     * `nullOnDelete`, which would otherwise rewrite it to NULL). The FK still
-     * exists in the schema; it is simply not enforced while these tests run.
-     * Must run BEFORE parent::setUp() so the connection picks up the env var.
+     * Tests that need a genuine orphan `products.supplier_id` fixture.
+     *
+     * @var array<int, string>
      */
+    private const ORPHAN_FIXTURE_TESTS = [
+        'test_include_unpurchasable_exposes_supplier_ineligible_products_without_changing_legacy_eligibility',
+        'test_product_list_orphan_supplier_reference_serializes_supplier_as_null',
+    ];
+
+    private bool $allowOrphanSupplierFixtures = false;
+
     protected function setUp(): void
     {
-        putenv('DB_FOREIGN_KEYS=false');
-        $_ENV['DB_FOREIGN_KEYS'] = 'false';
-        $_SERVER['DB_FOREIGN_KEYS'] = 'false';
+        // Decided BEFORE parent::setUp() because RefreshDatabase opens the
+        // per-test transaction there; SQLite's foreign-key PRAGMA is a no-op
+        // once a transaction is active, so it must be toggled first.
+        $this->allowOrphanSupplierFixtures = in_array($this->name(), self::ORPHAN_FIXTURE_TESTS, true);
 
         parent::setUp();
+    }
+
+    /**
+     * SQLite enforces foreign keys connection-wide and the PRAGMA cannot be
+     * changed inside a transaction, so disable it right before RefreshDatabase
+     * opens the transaction for the orphan-fixture tests only. The FK remains
+     * declared in the schema; this merely lets a legacy orphan reference exist.
+     */
+    public function beginDatabaseTransaction(): void
+    {
+        if ($this->allowOrphanSupplierFixtures) {
+            $this->app->make('db')->connection()->getSchemaBuilder()->disableForeignKeyConstraints();
+        }
+
+        $this->refreshBeginDatabaseTransaction();
     }
 
     /**
@@ -161,6 +184,52 @@ class ProductTest extends TestCase
 
         $response->assertOk();
         $this->assertSame(['Legacy product'], collect($response->json('data'))->pluck('name')->all());
+    }
+
+    public function test_product_list_eager_loads_supplier_as_nested_object_and_handles_null_safely(): void
+    {
+        $supplier = Supplier::factory()->active()->create(['name' => 'PT Sumber Pangan']);
+        Product::factory()->create(['supplier_id' => $supplier->id, 'name' => 'With supplier']);
+        Product::factory()->create(['supplier_id' => null, 'name' => 'No supplier']);
+        Product::factory()->create(['supplier_id' => $supplier->id, 'name' => 'Second with supplier']);
+
+        $response = $this->withHeaders($this->authHeaders())->getJson('/api/products');
+
+        $response->assertOk();
+        $this->assertCount(3, $response->json('data'));
+
+        $byName = collect($response->json('data'))->keyBy('name');
+
+        // Supplier must be present as a nested {id,name,subscription_status} object.
+        $withSupplier = $byName->get('With supplier');
+        $this->assertIsArray($withSupplier['supplier']);
+        $this->assertSame(
+            ['id', 'name', 'subscription_status'],
+            array_keys($withSupplier['supplier'])
+        );
+        $this->assertSame($supplier->id, $withSupplier['supplier']['id']);
+        $this->assertSame('PT Sumber Pangan', $withSupplier['supplier']['name']);
+        $this->assertSame('active', $withSupplier['supplier']['subscription_status']);
+
+        // Missing supplier must be null (no list failure, no N+1 crash).
+        $this->assertNull($byName->get('No supplier')['supplier']);
+    }
+
+    public function test_product_list_orphan_supplier_reference_serializes_supplier_as_null(): void
+    {
+        $supplier = Supplier::factory()->active()->create();
+        Product::factory()->create(['supplier_id' => $supplier->id, 'name' => 'Normal']);
+        Product::factory()->create(['supplier_id' => 999999, 'name' => 'Orphan']);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->getJson('/api/products?include_unpurchasable=1');
+
+        $response->assertOk();
+        $this->assertCount(2, $response->json('data'));
+
+        $byName = collect($response->json('data'))->keyBy('name');
+        $this->assertNull($byName->get('Orphan')['supplier']);
+        $this->assertIsArray($byName->get('Normal')['supplier']);
     }
 
     public function test_products_default_ordering_is_id_asc_and_meta_total_is_additive(): void

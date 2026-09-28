@@ -13,31 +13,35 @@
     {
       "order": 1,
       "file": "execution-plan/phase-1.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T1",
           "name": "Shared geographic filter helper",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T1-shared-geographic-filter-helper.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T1-shared-geographic-filter-helper.md",
+          "done_sha": "55bec46"
         },
         {
           "id": "T2",
           "name": "Backend — GeographicAnalyticsService v2 payload + tightened coordinate rule",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T2-backend-geographicanalyticsservice-v2-payload-tightened-coordinate-rule.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T2-backend-geographicanalyticsservice-v2-payload-tightened-coordinate-rule.md",
+          "done_sha": "0e541df"
         },
         {
           "id": "T4",
           "name": "Backend — OrderController additive filters",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T4-backend-ordercontroller-additive-filters.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T4-backend-ordercontroller-additive-filters.md",
+          "done_sha": "1e63773"
         },
         {
           "id": "T5",
           "name": "API client — typed ApiError + fetchGeographicData propagation",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T5-api-client-typed-apierror-fetchgeographicdata-propagation.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T5-api-client-typed-apierror-fetchgeographicdata-propagation.md",
+          "done_sha": "7c8c8a0"
         }
       ]
     },

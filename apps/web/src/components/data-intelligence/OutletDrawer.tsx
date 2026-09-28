@@ -78,6 +78,15 @@ export default function OutletDrawer({
   const counts = computeFilteredCounts(point, openingFilter.statuses, openingFilter.period, window);
   const daily = dailyRows(point, openingFilter, window);
   const products = Array.isArray(point.product_summary) ? point.product_summary : [];
+  const legacyOnly = counts.legacyOnly;
+  const hasDailyDetail = counts.hasDailyDetail;
+  const narrowPeriod = openingFilter.period !== '30d';
+
+  const productLabel = point.product_summary_truncated
+    ? 'Top 5 produk'
+    : narrowPeriod
+      ? 'Ringkasan produk — snapshot-window'
+      : 'Ringkasan produk';
 
   return (
     <div data-testid="outlet-drawer" role="dialog" aria-modal="true" aria-label={point.outlet_name}>
@@ -89,25 +98,40 @@ export default function OutletDrawer({
       <dl>
         <dt>Territory</dt>
         <dd>{point.territory}</dd>
-        <dt>Filtered orders</dt>
-        <dd>{counts.filteredOrders}</dd>
+        {legacyOnly ? (
+          <>
+            <dt>Pesanan (window penuh)</dt>
+            <dd>{point.orders}</dd>
+          </>
+        ) : (
+          <>
+            <dt>Filtered orders</dt>
+            <dd>{counts.filteredOrders}</dd>
+          </>
+        )}
       </dl>
 
-      <section aria-label="Rincian status">
-        <ul>
-          {openingFilter.statuses.map((status) => (
-            <li key={status}>{`${status}: ${counts.statusCounts[status] ?? 0}`}</li>
-          ))}
-        </ul>
-      </section>
+      {legacyOnly ? (
+        <p>Rincian status tidak tersedia</p>
+      ) : (
+        <section aria-label="Rincian status">
+          <ul>
+            {openingFilter.statuses.map((status) => (
+              <li key={status}>{`${status}: ${counts.statusCounts[status] ?? 0}`}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-      <section aria-label="Rincian harian">
-        <ul>
-          {daily.map((row) => (
-            <li key={row.date}>{`${row.date}: ${row.count}`}</li>
-          ))}
-        </ul>
-      </section>
+      {hasDailyDetail && (
+        <section aria-label="Rincian harian">
+          <ul>
+            {daily.map((row) => (
+              <li key={row.date}>{`${row.date}: ${row.count}`}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {point.latest_request && (
         <section aria-label="Request terbaru">
@@ -116,13 +140,18 @@ export default function OutletDrawer({
       )}
 
       <section aria-label="Ringkasan produk">
-        <ul>
-          {products.map((product) => (
-            <li key={product.product_id}>
-              {`${product.product_name} — qty ${product.quantity} — ${formatCents(toCents(product.subtotal))}`}
-            </li>
-          ))}
-        </ul>
+        <h3>{productLabel}</h3>
+        {products.length > 0 ? (
+          <ul>
+            {products.map((product) => (
+              <li key={product.product_id}>
+                {`${product.product_name} — qty ${product.quantity} — ${formatCents(toCents(product.subtotal))}`}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>Detail produk belum tersedia — jalankan pipeline data</p>
+        )}
       </section>
 
       <a href={buildOrderLink(point, openingFilter, window)}>Lihat semua order</a>

@@ -55,4 +55,61 @@ describe('OutletDrawer', () => {
       '/admin/orders?outlet_id=12&status=New%2CConfirmed&start=2026-08-27&end=2026-09-25',
     );
   });
+
+  it('uses an explicit fallback for v1 rows and invents no status/daily values', () => {
+    const v1: GeographicMapPoint = {
+      outlet_id: 105,
+      outlet_name: 'Outlet V1',
+      territory: 'Bekasi',
+      latitude: -6.4,
+      longitude: 107,
+      orders: 10,
+      sales: '500000.00',
+    };
+    render(
+      <OutletDrawer
+        point={v1}
+        openingFilter={filter1}
+        currentFilter={filter1}
+        window={window30}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText('Detail produk belum tersedia — jalankan pipeline data'),
+    ).toBeInTheDocument();
+    // No fabricated status/daily breakdown for a v1 row.
+    expect(screen.queryByText(/New:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Confirmed:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/2026-09-24/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/301/)).not.toBeInTheDocument();
+  });
+
+  it('labels a truncated product list as Top 5 and a narrow period as snapshot-window', () => {
+    const { unmount } = render(
+      <OutletDrawer
+        point={{ ...v2Point, product_summary_truncated: true }}
+        openingFilter={filter1}
+        currentFilter={filter1}
+        window={window30}
+        onClose={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Top 5 produk')).toBeInTheDocument();
+    unmount();
+
+    const filter7d = { statuses: ['New', 'Confirmed'], period: '7d' as const };
+    render(
+      <OutletDrawer
+        point={v2Point}
+        openingFilter={filter7d}
+        currentFilter={filter7d}
+        window={window30}
+        onClose={jest.fn()}
+      />,
+    );
+    expect(screen.getByText(/snapshot-window/i)).toBeInTheDocument();
+    expect(screen.queryByText('Top 5 produk')).not.toBeInTheDocument();
+  });
 });

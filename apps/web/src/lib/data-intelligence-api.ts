@@ -1,4 +1,5 @@
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { ApiError } from '@/lib/api-error';
 import { useDummyStore, selectIsDummy } from '@/dummy/store';
 import { withDummyRead } from '@/dummy/guards';
 import { sendDummyFunnelEvent } from '@/dummy/mutations';
@@ -27,13 +28,20 @@ interface ApiResponse<T> {
   data: T;
 }
 
-async function adminFetch<T>(path: string): Promise<T> {
+export async function adminFetch<T>(path: string): Promise<T> {
   const token = getStoredToken();
-  if (!token) throw new Error('Tidak terotentikasi.');
-  const res = await fetch(apiUrl(path), { headers: authHeaders(token) });
+  if (!token) throw new ApiError(401, 'Tidak terotentikasi.');
+
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), { headers: authHeaders(token) });
+  } catch {
+    throw new ApiError(null, 'Tidak dapat terhubung ke server.');
+  }
+
   const body: ApiResponse<T> = await res.json();
   if (!res.ok || body.status === 'error') {
-    throw new Error(body.message || 'Gagal memuat data.');
+    throw new ApiError(res.status, body.message || 'Gagal memuat data.');
   }
   return body.data;
 }

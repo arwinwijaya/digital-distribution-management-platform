@@ -335,6 +335,94 @@ class ProductTest extends TestCase
         $this->assertSame(['Valid low drink'], collect($sort->json('data'))->pluck('name')->all());
     }
 
+    public function test_category_and_status_sort_contracts_are_deterministic_with_id_desc_ties(): void
+    {
+        $activeSupplier = Supplier::factory()->active()->create();
+        $inactiveSupplier = Supplier::factory()->create(['subscription_status' => 'inactive']);
+
+        Product::factory()->create(['name' => 'Cat beta aktif', 'category' => 'beta', 'is_active' => true, 'supplier_id' => $activeSupplier->id]);
+        Product::factory()->create(['name' => 'Cat Alpha aktif 1', 'category' => 'Alpha', 'is_active' => true, 'supplier_id' => $activeSupplier->id]);
+        Product::factory()->create(['name' => 'Cat null aktif', 'category' => null, 'is_active' => true, 'supplier_id' => null]);
+        Product::factory()->create(['name' => 'Cat empty aktif', 'category' => '', 'is_active' => true, 'supplier_id' => null]);
+        Product::factory()->create(['name' => 'Cat Alpha aktif 2', 'category' => 'Alpha', 'is_active' => true, 'supplier_id' => $activeSupplier->id]);
+        Product::factory()->create(['name' => 'Cat padded Alpha aktif', 'category' => '  Alpha  ', 'is_active' => true, 'supplier_id' => $activeSupplier->id]);
+        Product::factory()->create(['name' => 'Cat Sembako unpurchasable 1', 'category' => 'Sembako', 'is_active' => true, 'supplier_id' => $inactiveSupplier->id]);
+        Product::factory()->create(['name' => 'Cat Sembako unpurchasable 2', 'category' => 'Sembako', 'is_active' => true, 'supplier_id' => $inactiveSupplier->id]);
+        Product::factory()->create(['name' => 'Cat Zebra nonaktif 1', 'category' => 'Zebra', 'is_active' => false, 'supplier_id' => $activeSupplier->id]);
+        Product::factory()->create(['name' => 'Cat Zebra nonaktif 2', 'category' => 'Zebra', 'is_active' => false, 'supplier_id' => null]);
+
+        $headers = $this->authHeaders();
+        $names = fn ($response) => collect($response->json('data'))->pluck('name')->all();
+
+        // Category ASC: trim-normalized alphabetic, null/empty last, id DESC ties.
+        $categoryAsc = $this->withHeaders($headers)->getJson('/api/products?include_unpurchasable=1&sort=category&order=asc');
+        $categoryAsc->assertOk();
+        $this->assertSame([
+            'Cat padded Alpha aktif',
+            'Cat Alpha aktif 2',
+            'Cat Alpha aktif 1',
+            'Cat beta aktif',
+            'Cat Sembako unpurchasable 2',
+            'Cat Sembako unpurchasable 1',
+            'Cat Zebra nonaktif 2',
+            'Cat Zebra nonaktif 1',
+            'Cat empty aktif',
+            'Cat null aktif',
+        ], $names($categoryAsc));
+
+        // Category DESC: reversed values, null/empty STILL last, id DESC ties.
+        $categoryDesc = $this->withHeaders($headers)->getJson('/api/products?include_unpurchasable=1&sort=category&order=desc');
+        $categoryDesc->assertOk();
+        $this->assertSame([
+            'Cat Zebra nonaktif 2',
+            'Cat Zebra nonaktif 1',
+            'Cat Sembako unpurchasable 2',
+            'Cat Sembako unpurchasable 1',
+            'Cat beta aktif',
+            'Cat padded Alpha aktif',
+            'Cat Alpha aktif 2',
+            'Cat Alpha aktif 1',
+            'Cat empty aktif',
+            'Cat null aktif',
+        ], $names($categoryDesc));
+
+        // Status ASC: Aktif -> Tidak bisa dibeli -> Nonaktif, id DESC ties.
+        $statusAsc = $this->withHeaders($headers)->getJson('/api/products?include_unpurchasable=1&sort=status&order=asc');
+        $statusAsc->assertOk();
+        $this->assertSame([
+            'Cat padded Alpha aktif',
+            'Cat Alpha aktif 2',
+            'Cat empty aktif',
+            'Cat null aktif',
+            'Cat Alpha aktif 1',
+            'Cat beta aktif',
+            'Cat Sembako unpurchasable 2',
+            'Cat Sembako unpurchasable 1',
+            'Cat Zebra nonaktif 2',
+            'Cat Zebra nonaktif 1',
+        ], $names($statusAsc));
+
+        // Status DESC: Nonaktif -> Tidak bisa dibeli -> Aktif, id DESC ties.
+        $statusDesc = $this->withHeaders($headers)->getJson('/api/products?include_unpurchasable=1&sort=status&order=desc');
+        $statusDesc->assertOk();
+        $this->assertSame([
+            'Cat Zebra nonaktif 2',
+            'Cat Zebra nonaktif 1',
+            'Cat Sembako unpurchasable 2',
+            'Cat Sembako unpurchasable 1',
+            'Cat padded Alpha aktif',
+            'Cat Alpha aktif 2',
+            'Cat empty aktif',
+            'Cat null aktif',
+            'Cat Alpha aktif 1',
+            'Cat beta aktif',
+        ], $names($statusDesc));
+
+        // Category metadata stays distinct, non-empty, trimmed (binary sort).
+        $this->assertSame(['Alpha', 'Sembako', 'Zebra', 'beta'], $categoryAsc->json('meta.categories'));
+        $this->assertSame(10, $categoryAsc->json('meta.total'));
+    }
+
     public function test_products_default_ordering_is_id_asc_and_meta_total_is_additive(): void
     {
         Product::factory()->create(['name' => 'Alpha']);

@@ -54,7 +54,7 @@ class ProductController extends Controller
 
         // limit+1 technique: fetch one extra row to determine has_more.
         $rows = $query
-            ->orderByRaw(ListQuery::rawOrder(...$this->resolveSort($request)))
+            ->orderByRaw($this->resolveOrderExpression(...$this->resolveSort($request)))
             ->limit($limit + 1)
             ->offset($cursor)
             ->get();
@@ -111,6 +111,39 @@ class ProductController extends Controller
             ->sort(SORT_STRING)
             ->values()
             ->all();
+    }
+
+    /**
+     * Build the safe ORDER BY expression for a requested sort.
+     *
+     * Category uses trimmed values and puts both NULL and empty categories
+     * last. Status is a derived, stable priority: active (0), supplier
+     * ineligible (1), inactive product (2). Direction reverses only the
+     * derived/category value; the id DESC tie-break remains deterministic.
+     */
+    private function resolveOrderExpression(string $sort, string $order): string
+    {
+        $direction = strtoupper($order);
+
+        if ($sort === 'category') {
+            // Null/empty always last (flag ASC in both directions), then
+            // case-insensitive alphabetical to mirror the frontend
+            // comparator (`localeCompare` sensitivity 'base'); id DESC ties.
+            $value = "COALESCE(TRIM(category), '')";
+
+            return "({$value} = '') ASC, LOWER({$value}) {$direction}, id DESC";
+        }
+
+        if ($sort === 'status') {
+            // Derived priority: Aktif (0) -> Tidak bisa dibeli (1) -> Nonaktif (2).
+            // Orphan suppliers fail EXISTS and stay Aktif per spec; `NOT is_active`
+            // is portable across SQLite and PostgreSQL booleans.
+            $priority = "CASE\n                WHEN NOT is_active THEN 2\n                WHEN EXISTS (\n                    SELECT 1 FROM suppliers\n                    WHERE suppliers.id = products.supplier_id\n                      AND suppliers.subscription_status <> 'active'\n                ) THEN 1\n                ELSE 0\n            END";
+
+            return "{$priority} {$direction}, id DESC";
+        }
+
+        return ListQuery::rawOrder($sort, $order);
     }
 
     /**

@@ -1,0 +1,39 @@
+{
+  "task_id": "T8",
+  "task_name": "Frontend — OutletDrawer snapshot-only, freeze banner, a11y",
+  "cycle": 2,
+  "timestamp": "2026-09-28T08:20:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "two-stage",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "v2 detail render and encoded order context link preserved",
+      "v1/partial fallback has exact unavailable message and no invented values",
+      "Product labelling precedence preserved: Top 5, snapshot-window, unavailable",
+      "Freeze banner and opening snapshot remain filter-frozen",
+      "Dialog role, aria-modal, focus trap, Escape/close/backdrop, and exact focus restoration preserved",
+      "No behavior change from refactor"
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Largest function 48 lines; all 17 functions <=48 lines",
+      "Cohesive decomposition into drawer sections and hooks",
+      "Shared geographic-filters.ts does not export toCents; local single helper is retained with alignment comment",
+      "Behavioral tests use rendered roles/text/events, not source-shape assertions",
+      "No new dependencies or 3x duplication"
+    ],
+    "issues": [
+      {"severity": "Minor", "description": "OutletDrawer.tsx is 325 lines and crosses the ~300-line heuristic; decomposition is cohesive and no further split is warranted.", "location": "apps/web/src/components/data-intelligence/OutletDrawer.tsx:1-325"},
+      {"severity": "Minor", "description": "RED evidence remains local-only rather than isolated commits; scenario tests were verified RED before implementation.", "location": "git history 497c56a..2f96815"}
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {"current_cycle": 2, "max_cycles": 2, "cycles_remaining": 0},
+  "reviewed_sha": "fc53ca4"
+}

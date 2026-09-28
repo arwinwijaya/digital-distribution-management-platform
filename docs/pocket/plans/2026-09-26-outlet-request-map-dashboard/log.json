@@ -1,0 +1,108 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-26-outlet-request-map-dashboard",
+    "plan_type": "phased",
+    "status": "IN_PROGRESS",
+    "date_started": "2026-09-28",
+    "date_completed": null,
+    "baseline_sha": "50a0252427038a35c89c3c1d65720ec5ce321fb4",
+    "pipeline": 4,
+    "plan_file": "execution-plan/index.md"
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/phase-1.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Shared geographic filter helper",
+          "status": "WAITING",
+          "file": "execution-plan/tasks/T1-shared-geographic-filter-helper.md"
+        },
+        {
+          "id": "T2",
+          "name": "Backend — GeographicAnalyticsService v2 payload + tightened coordinate rule",
+          "status": "WAITING",
+          "file": "execution-plan/tasks/T2-backend-geographicanalyticsservice-v2-payload-tightened-coordinate-rule.md"
+        },
+        {
+          "id": "T4",
+          "name": "Backend — OrderController additive filters",
+          "status": "WAITING",
+          "file": "execution-plan/tasks/T4-backend-ordercontroller-additive-filters.md"
+        },
+        {
+          "id": "T5",
+          "name": "API client — typed ApiError + fetchGeographicData propagation",
+          "status": "WAITING",
+          "file": "execution-plan/tasks/T5-api-client-typed-apierror-fetchgeographicdata-propagation.md"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "file": "execution-plan/phase-2.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T3",
+          "name": "Backend — GeographicAnalyticsController passthrough + meta",
+          "status": "WAITING",
+          "depends": "T2",
+          "file": "execution-plan/tasks/T3-backend-geographicanalyticscontroller-passthrough-meta.md"
+        },
+        {
+          "id": "T6",
+          "name": "Dummy — buildGeographic v2 + deterministic fixture parity",
+          "status": "WAITING",
+          "depends": "T1",
+          "file": "execution-plan/tasks/T6-dummy-buildgeographic-v2-deterministic-fixture-parity.md"
+        },
+        {
+          "id": "T7",
+          "name": "Frontend — GeoMap marker-layer diff, fitBounds scope, coordinate parity, a11y list",
+          "status": "WAITING",
+          "depends": "T1, T5",
+          "file": "execution-plan/tasks/T7-frontend-geomap-marker-layer-diff-fitbounds-scope-coordinate-parity-a11y-list.md"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "file": "execution-plan/phase-3.md",
+      "status": "WAITING",
+      "tasks": [
+        {
+          "id": "T8",
+          "name": "Frontend — OutletDrawer (snapshot-only, freeze banner, a11y)",
+          "status": "WAITING",
+          "depends": "T1, T5, T7",
+          "file": "execution-plan/tasks/T8-frontend-outletdrawer-snapshot-only-freeze-banner-a11y.md"
+        },
+        {
+          "id": "T9",
+          "name": "Frontend — Page filter chips, empty states, error handling, drawer wiring",
+          "status": "WAITING",
+          "depends": "T1, T5, T7, T8",
+          "file": "execution-plan/tasks/T9-frontend-page-filter-chips-empty-states-error-handling-drawer-wiring.md"
+        },
+        {
+          "id": "T10",
+          "name": "Integration — Page + GeoMap + Drawer filter sync",
+          "status": "WAITING",
+          "depends": "T9",
+          "file": "execution-plan/tasks/T10-integration-page-geomap-drawer-filter-sync.md"
+        },
+        {
+          "id": "T11",
+          "name": "Performance — ScaleFixtureSeeder baseline, <100ms recompute, <500KB response + truncation cap + frontend warning",
+          "status": "WAITING",
+          "depends": "T3, T9",
+          "file": "execution-plan/tasks/T11-performance-scalefixtureseeder-baseline-100ms-recompute-500kb-response-truncation-cap-frontend-warning.md"
+        }
+      ]
+    }
+  ]
+}

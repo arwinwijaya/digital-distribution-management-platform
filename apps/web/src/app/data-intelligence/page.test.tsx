@@ -126,6 +126,42 @@ const forecastMeasurementResponse = {
   },
 };
 
+// Mutable geographic payload so each test can drive one empty-state scenario.
+let geographicPayload: unknown = geographicResponse.data;
+
+function makeV2Point(overrides: Record<string, unknown> = {}) {
+  return {
+    outlet_id: 11,
+    outlet_name: 'Outlet A',
+    territory: 'Jakarta Selatan',
+    latitude: -6.2,
+    longitude: 106.8,
+    plottable: true,
+    orders: 4,
+    sales: '40000.00',
+    orders_by_status: { New: 4, Confirmed: 0, Delivered: 0, 'Partially Paid': 0 },
+    sales_by_status: { New: '40000.00', Confirmed: '0.00', Delivered: '0.00', 'Partially Paid': '0.00' },
+    daily_by_status: [
+      {
+        date: '2026-09-14',
+        counts: { New: 4, Confirmed: 0, Delivered: 0, 'Partially Paid': 0 },
+        sales: { New: '40000.00', Confirmed: '0.00', Delivered: '0.00', 'Partially Paid': '0.00' },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function geographicPayloadWith(map_points: unknown[], extra: Record<string, unknown> = {}) {
+  return {
+    table: [{ territory: 'Jakarta Selatan', sales: '40000.00', orders: 4, outlets: 1 }],
+    map_points,
+    snapshot_version: 7,
+    window: { start: '2026-08-16', end: '2026-09-14', timezone: 'Asia/Jakarta' },
+    ...extra,
+  };
+}
+
 function mockFetchForSuccess() {
   const fetchSpy = jest.fn(async (url: RequestInfo) => {
     const urlString = String(url);
@@ -147,6 +183,7 @@ describe('admin page consumes shared API contract', () => {
 
   beforeEach(() => {
     mockGetStoredToken.mockReturnValue('test-token');
+    geographicPayload = geographicResponse.data;
     useDummyStore.getState().reset();
     installDummy();
     originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
@@ -154,7 +191,7 @@ describe('admin page consumes shared API contract', () => {
       const url = String(args[0]);
       let body: unknown;
       if (url.includes('/auth/me')) body = { status: 'success', data: { role: 'admin', rbac: {} } };
-      else if (url.includes('/admin/analytics/geographic')) body = geographicResponse;
+      else if (url.includes('/admin/analytics/geographic')) body = { status: 'success', data: geographicPayload };
       else if (url.includes('/admin/analytics/measurement/forecasts')) body = forecastMeasurementResponse;
       else if (url.includes('/admin/analytics/measurement/recommendations')) body = recommendationMeasurementResponse;
       else if (url.includes('/admin/analytics/stock-planning')) body = stockResponse;
@@ -280,6 +317,57 @@ describe('admin page consumes shared API contract', () => {
     expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('Tidak ada request pada periode ini')).toBeInTheDocument();
+  });
+
+  it('shows Data peta belum tersedia when no active snapshot', async () => {
+    geographicPayload = {
+      snapshot_available: false,
+      geographic_section_available: false,
+      map_points: [],
+      table: [],
+      snapshot_version: null,
+      window: null,
+    };
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Data peta belum tersedia')).toBeInTheDocument());
+    expect(screen.queryByText('Tidak ada request pada periode ini')).not.toBeInTheDocument();
+    expect(screen.queryByText(/koordinat belum tersedia/)).not.toBeInTheDocument();
+  });
+
+  it('shows Data peta belum tersedia when geographic section unavailable', async () => {
+    geographicPayload = geographicPayloadWith([], { geographic_section_available: false });
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Data peta belum tersedia')).toBeInTheDocument());
+  });
+
+  it('shows coordinate warning when filtered orders exist but all coordinates invalid', async () => {
+    geographicPayload = geographicPayloadWith([
+      makeV2Point({ latitude: null, plottable: false }),
+      makeV2Point({ outlet_id: 12, outlet_name: 'Outlet B', latitude: 0, longitude: 0, plottable: false }),
+    ]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText(/Outlet memiliki request tetapi koordinat belum tersedia/)).toBeInTheDocument());
+    expect(screen.queryByText('Tidak ada request pada periode ini')).not.toBeInTheDocument();
+  });
+
+  it('shows no-request message when filtered orders equal zero', async () => {
+    geographicPayload = geographicPayloadWith([makeV2Point({ orders_by_status: { New: 0 } })]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Tidak ada request pada periode ini')).toBeInTheDocument());
+    expect(screen.queryByText(/koordinat belum tersedia/)).not.toBeInTheDocument();
+  });
+
+  it('discloses outlets without daily detail only for narrow periods', async () => {
+    geographicPayload = geographicPayloadWith([makeV2Point({ daily_by_status: undefined })]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByTestId('outlets-without-daily-detail')).toHaveTextContent('0'));
+    screen.getByRole('button', { name: '7 hari' }).click();
+    await waitFor(() => expect(screen.getByTestId('outlets-without-daily-detail')).toHaveTextContent('1'));
   });
 
   it('re-fetches and shows dummy data when Mode Dummy is toggled on', async () => {

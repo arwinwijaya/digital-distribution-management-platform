@@ -14,6 +14,7 @@ import {
   fetchSupplierPerformanceData,
   type ForecastMeasurementData,
   type GeographicData,
+  type GeographicMapPoint,
   type RecommendationMeasurementData,
   type SupplierPerformanceData,
   type StockPlanningData,
@@ -39,8 +40,15 @@ const PERIOD_CHIPS: readonly { value: Period; label: string }[] = [
 const DEFAULT_STATUSES: readonly EligibleStatus[] = ['New', 'Confirmed'];
 const DEFAULT_PERIOD: Period = '30d';
 
+type GeographicSnapshotData = GeographicData & {
+  snapshot_available?: boolean;
+  geographic_section_available?: boolean;
+  window: GeographicData['window'] | null;
+  map_points: GeographicMapPoint[];
+};
+
 type DataIntelligenceSnapshot = {
-  geographic: GeographicData | null;
+  geographic: GeographicSnapshotData | null;
   suppliers: SupplierPerformanceData | null;
   stock: StockPlanningData | null;
   recommendationFunnel: RecommendationMeasurementData | null;
@@ -80,7 +88,6 @@ export default function DataIntelligencePage() {
   const [error, setError] = useState<string | null>(null);
   const [statuses, setStatuses] = useState<EligibleStatus[]>([...DEFAULT_STATUSES]);
   const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
-
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -114,14 +121,49 @@ export default function DataIntelligencePage() {
     if (token) void loadAll();
   });
 
-  const window = snapshot.geographic?.window ?? null;
-  const visiblePoints = useMemo(() => {
-    if (!snapshot.geographic || !window) return [];
-    return snapshot.geographic.map_points.filter(
-      (point) => computeFilteredCounts(point, statuses, period, window).filteredOrders > 0,
-    );
-  }, [snapshot.geographic, window, statuses, period]);
-  const showMap = Boolean(snapshot.geographic) && visiblePoints.length > 0;
+  const geographic = snapshot.geographic;
+  const window = geographic?.window ?? null;
+  const sectionUnavailable =
+    !geographic ||
+    geographic.snapshot_available === false ||
+    geographic.geographic_section_available === false;
+
+  const filteredPoints = useMemo(() => {
+    if (!geographic || !window) return [];
+    return geographic.map_points
+      .map((point) => ({ point, counts: computeFilteredCounts(point, statuses, period, window) }))
+      .filter((entry) => entry.counts.filteredOrders > 0);
+  }, [geographic, window, statuses, period]);
+
+  const visiblePoints = useMemo(() => filteredPoints.map((entry) => entry.point), [filteredPoints]);
+
+  const invalidCount = useMemo(
+    () => visiblePoints.filter((point) => point.plottable === false).length,
+    [visiblePoints],
+  );
+
+  const outletsWithoutDailyDetail = useMemo(() => {
+    if (!geographic || !window || period === '30d') return 0;
+    return geographic.map_points.filter((point) => {
+      if (Array.isArray(point.daily_by_status)) return false;
+      const windowCounts = computeFilteredCounts(point, statuses, '30d', window);
+      const hasWindowOrders = windowCounts.legacyOnly
+        ? Number(point.orders) > 0
+        : windowCounts.filteredOrders > 0;
+      return hasWindowOrders;
+    }).length;
+  }, [geographic, window, statuses, period]);
+
+  let mapContent: React.ReactNode;
+  if (sectionUnavailable) {
+    mapContent = <p>Data peta belum tersedia</p>;
+  } else if (visiblePoints.length > 0 && invalidCount === visiblePoints.length) {
+    mapContent = <p>{`Outlet memiliki request tetapi koordinat belum tersedia (${invalidCount})`}</p>;
+  } else if (visiblePoints.length === 0) {
+    mapContent = <p>Tidak ada request pada periode ini</p>;
+  } else {
+    mapContent = <GeoMap points={visiblePoints} />;
+  }
 
   function toggleStatus(status: EligibleStatus) {
     setStatuses((current) =>
@@ -192,11 +234,10 @@ export default function DataIntelligencePage() {
               </button>
             ))}
           </div>
-          {snapshot.geographic && !showMap ? (
-            <p>Tidak ada request pada periode ini</p>
-          ) : (
-            <GeoMap points={visiblePoints} />
-          )}
+          {mapContent}
+          <p data-testid="outlets-without-daily-detail" className="mt-2 text-xs text-gray-500">
+            {`${outletsWithoutDailyDetail} outlet tanpa detail harian`}
+          </p>
           <div className="mt-4">
             <TerritoryTable territories={snapshot.geographic?.table ?? []} loading={loading} />
           </div>

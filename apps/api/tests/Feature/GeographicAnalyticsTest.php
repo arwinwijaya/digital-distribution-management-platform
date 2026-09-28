@@ -254,6 +254,77 @@ class GeographicAnalyticsTest extends TestCase
     }
 
     // ------------------------------------------------------------------ //
+    // Cycle 1 — controller v2 passthrough and metadata                   //
+    // ------------------------------------------------------------------ //
+
+    public function test_geographic_endpoint_passes_through_v2_fields_and_meta(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-14 02:00:00', 'Asia/Jakarta'));
+
+        $valid = Outlet::factory()->create([
+            'name' => 'V2 Valid Outlet',
+            'latitude' => -6.2,
+            'longitude' => 106.8,
+        ]);
+        $invalid = Outlet::factory()->create([
+            'name' => 'V2 Invalid Outlet',
+            'latitude' => null,
+            'longitude' => 106.8,
+        ]);
+
+        $products = Product::factory()->count(6)->create();
+        $items = [];
+        foreach ($products as $product) {
+            $items[] = [
+                'product_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => '10.00',
+                'subtotal' => '10.00',
+            ];
+        }
+
+        $this->createStatusOrder($valid, 'New', '60.00', '2026-09-12 10:00:00', $items);
+        $this->createStatusOrder($invalid, 'Confirmed', '20.00', '2026-09-12 11:00:00');
+
+        $run = $this->runPipeline();
+        $this->assertSame('completed', $run->status);
+        Carbon::setTestNow();
+
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/admin/analytics/geographic');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.meta.truncated', false)
+            ->assertJsonPath('data.meta.omitted_zero_days', 58)
+            ->assertJsonPath('data.meta.product_summary_capped', true);
+
+        $mapPoints = $response->json('data.map_points');
+        $this->assertCount(2, $mapPoints);
+        foreach ($mapPoints as $point) {
+            foreach ([
+                'plottable',
+                'orders_by_status',
+                'sales_by_status',
+                'daily_by_status',
+                'product_summary',
+                'product_summary_truncated',
+                'latest_request',
+            ] as $field) {
+                $this->assertArrayHasKey($field, $point, "Missing v2 field: {$field}");
+            }
+        }
+
+        $validPoint = collect($mapPoints)->firstWhere('outlet_name', 'V2 Valid Outlet');
+        $this->assertTrue($validPoint['plottable']);
+        $this->assertTrue($validPoint['product_summary_truncated']);
+        $this->assertCount(5, $validPoint['product_summary']);
+
+        $invalidPoint = collect($mapPoints)->firstWhere('outlet_name', 'V2 Invalid Outlet');
+        $this->assertFalse($invalidPoint['plottable']);
+    }
+
+    // ------------------------------------------------------------------ //
     // Existing snapshot/controller coverage                               //
     // ------------------------------------------------------------------ //
 
@@ -359,6 +430,75 @@ class GeographicAnalyticsTest extends TestCase
     }
 
     // ------------------------------------------------------------------ //
+    // Cycle 2 — invalid-coordinate retention and empty-state flags       //
+    // ------------------------------------------------------------------ //
+
+    public function test_invalid_coordinate_row_is_retained_with_plottable_false(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-14 02:00:00', 'Asia/Jakarta'));
+
+        $invalid = Outlet::factory()->create([
+            'name' => 'Null Coords Retained',
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+        $this->createStatusOrder($invalid, 'New', '50.00', '2026-09-10 10:00:00');
+
+        $run = $this->runPipeline();
+        $this->assertSame('completed', $run->status);
+        Carbon::setTestNow();
+
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/admin/analytics/geographic');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.snapshot_available', true)
+            ->assertJsonPath('data.geographic_section_available', true);
+
+        $mapPoints = $response->json('data.map_points');
+        $row = collect($mapPoints)->firstWhere('outlet_name', 'Null Coords Retained');
+        $this->assertNotNull($row, 'Invalid-coordinate row must be retained.');
+        $this->assertFalse($row['plottable']);
+        $this->assertSame(1, $row['orders']);
+    }
+
+    public function test_no_active_snapshot_returns_unavailable_flags(): void
+    {
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/admin/analytics/geographic');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.snapshot_available', false)
+            ->assertJsonPath('data.geographic_section_available', false);
+
+        $this->assertSame([], $response->json('data.map_points'));
+        $this->assertSame([], $response->json('data.table'));
+    }
+
+    public function test_active_snapshot_without_geographic_rows_reports_section_unavailable(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-14 02:00:00', 'Asia/Jakarta'));
+
+        $pipelineService = new DataPipelineService();
+        $pipelineService->registerStage('geographic', static fn (array $window): array => []);
+        $run = $pipelineService->run();
+        $this->assertSame('completed', $run->status);
+        Carbon::setTestNow();
+
+        $response = $this->withHeaders($this->adminHeaders())
+            ->getJson('/api/admin/analytics/geographic');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.snapshot_available', true)
+            ->assertJsonPath('data.geographic_section_available', false);
+
+        $this->assertSame([], $response->json('data.map_points'));
+    }
+
+    // ------------------------------------------------------------------ //
     // Cycle 2 — missing assignment visible, invalid coords not plotted    //
     // ------------------------------------------------------------------ //
 
@@ -439,15 +579,15 @@ class GeographicAnalyticsTest extends TestCase
         $this->assertGreaterThan(0, (float) $unassignedRow['sales'], 'Unassigned must have non-zero sales.');
         $this->assertGreaterThan(0, $unassignedRow['orders'], 'Unassigned must have non-zero orders.');
 
-        // Assert: map points do NOT include invalid-coordinate outlets
+        // Assert: invalid-coordinate outlets are retained in map_points but not plottable
         $mapPoints = $response->json('data.map_points');
         $this->assertIsArray($mapPoints);
 
-        $mapOutletNames = array_column($mapPoints, 'outlet_name');
-        $this->assertContains('No Territory Outlet', $mapOutletNames, 'Valid-coordinate unassigned outlet should appear on map.');
-        $this->assertNotContains('Null Coords Outlet', $mapOutletNames, 'Null-coordinate outlet must not appear on map.');
-        $this->assertNotContains('Invalid Coords Outlet', $mapOutletNames, 'Out-of-range outlet must not appear on map.');
-        $this->assertContains('East Valid', $mapOutletNames, 'Valid-coordinate assigned outlet should appear on map.');
+        $byName = collect($mapPoints)->keyBy('outlet_name');
+        $this->assertTrue($byName['No Territory Outlet']['plottable'], 'Valid-coordinate unassigned outlet should be plottable.');
+        $this->assertFalse($byName['Null Coords Outlet']['plottable'], 'Null-coordinate outlet must be retained with plottable=false.');
+        $this->assertFalse($byName['Invalid Coords Outlet']['plottable'], 'Out-of-range outlet must be retained with plottable=false.');
+        $this->assertTrue($byName['East Valid']['plottable'], 'Valid-coordinate assigned outlet should be plottable.');
 
         // Assert: snapshot_version and window metadata present
         $reader = new ActiveDataSnapshotReader();

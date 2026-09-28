@@ -11,7 +11,8 @@ use App\Services\WhatsAppService;
 use App\Http\Requests\CancelOrderRequest;
 use App\Support\ConcurrencyTestBarrier;
 use App\Support\ListQuery;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\OrderFormatter;
+use App\Support\OrderListFilters;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -68,23 +69,59 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        if (! $request->user()->isAdmin()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized. Only admins can list orders.',
-            ], 403);
+        $guard = $this->indexGuard($request);
+        if ($guard instanceof JsonResponse) {
+            return $guard;
         }
 
-        // Keep the legacy array response while enforcing a server-side bound.
-        // Callers can request fewer rows, but never an unbounded order history.
+        // Validate the additive filter contract BEFORE any query construction
+        // so an invalid request can never fall back to a broadened/unfiltered query.
+        $filters = app(OrderListFilters::class)->resolve($request);
+        if ($filters['errors'] !== []) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $filters['errors'],
+            ], 422);
+        }
+
+        $list = $this->buildOrderList($request, $filters['filters']);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $list['orders'],
+            'meta' => $list['meta'],
+        ]);
+    }
+
+    private function indexGuard(Request $request): ?JsonResponse
+    {
+        if ($request->user()->isAdmin()) {
+            return null;
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Unauthorized. Only admins can list orders.',
+        ], 403);
+    }
+
+    /**
+     * Build the paginated order list payload. Additive filters narrow the
+     * builder; absent filters leave the query unchanged so existing
+     * default behaviour is preserved byte-for-byte.
+     *
+     * @param  array<string,mixed>  $filters
+     * @return array{orders: mixed, meta: array<string,mixed>}
+     */
+    private function buildOrderList(Request $request, array $filters): array
+    {
         $limit = min(max((int) $request->query('limit', 100), 1), 100);
         $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
 
-        $query = Order::query()->with(['items.product']);
-
-        // Sort allowlist with silent fallback to created_at DESC for invalid input.
-        // Reads are scalar-safe: array params (e.g. ?sort[]=x) fall back to the
-        // default instead of raising an "Array to string conversion" 500.
+        // Sort allowlist with silent fallback to created_at DESC for invalid
+        // input. Reads are scalar-safe: array params fall back to the default
+        // instead of raising an "Array to string conversion" 500.
         [$sortColumn, $sortOrder] = ListQuery::resolveSort(
             self::SORT_ALLOWLIST,
             ListQuery::scalarString($request, 'sort', ''),
@@ -93,40 +130,29 @@ class OrderController extends Controller
             'desc',
         );
 
-        // Aggregate total derives from the SAME unfiltered builder (before
-        // limit/offset/order) — never count the paginated rows.
+        $query = Order::query()->with(['items.product']);
+        app(OrderListFilters::class)->apply($query, $filters);
+
         $meta = array_merge(
             ['limit' => $limit, 'cursor' => $cursor],
-            $this->buildListMeta(clone $query),
+            // Aggregate total from the SAME filtered builder (before
+            // limit/offset/order) — never count the paginated rows.
+            ListQuery::meta((clone $query)->count()),
         );
 
-        // limit+1 technique: fetch one extra row to determine has_more.
-        $orders = $query
+        // limit+1 technique: fetch one extra row to derive `has_more`.
+        $raw = $query
             ->orderByRaw(ListQuery::rawOrder($sortColumn, $sortOrder))
             ->limit($limit + 1)
             ->offset($cursor)
             ->get();
+        $hasMore = $raw->count() > $limit;
+        $orders = $raw->take($limit)->map(fn (Order $row) => $this->formatOrderResponse($row));
 
-        $hasMore = $orders->count() > $limit;
-        $orders = $orders->take($limit)
-            ->map(fn (Order $order) => $this->formatOrderResponse($order));
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $orders,
+        return [
+            'orders' => $orders,
             'meta' => array_merge(['has_more' => $hasMore], $meta),
-        ]);
-    }
-
-    /**
-     * Build the aggregate meta payload from the SAME unfiltered builder (never
-     * counts the limited rows).
-     *
-     * @return array<string, mixed>
-     */
-    private function buildListMeta(Builder $query): array
-    {
-        return ListQuery::meta((clone $query)->count());
+        ];
     }
 
     /**
@@ -260,45 +286,6 @@ class OrderController extends Controller
      */
     private function formatOrderResponse(Order $order, bool $includeHistory = false): array
     {
-        $data = [
-            'id' => $order->id,
-            'order_id' => $order->order_id,
-            'outlet_id' => $order->outlet_id,
-            'status' => $order->status,
-            'total_amount' => $order->total_amount,
-            'paid_amount' => $order->paid_amount,
-            'outstanding_balance' => number_format(max(0, ((float) $order->total_amount) - ((float) $order->paid_amount)), 2, '.', ''),
-            'promotion_id' => $order->promotion_id,
-            'discount_amount' => $order->discount_amount,
-            'commission_percentage' => $order->commission_percentage,
-            'items' => $order->items->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'product_id' => $item->product_id,
-                    'product_name' => $item->product->name ?? null,
-                    'quantity' => $item->quantity,
-                    'unit_price' => $item->unit_price,
-                    'subtotal' => $item->subtotal,
-                ];
-            }),
-            'created_at' => $order->created_at,
-            'updated_at' => $order->updated_at,
-        ];
-
-        if ($includeHistory) {
-            $data['status_history'] = $order->statusHistory->map(function ($history) {
-                return [
-                    'status' => $history->status,
-                    'notes' => $history->notes,
-                    'created_at' => $history->created_at,
-                ];
-            });
-        }
-
-        if ($order->relationLoaded('invoice') && $order->invoice) {
-            $data['invoice'] = app(InvoiceService::class)->format($order->invoice);
-        }
-
-        return $data;
+        return app(OrderFormatter::class)->format($order, $includeHistory);
     }
 }

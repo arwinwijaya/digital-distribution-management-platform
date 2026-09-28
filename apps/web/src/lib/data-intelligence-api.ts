@@ -35,7 +35,8 @@ export async function adminFetch<T>(path: string): Promise<T> {
   let res: Response;
   try {
     res = await fetch(apiUrl(path), { headers: authHeaders(token) });
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
     throw new ApiError(null, 'Tidak dapat terhubung ke server.');
   }
 

@@ -1,0 +1,46 @@
+{
+  "task_id": "T1",
+  "task_name": "Shared geographic filter helper",
+  "cycle": 1,
+  "timestamp": "2026-09-28T03:31:30Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "periodToRange maps 7d/30d/today from snapshot window; Hari ini = window.end, never machine date",
+      "Semua expands to exactly New, Confirmed, Delivered, Partially Paid",
+      "computeFilteredCounts composes status × period: status-map totals for 30d, daily_by_status slice for 7d/today",
+      "Integer-cents money aggregation via toCents; no float arithmetic",
+      "Unknown status → {New,Confirmed}; unknown period → 30d, without throwing",
+      "Missing v2 maps → {filteredOrders:0, legacyOnly:true} with no throw",
+      "Empty status selection stays empty (no-request state), never reverts to default",
+      "No Date/new Date() boundary math; pure string date shifting",
+      "Leaf-level: no imports from page/GeoMap/drawer"
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "All 14 unit tests pass, covering every DELIVERABLE scenario and edge case",
+      "Pure functions, no side effects or I/O, deterministic string-based date math",
+      "Integer-cents aggregation matches the dummy aggregates convention; avoids float precision bugs",
+      "Snapshot window.end used for Hari ini — no machine-date leakage",
+      "Explicit v1/partial-row handling via legacyOnly and hasDailyDetail",
+      "Empty status selection correctly yields no-request state (no silent default revert)",
+      "Zero out-of-scope file changes; helper remains leaf-level"
+    ],
+    "issues": [
+      {"severity": "Minor", "description": "Dead branch in normalizeStatuses: expanded.includes(SEMUA) is always false because expandSemua never emits 'Semua'; the Semua case is already handled by expandSemua. Harmless but misleading.", "location": "apps/web/src/lib/geographic-filters.ts:185"},
+      {"severity": "Minor", "description": "O(n²) deduplication using indexOf; a Set-based dedupe would be O(n) and clearer.", "location": "apps/web/src/lib/geographic-filters.ts:190"},
+      {"severity": "Minor", "description": "Test file re-declares SnapshotWindow inline instead of importing the exported type from geographic-filters.ts.", "location": "apps/web/src/lib/geographic-filters.test.ts:3"},
+      {"severity": "Minor", "description": "Local toCents adds defensive guards (empty/'-'/'.' strings) not present in the aggregates.ts convention; functionally safer but not a shared import.", "location": "apps/web/src/lib/geographic-filters.ts:116-123"}
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {"current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2},
+  "reviewed_sha": "1420934"
+}

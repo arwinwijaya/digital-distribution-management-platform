@@ -51,6 +51,9 @@ export default function AdminProductsPage() {
   const [tableSummary, setTableSummary] = useState<{ total: number; out_of_stock: number }>();
   const { density, setDensity } = useTableDensity();
 
+  // AbortController for the in-flight list request: abort on new load + unmount.
+  const listAbortRef = useRef<AbortController | null>(null);
+
   // Latest sort/cursor readable inside `loadProducts` WITHOUT adding them to its
   // dependency list (which would otherwise re-run the mount effect and reset the
   // page on every sort/page change).
@@ -62,7 +65,11 @@ export default function AdminProductsPage() {
   filtersRef.current = { category, status, stockHealth };
 
   const loadProducts = useCallback(async (authToken: string, opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort; filters?: { category?: string; status?: string; stockHealth?: string } }) => {
-    setLoading(true); setError(null);
+    // Cancel any in-flight list request (lifecycle cleanup / race guard).
+    listAbortRef.current?.abort();
+    const controller = new AbortController();
+    listAbortRef.current = controller;
+    setLoading(true);
     try {
       const nextSort = opts?.sort ?? sortRef.current;
       const nextCursor = opts?.cursor ?? (opts?.resetCursor ? 0 : cursorRef.current);
@@ -76,15 +83,29 @@ export default function AdminProductsPage() {
         cursor: nextCursor,
         sort: nextSort.column,
         order: nextSort.order,
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       setProducts(result.products);
       setHasMore(result.hasMore);
       setCursor(nextCursor);
       if (result.total !== undefined) setTotal(result.total);
       if (result.summary) setTableSummary(result.summary);
       setCategories(result.categories ?? []);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Daftar produk tidak dapat dimuat.'); } finally { setLoading(false); }
+      setError(null);
+    } catch (reason) {
+      if (controller.signal.aborted) return;
+      setError(reason instanceof Error ? reason.message : 'Daftar produk tidak dapat dimuat.');
+    } finally {
+      if (listAbortRef.current === controller) setLoading(false);
+    }
   }, [search]);
+
+  // Abort in-flight request on unmount.
+  useEffect(() => () => {
+    listAbortRef.current?.abort();
+    listAbortRef.current = null;
+  }, []);
 
   useEffect(() => {
     const stored = getStoredToken(); setToken(stored); setReady(true);
@@ -187,7 +208,14 @@ export default function AdminProductsPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader title="Kelola produk" description="Perbarui harga produk dan pantau riwayat perubahan." />
-      {error && <p role="alert" className="mb-5 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{error}</p>}
+      {error && (
+        <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">
+          <span>{error}</span>
+          <Button size="sm" variant="secondary" onClick={() => { if (loading) return; token && loadProducts(token, { filters: filtersRef.current }); }} disabled={loading}>
+            Coba lagi
+          </Button>
+        </div>
+      )}
       {actionError && <p role="alert" className="mb-3 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{actionError}</p>}
       {actionSuccess && <p className="mb-3 rounded-lg border border-success-200 bg-success-50 p-3 text-sm text-success-700">{actionSuccess}</p>}
       <Card className="mb-5 p-5">

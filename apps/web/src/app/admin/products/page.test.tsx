@@ -604,6 +604,102 @@ describe('admin products page', () => {
     });
   });
 
+  // ── Cycle 3: list failure / retry / lifecycle cleanup ──────────────────
+  describe('product list failure and retry', () => {
+    it('shows a retryable alert when GET /products fails and Coba lagi reloads the list', async () => {
+      let requestCount = 0;
+      fetchMock.mockImplementation(async (url: unknown) => {
+        const urlString = String(url);
+        if (!urlString.includes('/products')) return jsonResponse({});
+        requestCount++;
+        if (requestCount === 1) {
+          throw new Error('Request timeout');
+        }
+        return jsonResponse(listResponse({
+          data: [{ id: 1, name: 'Retry OK', sku: 'RETRY-1', category: 'Minuman', price: '5000.00', stock_quantity: 10 }],
+          total: 1,
+          outOfStock: 0,
+          hasMore: false,
+          categories: ['Minuman'],
+        }));
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+      expect(screen.getByRole('alert')).toHaveTextContent(/timeout|tidak dapat/i);
+      const retryButton = screen.getByRole('button', { name: 'Coba lagi' });
+      expect(retryButton).toBeInTheDocument();
+      expect(retryButton).not.toBeDisabled();
+
+      fireEvent.click(retryButton);
+      await waitFor(() => expect(screen.getByText('Retry OK')).toBeInTheDocument());
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('retry does not duplicate the request while one is loading', async () => {
+      let resolveSuccess: (value: Response) => void = () => {};
+      let requestCount = 0;
+      fetchMock.mockImplementation(async (url: unknown) => {
+        const urlString = String(url);
+        if (!urlString.includes('/products')) return jsonResponse({});
+        requestCount++;
+        if (requestCount === 1) {
+          throw new Error('Network error');
+        }
+        // Subsequent calls return a promise we control.
+        return new Promise((resolve) => { resolveSuccess = resolve; });
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+      const retryButton = screen.getByRole('button', { name: 'Coba lagi' });
+      expect(requestCount).toBe(1);
+
+      // Click retry → should make exactly one additional request.
+      fireEvent.click(retryButton);
+      await waitFor(() => expect(requestCount).toBe(2));
+      expect(retryButton).toBeDisabled(); // button disabled while loading
+
+      // Second activation while loading must not start another request.
+      fireEvent.click(retryButton);
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      expect(requestCount).toBe(2);
+
+      // Resolve the pending request → success renders, error alert goes away.
+      resolveSuccess(jsonResponse(listResponse({
+        data: [{ id: 7, name: 'Retry Loaded', sku: 'R-7', category: 'Minuman', price: '5000.00', stock_quantity: 4 }],
+        total: 1,
+        outOfStock: 0,
+        hasMore: false,
+        categories: ['Minuman'],
+      })));
+      await waitFor(() => expect(screen.getByText('Retry Loaded')).toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: 'Coba lagi' })).not.toBeInTheDocument();
+      expect(requestCount).toBe(2);
+    });
+
+    it('aborts the in-flight list request on unmount', async () => {
+      let abortSignal: AbortSignal | null = null;
+      fetchMock.mockImplementation(async (url: unknown, options?: RequestInit) => {
+        const urlString = String(url);
+        if (!urlString.includes('/products')) return jsonResponse({});
+        // Return a never-resolving promise to simulate in-flight request
+        abortSignal = options?.signal as AbortSignal | null;
+        return new Promise(() => {});
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      const { unmount: doUnmount } = render(<Page />);
+      await waitFor(() => expect(abortSignal).not.toBeNull());
+      expect(abortSignal!.aborted).toBe(false);
+
+      doUnmount();
+      expect(abortSignal!.aborted).toBe(true);
+    });
+  });
+
   // ── Cycle 2: sort header click + search reset cursor + paging ────────────
   describe('sort header click + reset cursor + paging', () => {
     const pagedResponse = () => listResponse({ total: 100, outOfStock: 3, hasMore: true });

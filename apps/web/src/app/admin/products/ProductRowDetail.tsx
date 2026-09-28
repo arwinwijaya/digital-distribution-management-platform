@@ -1,0 +1,73 @@
+'use client';
+
+import type { ReactNode } from 'react';
+import { Card } from '@/components/ui';
+import { formatDateTime } from '@/lib/admin-table';
+import {
+  STOCK_UNIT_NOTE,
+  STOCK_VALUE_LABEL,
+  categoryDisplay,
+  deriveProductDetailFacts,
+  normalizeStock,
+} from './product-clarity';
+import type { AdminProduct } from './api';
+
+/** Shared tooltip/label copy: what the `price` value actually represents. */
+export const PRICE_TOOLTIP = 'Harga jual yang digunakan dalam order';
+
+export type ProductRowDetailProps = {
+  product: AdminProduct;
+  /** Stable DOM id for the panel; also the row trigger's `aria-controls` target. */
+  detailId?: string;
+};
+
+/** Label/value pair used by the fact grid below. */
+function Fact({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
+      <span className="text-sm text-gray-700">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * Products-local expanded row detail: complete identity, supplier + product
+ * status facts, price context, normalized stock value with the static unit
+ * note, and timestamps. Pure display — all status/stock derivation comes from
+ * the T2 `product-clarity` helpers (never re-derived here).
+ */
+export default function ProductRowDetail({ product, detailId }: ProductRowDetailProps) {
+  const facts = deriveProductDetailFacts(product);
+  const stock = normalizeStock(product.stock_quantity);
+  const price = Number(product.price ?? 0);
+  const stockValue = Math.round(price * stock);
+
+  return (
+    <div id={detailId}>
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-sm font-semibold text-gray-900">{product.name}</h3>
+          <span className="text-xs text-gray-500">{facts.status}</span>
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <Fact label="SKU" value={product.sku ?? '\u2014'} />
+          <Fact label="Kategori" value={categoryDisplay(product.category)} />
+          <Fact label="Deskripsi" value={product.description?.trim() || '\u2014'} />
+
+          <Fact label="Supplier" value={facts.supplierName} />
+          <Fact label="Status supplier" value={facts.supplierStatus} />
+          <Fact label="Status produk" value={facts.productActive ? 'Aktif' : 'Nonaktif'} />
+
+          <Fact label="Harga jual" value={<span title={PRICE_TOOLTIP}>Rp {price.toLocaleString('id-ID')}</span>} />
+          <Fact label={STOCK_VALUE_LABEL} value={`Rp ${stockValue.toLocaleString('id-ID')}`} />
+          <Fact label="Satuan" value={STOCK_UNIT_NOTE} />
+
+          <Fact label="Dibuat" value={formatDateTime(product.created_at ?? null)} />
+          <Fact label="Diperbarui" value={formatDateTime(product.updated_at ?? null)} />
+        </div>
+      </Card>
+    </div>
+  );
+}

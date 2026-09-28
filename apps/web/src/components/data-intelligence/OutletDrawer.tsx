@@ -30,7 +30,7 @@ export function filtersEqual(a: DrawerFilter, b: DrawerFilter): boolean {
   const aStatuses = new Set(a.statuses);
   const bStatuses = new Set(b.statuses);
   if (aStatuses.size !== bStatuses.size) return false;
-  return [...aStatuses].every((status) => bStatuses.has(status));
+  return Array.from(aStatuses).every((status) => bStatuses.has(status));
 }
 
 /** Build the additive order-list link; every value is URL-encoded by URLSearchParams. */

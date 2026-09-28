@@ -53,23 +53,26 @@
         {
           "id": "T3",
           "name": "Backend — GeographicAnalyticsController passthrough + meta",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T2",
-          "file": "execution-plan/tasks/T3-backend-geographicanalyticscontroller-passthrough-meta.md"
+          "file": "execution-plan/tasks/T3-backend-geographicanalyticscontroller-passthrough-meta.md",
+          "done_sha": "3159a1f13fd043c2cee535975ae7297782940808"
         },
         {
           "id": "T6",
           "name": "Dummy — buildGeographic v2 + deterministic fixture parity",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T6-dummy-buildgeographic-v2-deterministic-fixture-parity.md"
+          "file": "execution-plan/tasks/T6-dummy-buildgeographic-v2-deterministic-fixture-parity.md",
+          "done_sha": "31b08919c66f667e94795ebfa8e510ae6a686e2c"
         },
         {
           "id": "T7",
           "name": "Frontend — GeoMap marker-layer diff, fitBounds scope, coordinate parity, a11y list",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1, T5",
-          "file": "execution-plan/tasks/T7-frontend-geomap-marker-layer-diff-fitbounds-scope-coordinate-parity-a11y-list.md"
+          "file": "execution-plan/tasks/T7-frontend-geomap-marker-layer-diff-fitbounds-scope-coordinate-parity-a11y-list.md",
+          "done_sha": "77e7ac17b9ce312ae4239f2a6c4a525f14b5d012"
         }
       ]
     },

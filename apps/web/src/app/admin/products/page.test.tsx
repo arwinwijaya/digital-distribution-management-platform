@@ -396,6 +396,68 @@ describe('admin products page', () => {
     });
   });
 
+  // ── T4 Cycle 1: server-side filters + reset/summary/options ─────────────
+  describe('server-side product filters', () => {
+    it('combines filters, resets cursor, preserves sort, closes expansion, and renders filtered metadata', async () => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        const requestUrl = new URL(String(url));
+        if (requestUrl.pathname.endsWith('/products')) {
+          const filtered = requestUrl.searchParams.get('category') === 'Minuman'
+            && requestUrl.searchParams.get('status') === 'active'
+            && requestUrl.searchParams.get('stock_health') === 'low';
+          const response = listResponse({
+            data: filtered
+              ? [{ id: 77, name: 'Teh Filtered', sku: 'SKU-077', category: 'Minuman', price: '12000.00', stock_quantity: 5 }]
+              : [{ id: 2, name: 'Kopi Kapal', sku: 'SKU-001', price: '15000.00', stock_quantity: 40 }],
+            total: filtered ? 1 : 100,
+            outOfStock: filtered ? 0 : 1,
+            hasMore: !filtered,
+          });
+          response.meta.categories = ['Minuman', 'Sembako'];
+          return jsonResponse(response);
+        }
+        return jsonResponse({});
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Harga Jual'));
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('sort=price'));
+      fireEvent.click(screen.getByText('Berikutnya'));
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('cursor=15'));
+
+      const trigger = screen.getByRole('button', { name: 'Kopi Kapal' });
+      fireEvent.click(trigger);
+      await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'true'));
+
+      await waitFor(() => expect(screen.getByLabelText('Kategori')).toBeInTheDocument());
+      expect(screen.getByRole('option', { name: 'Semua kategori' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Minuman' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Sembako' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Tanpa kategori' })).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Kategori'), { target: { value: 'Minuman' } });
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } });
+      fireEvent.change(screen.getByLabelText('Kesehatan stok'), { target: { value: 'low' } });
+
+      await waitFor(() => {
+        const url = lastProductsUrl(fetchMock);
+        expect(url).toContain('category=Minuman');
+        expect(url).toContain('status=active');
+        expect(url).toContain('stock_health=low');
+        expect(url).toContain('cursor=0');
+        expect(url).toContain('sort=price');
+        expect(url).toContain('order=desc');
+      });
+      await waitFor(() => expect(screen.getByText('Teh Filtered')).toBeInTheDocument());
+      expect(screen.queryByText('Nilai stok')).not.toBeInTheDocument();
+      expect(screen.getByTestId('table-summary')).toHaveTextContent('1 produk');
+      expect(screen.getByTestId('table-summary')).toHaveTextContent('0 stok habis');
+    });
+  });
+
   // ── Cycle 2: sort header click + search reset cursor + paging ────────────
   describe('sort header click + reset cursor + paging', () => {
     const pagedResponse = () => listResponse({ total: 100, outOfStock: 3, hasMore: true });

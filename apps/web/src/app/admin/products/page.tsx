@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
-import { fetchAdminProducts, updateProductPrice, type AdminProduct } from './api';
+import { fetchAdminProducts, updateProductPrice, NO_CATEGORY_FILTER, type AdminProduct } from './api';
 import { useDummyRefresh } from '@/dummy/guards';
-import { Button, Badge, Card, EmptyState, Input, PageHeader, Table, TableSummary, TablePagination, TableDensityToggle } from '@/components/ui';
+import { Button, Badge, Card, EmptyState, Input, PageHeader, Table, TableSummary, TablePagination, TableDensityToggle, Select } from '@/components/ui';
 import { useTableDensity } from '@/hooks/useTableDensity';
 import { toggleSort, formatDateTime, type ColumnSort } from '@/lib/admin-table';
 import {
@@ -35,6 +35,10 @@ export default function AdminProductsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [status, setStatus] = useState('');
+  const [stockHealth, setStockHealth] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
   const [newPrice, setNewPrice] = useState('');
   const [saving, setSaving] = useState(false);
@@ -54,14 +58,19 @@ export default function AdminProductsPage() {
   sortRef.current = sort;
   const cursorRef = useRef(cursor);
   cursorRef.current = cursor;
+  const filtersRef = useRef({ category, status, stockHealth });
+  filtersRef.current = { category, status, stockHealth };
 
-  const loadProducts = useCallback(async (authToken: string, opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort }) => {
+  const loadProducts = useCallback(async (authToken: string, opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort; filters?: { category?: string; status?: string; stockHealth?: string } }) => {
     setLoading(true); setError(null);
     try {
       const nextSort = opts?.sort ?? sortRef.current;
       const nextCursor = opts?.cursor ?? (opts?.resetCursor ? 0 : cursorRef.current);
       const result = await fetchAdminProducts(authToken, {
         search: search || undefined,
+        category: opts?.filters?.category || filtersRef.current.category || undefined,
+        status: opts?.filters?.status || filtersRef.current.status || undefined,
+        stockHealth: opts?.filters?.stockHealth || filtersRef.current.stockHealth || undefined,
         limit: 15,
         cursor: nextCursor,
         sort: nextSort.column,
@@ -72,6 +81,7 @@ export default function AdminProductsPage() {
       setCursor(nextCursor);
       if (result.total !== undefined) setTotal(result.total);
       if (result.summary) setTableSummary(result.summary);
+      setCategories(result.categories ?? []);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Daftar produk tidak dapat dimuat.'); } finally { setLoading(false); }
   }, [search]);
 
@@ -180,10 +190,38 @@ export default function AdminProductsPage() {
       {actionError && <p role="alert" className="mb-3 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{actionError}</p>}
       {actionSuccess && <p className="mb-3 rounded-lg border border-success-200 bg-success-50 p-3 text-sm text-success-700">{actionSuccess}</p>}
       <Card className="mb-5 p-5">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input label="Cari produk" placeholder="Nama atau SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Select label="Kategori" value={category} onChange={(e) => {
+            const next = e.target.value;
+            setCategory(next); setExpandedProductId(null);
+            if (token) void loadProducts(token, { resetCursor: true, filters: { category: next, status, stockHealth } });
+          }}>
+            <option value="">Semua kategori</option>
+            {categories.map((value) => <option key={value} value={value}>{value}</option>)}
+            <option value={NO_CATEGORY_FILTER}>Tanpa kategori</option>
+          </Select>
+          <Select label="Status" value={status} onChange={(e) => {
+            const next = e.target.value;
+            setStatus(next); setExpandedProductId(null);
+            if (token) void loadProducts(token, { resetCursor: true, filters: { category, status: next, stockHealth } });
+          }}>
+            <option value="">Semua</option>
+            <option value="active">Aktif</option>
+            <option value="inactive">Nonaktif</option>
+            <option value="unpurchasable">Tidak bisa dibeli</option>
+          </Select>
+          <Select label="Kesehatan stok" value={stockHealth} onChange={(e) => {
+            const next = e.target.value;
+            setStockHealth(next); setExpandedProductId(null);
+            if (token) void loadProducts(token, { resetCursor: true, filters: { category, status, stockHealth: next } });
+          }}>
+            <option value="">Semua</option>
+            <option value="out">Habis</option>
+            <option value="low">Rendah</option>
+            <option value="ok">Aman</option>
+          </Select>
           <div className="flex items-end"><Button onClick={() => token && loadProducts(token, { resetCursor: true })} disabled={loading} className="w-full">Cari</Button></div>
-          <div className="hidden sm:block" />
         </div>
       </Card>
       <div className="grid gap-5 lg:grid-cols-[1.7fr_1fr]">
@@ -228,7 +266,7 @@ export default function AdminProductsPage() {
             hasMore={hasMore}
             onPageChange={(nextCursor) => {
               setCursor(nextCursor);
-              if (token) void loadProducts(token, { cursor: nextCursor });
+              if (token) void loadProducts(token, { cursor: nextCursor, filters: filtersRef.current });
             }}
           />
         </Card>

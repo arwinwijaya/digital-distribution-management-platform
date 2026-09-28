@@ -78,10 +78,14 @@ function listDummyAdminProducts(filters: ProductFilters): ProductsListResult {
     list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q));
   }
 
-  // Category filter: exact match after trim (case-sensitive).
-  if (filters.category) {
-    const cat = filters.category;
-    list = list.filter((p) => (p.category ?? '').trim() === cat);
+  // Category filter: exact match after trim (case-sensitive); the explicit
+  // no-category sentinel matches only null/empty-category rows.
+  if (typeof filters.category === 'string' && filters.category !== '') {
+    if (filters.category === NO_CATEGORY_FILTER) {
+      list = list.filter((p) => (p.category ?? '').trim() === '');
+    } else {
+      list = list.filter((p) => (p.category ?? '').trim() === filters.category);
+    }
   }
 
   // Status filter: 'active', 'inactive', 'unpurchasable'.
@@ -215,15 +219,23 @@ export interface AdminProduct {
   updated_at?: string | null;
 }
 
+/** Explicit server-side category value for products whose category is NULL/empty. */
+export const NO_CATEGORY_FILTER = '__none__';
+
+export type ProductStatusFilter = 'active' | 'inactive' | 'unpurchasable';
+export type ProductStockHealthFilter = 'out' | 'low' | 'ok';
+
 export interface ProductFilters {
   search?: string;
   category?: string;
-  status?: string;
-  stockHealth?: string;
+  status?: ProductStatusFilter | string;
+  stockHealth?: ProductStockHealthFilter | string;
   limit?: number;
   cursor?: number;
   sort?: string;
   order?: string;
+  /** Request cancellation is intentionally not serialized into the URL. */
+  signal?: AbortSignal;
 }
 
 export interface ProductsListResult {
@@ -288,9 +300,9 @@ export async function fetchAdminProducts(token: string, filters: ProductFilters 
 async function fetchAdminProductsReal(token: string, filters: ProductFilters): Promise<ProductsListResult> {
   const query = new URLSearchParams();
   if (filters.search) query.set('search', filters.search);
-  if (filters.category) query.set('category', filters.category);
-  if (filters.status) query.set('status', filters.status);
-  if (filters.stockHealth) query.set('stock_health', filters.stockHealth);
+  if (typeof filters.category === 'string' && filters.category !== '') query.set('category', filters.category);
+  if (filters.status && ['active', 'inactive', 'unpurchasable'].includes(filters.status)) query.set('status', filters.status);
+  if (filters.stockHealth && ['out', 'low', 'ok'].includes(filters.stockHealth)) query.set('stock_health', filters.stockHealth);
   query.set('limit', String(filters.limit ?? 15));
   query.set('cursor', String(filters.cursor ?? 0));
   query.set('sort', filters.sort || 'created_at');
@@ -298,7 +310,7 @@ async function fetchAdminProductsReal(token: string, filters: ProductFilters): P
   // Admin context always sends include_unpurchasable=1 to bypass supplier eligibility clause.
   query.set('include_unpurchasable', '1');
 
-  const response = await fetch(apiUrl(`/products?${query.toString()}`), { headers: authHeaders(token) });
+  const response = await fetch(apiUrl(`/products?${query.toString()}`), { headers: authHeaders(token), signal: filters.signal });
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Daftar produk tidak dapat dimuat.'));
 
@@ -319,7 +331,12 @@ async function fetchAdminProductsReal(token: string, filters: ProductFilters): P
     cursor: Number(meta.cursor ?? filters.cursor ?? 0),
     total: meta.total !== undefined ? Number(meta.total) : undefined,
     summary: meta.summary,
-    categories: Array.isArray(meta.categories) ? meta.categories.filter((c): c is string => typeof c === 'string') : undefined,
+    categories: Array.isArray(meta.categories)
+      ? Array.from(new Set(meta.categories
+        .filter((c): c is string => typeof c === 'string')
+        .map((c) => c.trim())
+        .filter(Boolean)))
+      : undefined,
   };
 }
 

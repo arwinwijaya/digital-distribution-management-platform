@@ -1,6 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import type { GeographicMapPoint } from '@/lib/data-intelligence-api';
 
 /* ------------------------------------------------------------------ */
@@ -321,5 +321,51 @@ describe('marker_layer_diff_with_stable_map_instance', () => {
     expect(mockMapInstances[0]).toBe(mapInstance);
     expect(mapInstance.fitBounds).toHaveBeenCalledTimes(2);
     expect(mapInstance.setView).toHaveBeenCalledTimes(1);
+  });
+
+  it('matches backend coordinate parity and exposes a keyboard outlet list with Enter selection', async () => {
+    const { isValidPoint } = await import('@/components/data-intelligence/GeoMap');
+    const cases: Array<[string, unknown, unknown, boolean]> = [
+      ['null latitude', null, 106.8, false],
+      ['numeric string latitude', '-6.2', 106.8, false],
+      ['NaN latitude', NaN, 106.8, false],
+      ['Infinity longitude', -6.2, Infinity, false],
+      ['latitude out of range', 91, 106.8, false],
+      ['longitude out of range', -6.2, 181, false],
+      ['Null Island', 0, 0, false],
+      ['Jakarta coordinate', -6.2, 106.8, true],
+    ];
+    for (const [, latitude, longitude, expected] of cases) {
+      expect(isValidPoint({ ...POINT_A, latitude: latitude as number, longitude: longitude as number })).toBe(expected);
+    }
+
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const onSelectOutlet = jest.fn();
+    render(<GeoMap points={[POINT_A, POINT_B]} onSelectOutlet={onSelectOutlet} />);
+
+    const outletList = screen.getByRole('list', { name: /daftar outlet peta/i });
+    expect(outletList).toBeInTheDocument();
+    const outletButtons = screen.getAllByRole('button');
+    expect(outletButtons).toHaveLength(2);
+    expect(outletButtons[0]).toHaveAccessibleName(/outlet a.*jakarta selatan/i);
+    expect(outletButtons[1]).toHaveAccessibleName(/outlet b.*bandung/i);
+
+    fireEvent.keyDown(outletButtons[0], { key: 'Enter' });
+    expect(onSelectOutlet).toHaveBeenCalledWith(POINT_A);
+  });
+
+  it('renders tile fallback while keeping the outlet list usable', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const onSelectOutlet = jest.fn();
+    render(<GeoMap points={[POINT_A]} onSelectOutlet={onSelectOutlet} />);
+
+    expect(mockTileLayers).toHaveLength(1);
+    act(() => mockTileLayers[0].handlers.tileerror());
+
+    expect(await screen.findByTestId('geo-map-tile-fallback')).toHaveTextContent(/citra peta tidak dapat dimuat/i);
+    expect(screen.getByRole('list', { name: /daftar outlet peta/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /outlet a/i }));
+    expect(onSelectOutlet).toHaveBeenCalledWith(POINT_A);
   });
 });

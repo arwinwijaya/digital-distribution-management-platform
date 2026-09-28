@@ -171,18 +171,24 @@ export default function GeoMap({ points, onSelectOutlet, resetSignal }: Props) {
   }
 
   return (
-    <div
-      data-testid="geo-map"
-      className="h-[420px] w-full rounded-lg border border-gray-200 overflow-hidden"
-      style={{ height: 420 }}
-    >
-      <div ref={setContainer} style={{ height: '100%', width: '100%' }} />
+    <div className="w-full">
+      <div
+        data-testid="geo-map"
+        className="h-[420px] w-full overflow-hidden rounded-lg border border-gray-200"
+        style={{ height: 420 }}
+      >
+        <div ref={setContainer} style={{ height: '100%', width: '100%' }} />
+      </div>
       {tileFailed && (
-        <p data-testid="geo-map-tile-fallback" role="status" className="...">
+        <p
+          data-testid="geo-map-tile-fallback"
+          role="status"
+          className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+        >
           Citra peta tidak dapat dimuat. Daftar outlet di bawah tetap dapat digunakan.
         </p>
       )}
-      <ul aria-label="Daftar outlet peta">
+      <ul aria-label="Daftar outlet peta" className="mt-2 max-h-40 space-y-1 overflow-y-auto">
         {validPoints.map((point) => (
           <li key={point.outlet_id}>
             <button

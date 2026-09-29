@@ -18,6 +18,12 @@ class ProductController extends Controller
     private const STATUS_VALUES = ['active', 'inactive', 'unpurchasable'];
 
     /**
+     * Sentinel sent by the frontend (NO_CATEGORY_FILTER) to filter for rows
+     * with a null or empty/whitespace-only category ("Tanpa kategori").
+     */
+    private const NO_CATEGORY_FILTER = '__none__';
+
+    /**
      * Hard cap for the public catalog when no explicit limit is requested.
      */
     private const DEFAULT_LIMIT = 100;
@@ -108,7 +114,7 @@ class ProductController extends Controller
             ->map(fn ($category) => is_string($category) ? trim($category) : '')
             ->filter(fn (string $category) => $category !== '')
             ->unique()
-            ->sort(SORT_STRING)
+            ->sort(fn (string $left, string $right): int => strcasecmp($left, $right))
             ->values()
             ->all();
     }
@@ -181,7 +187,14 @@ class ProductController extends Controller
     {
         $category = ListQuery::scalarString($request, 'category', '');
         if ($category !== '') {
-            $query->whereRaw('TRIM(category) = ?', [$category]);
+            if ($category === self::NO_CATEGORY_FILTER) {
+                $query->where(function (Builder $categoryQuery) {
+                    $categoryQuery->whereNull('category')
+                        ->orWhereRaw("TRIM(category) = ''");
+                });
+            } else {
+                $query->whereRaw('TRIM(category) = ?', [$category]);
+            }
         }
 
         $status = ListQuery::scalarString($request, 'status', '');

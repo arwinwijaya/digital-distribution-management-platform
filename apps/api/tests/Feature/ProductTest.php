@@ -250,6 +250,68 @@ class ProductTest extends TestCase
         $this->assertIsArray($byName->get('Normal')['supplier']);
     }
 
+    public function test_no_category_sentinel_filters_null_and_empty_categories_with_other_filters(): void
+    {
+        $activeSupplier = Supplier::factory()->active()->create();
+        $inactiveSupplier = Supplier::factory()->create(['subscription_status' => 'inactive']);
+
+        Product::factory()->create([
+            'name' => 'Matching null category',
+            'category' => null,
+            'is_active' => true,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+        Product::factory()->create([
+            'name' => 'Matching empty category',
+            'category' => '  ',
+            'is_active' => true,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+        Product::factory()->create([
+            'name' => 'Wrong status no category',
+            'category' => null,
+            'is_active' => false,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+        Product::factory()->create([
+            'name' => 'Wrong stock no category',
+            'category' => '',
+            'is_active' => true,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 11,
+        ]);
+        Product::factory()->create([
+            'name' => 'Categorized low active',
+            'category' => 'Minuman',
+            'is_active' => true,
+            'supplier_id' => $activeSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+        Product::factory()->create([
+            'name' => 'Unpurchasable no category',
+            'category' => null,
+            'is_active' => true,
+            'supplier_id' => $inactiveSupplier->id,
+            'stock_quantity' => 5,
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders())->getJson(
+            '/api/products?include_unpurchasable=1&category=__none__&status=active&stock_health=low'
+        );
+
+        $response->assertOk();
+        $this->assertSame(
+            ['Matching null category', 'Matching empty category', 'Unpurchasable no category'],
+            collect($response->json('data'))->pluck('name')->all()
+        );
+        $this->assertSame(3, $response->json('meta.total'));
+        // meta.categories filters to non-empty, trimmed, distinct categories; __none__ selects null/empty only
+        $this->assertSame([], $response->json('meta.categories'));
+    }
+
     public function test_category_status_and_stock_health_filters_use_and_semantics_and_filtered_summary(): void
     {
         $activeSupplier = Supplier::factory()->active()->create();
@@ -436,8 +498,8 @@ class ProductTest extends TestCase
             'Cat beta aktif',
         ], $names($statusDesc));
 
-        // Category metadata stays distinct, non-empty, trimmed (binary sort).
-        $this->assertSame(['Alpha', 'Sembako', 'Zebra', 'beta'], $categoryAsc->json('meta.categories'));
+        // Category metadata stays distinct, non-empty, trimmed and sorts case-insensitively.
+        $this->assertSame(['Alpha', 'beta', 'Sembako', 'Zebra'], $categoryAsc->json('meta.categories'));
         $this->assertSame(10, $categoryAsc->json('meta.total'));
     }
 

@@ -21,7 +21,7 @@
       "YYYY-MM-DD start<=end inclusive ≤90-day range preserved",
       "Byte-identical default behavior preserved: apply() only narrows on isset() filters; exact-regression test passes",
       "Both cycle-1 Minors verified fixed: stale buildListMeta comment replaced; literal '23:59:59' replaced with Carbon::parse(end)->endOfDay()",
-      "Extraction into App\Support\OrderListFilters / OrderFormatter is the in-scope refactor mandated by cycle-1 fix instructions; protected services untouched",
+      "Extraction into App\\Support\\OrderListFilters / OrderFormatter is the in-scope refactor mandated by cycle-1 fix instructions; protected services untouched",
       "Mechanical gate re-verified: OrderQueryTest 11 passed / 72 assertions; OrderTest+PilotWorkflowTest+SalesOrderTest 46 passed / 254 assertions; php -l clean"
     ],
     "issues": [],

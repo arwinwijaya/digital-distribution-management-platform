@@ -47,7 +47,7 @@ describe('PriceHistoryPanel', () => {
   });
 
   it('renders exactly five entries and hides load more when there is no next page', async () => {
-    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn(async () => result(
+    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn(async (_params) => result(
       Array.from({ length: 5 }, (_, index) => entry(index + 1)),
     ));
 
@@ -58,7 +58,7 @@ describe('PriceHistoryPanel', () => {
   });
 
   it('shows a clear empty state and hides load more for an empty history', async () => {
-    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn(async () => result([]));
+    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn(async (_params) => result([]));
 
     render(<PriceHistoryPanel fetchHistory={fetchHistory} />);
 
@@ -68,7 +68,7 @@ describe('PriceHistoryPanel', () => {
   });
 
   it('shows a retryable error and recovers after exactly one retry request', async () => {
-    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn()
+    const fetchHistory = jest.fn<Promise<PriceHistoryResult>, [Parameters<FetchHistory>[0]]>()
       .mockRejectedValueOnce(new Error('Request timeout'))
       .mockResolvedValueOnce(result([entry(1)]));
 
@@ -124,8 +124,8 @@ describe('PriceHistoryPanel', () => {
   it('ignores a slower first-page response after switching products', async () => {
     const productA = deferred<PriceHistoryResult>();
     const productB = deferred<PriceHistoryResult>();
-    const fetchA: jest.MockedFunction<FetchHistory> = jest.fn(() => productA.promise);
-    const fetchB: jest.MockedFunction<FetchHistory> = jest.fn(() => productB.promise);
+    const fetchA: jest.MockedFunction<FetchHistory> = jest.fn((_params) => productA.promise);
+    const fetchB: jest.MockedFunction<FetchHistory> = jest.fn((_params) => productB.promise);
 
     const view = render(<PriceHistoryPanel fetchHistory={fetchA} />);
     const requestA = fetchA.mock.calls[0][0];
@@ -144,7 +144,7 @@ describe('PriceHistoryPanel', () => {
 
   it('ignores a response that resolves after the panel unmounts', async () => {
     const pending = deferred<PriceHistoryResult>();
-    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn(() => pending.promise);
+    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn((_params) => pending.promise);
     const view = render(<PriceHistoryPanel fetchHistory={fetchHistory} />);
     const signal = fetchHistory.mock.calls[0][0].signal;
 

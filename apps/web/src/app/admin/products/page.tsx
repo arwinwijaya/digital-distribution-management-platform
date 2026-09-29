@@ -18,6 +18,8 @@ import {
   type DisplayStatus,
 } from './product-clarity';
 import ProductRowDetail, { PRICE_TOOLTIP, ProductRowPriceAction, ProductRowTrigger } from './ProductRowDetail';
+import { type PriceHistoryFetchParams } from './PriceHistoryPanel';
+import { fetchPriceHistory } from './api';
 
 /** Badge colour per derived display status (single badge, explicit precedence). */
 const STATUS_BADGE_VARIANT: Record<DisplayStatus, 'green' | 'yellow' | 'gray'> = {
@@ -43,6 +45,12 @@ export default function AdminProductsPage() {
   const [newPrice, setNewPrice] = useState('');
   const [saving, setSaving] = useState(false);
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
+
+  function closeExpandedRows() {
+    // Closing the expanded row unmounts PriceHistoryPanel, which aborts
+    // its own in-flight request via its cleanup effect.
+    setExpandedProductId(null);
+  }
   // Table state
   const [hasMore, setHasMore] = useState(false);
   const [sort, setSort] = useState<ColumnSort>({ column: 'created_at', order: 'desc' });
@@ -119,7 +127,7 @@ export default function AdminProductsPage() {
   }
 
   function toggleExpanded(product: AdminProduct) {
-    setExpandedProductId((current) => current === product.id ? null : product.id);
+    setExpandedProductId((current) => (current === product.id ? null : product.id));
   }
 
   async function handleSavePrice() {
@@ -223,7 +231,7 @@ export default function AdminProductsPage() {
           <Input label="Cari produk" placeholder="Nama atau SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
           <Select label="Kategori" value={category} onChange={(e) => {
             const next = e.target.value === NO_CATEGORY_FILTER || categories.includes(e.target.value) ? e.target.value : '';
-            setCategory(next); setExpandedProductId(null);
+            setCategory(next); closeExpandedRows();
             if (token) void loadProducts(token, { resetCursor: true, filters: { category: next, status, stockHealth } });
           }}>
             <option value="">Semua kategori</option>
@@ -232,7 +240,7 @@ export default function AdminProductsPage() {
           </Select>
           <Select label="Status" value={status} onChange={(e) => {
             const next = ['active', 'inactive', 'unpurchasable'].includes(e.target.value) ? e.target.value : '';
-            setStatus(next); setExpandedProductId(null);
+            setStatus(next); closeExpandedRows();
             if (token) void loadProducts(token, { resetCursor: true, filters: { category, status: next, stockHealth } });
           }}>
             <option value="">Semua</option>
@@ -242,7 +250,7 @@ export default function AdminProductsPage() {
           </Select>
           <Select label="Kesehatan stok" value={stockHealth} onChange={(e) => {
             const next = ['out', 'low', 'ok'].includes(e.target.value) ? e.target.value : '';
-            setStockHealth(next); setExpandedProductId(null);
+            setStockHealth(next); closeExpandedRows();
             if (token) void loadProducts(token, { resetCursor: true, filters: { category, status, stockHealth: next } });
           }}>
             <option value="">Semua</option>
@@ -277,14 +285,25 @@ export default function AdminProductsPage() {
                 onSort={(column) => {
                   const next = toggleSort(sortRef.current, column);
                   setSort(next);
-                  setExpandedProductId(null);
+                  closeExpandedRows();
                   if (token) void loadProducts(token, { resetCursor: true, sort: next });
                 }}
                 empty={<EmptyState icon={<span>📦</span>} title="Belum ada produk" description="Produk akan muncul di sini." />}
               />
               {expandedProductId !== null && (() => {
                 const expandedProduct = products.find((product) => product.id === expandedProductId);
-                return expandedProduct ? <ProductRowDetail product={expandedProduct} detailId={`product-detail-${expandedProduct.id}`} /> : null;
+                return expandedProduct ? (
+                  <ProductRowDetail
+                    product={expandedProduct}
+                    detailId={`product-detail-${expandedProduct.id}`}
+                    historyFetch={(params: PriceHistoryFetchParams) =>
+                      fetchPriceHistory(token as string, expandedProduct.id, {
+                        limit: params.limit,
+                        cursor: params.cursor,
+                        signal: params.signal,
+                      })}
+                  />
+                ) : null;
               })()}
             </>
           )}
@@ -295,6 +314,7 @@ export default function AdminProductsPage() {
             hasMore={hasMore}
             onPageChange={(nextCursor) => {
               setCursor(nextCursor);
+              closeExpandedRows();
               if (token) void loadProducts(token, { cursor: nextCursor, filters: filtersRef.current });
             }}
           />

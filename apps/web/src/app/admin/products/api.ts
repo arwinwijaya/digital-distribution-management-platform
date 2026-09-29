@@ -354,7 +354,7 @@ export async function updateProductPrice(token: string, productId: number, price
   return (data.data ?? data) as AdminProduct;
 }
 
-export async function fetchPriceHistory(token: string, productId: number, opts?: { limit?: number; cursor?: number }): Promise<PriceHistoryResult> {
+export async function fetchPriceHistory(token: string, productId: number, opts?: { limit?: number; cursor?: number; signal?: AbortSignal }): Promise<PriceHistoryResult> {
   return withDummyRead(
     useDummyStore.getState().isDummy,
     dummyPriceHistory(productId, opts),
@@ -362,11 +362,11 @@ export async function fetchPriceHistory(token: string, productId: number, opts?:
   );
 }
 
-async function fetchPriceHistoryReal(token: string, productId: number, opts?: { limit?: number; cursor?: number }): Promise<PriceHistoryResult> {
+async function fetchPriceHistoryReal(token: string, productId: number, opts?: { limit?: number; cursor?: number; signal?: AbortSignal }): Promise<PriceHistoryResult> {
   const query = new URLSearchParams();
   query.set('limit', String(opts?.limit ?? 15));
   if (opts?.cursor !== undefined && opts.cursor !== null) query.set('cursor', String(opts.cursor));
-  const response = await fetch(apiUrl(`/admin/products/${productId}/prices?${query.toString()}`), { headers: authHeaders(token) });
+  const response = await fetch(apiUrl(`/admin/products/${productId}/prices?${query.toString()}`), { headers: authHeaders(token), signal: opts?.signal });
   const data = await response.json();
   if (!response.ok) throw new Error(parseError(data, 'Riwayat harga tidak dapat dimuat.'));
   const inner = data.data as { data: PriceHistoryEntry[]; meta: { limit: number; cursor: number; has_more: boolean; next_cursor: number | null } } | PriceHistoryEntry[];

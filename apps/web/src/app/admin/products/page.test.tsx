@@ -807,6 +807,97 @@ describe('admin products page', () => {
     });
   });
 
+  // ── Cycle 4: expanded history lifecycle follows table state ─────────────
+  describe('expanded price history lifecycle', () => {
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>((resolvePromise) => { resolve = resolvePromise; });
+      return { promise, resolve };
+    }
+
+    it('closes and aborts history on filter, sort, and page changes, suppressing a late row-A response', async () => {
+      const historyRequests: Array<{ signal?: AbortSignal; deferred: ReturnType<typeof deferred<Response>> }> = [];
+      fetchMock.mockImplementation(async (url: unknown, options?: RequestInit) => {
+        const urlString = String(url);
+        if (urlString.includes('/prices')) {
+          const pending = deferred<Response>();
+          historyRequests.push({ signal: options?.signal as AbortSignal | undefined, deferred: pending });
+          return pending.promise;
+        }
+        if (urlString.includes('/products')) {
+          return jsonResponse(listResponse({
+            data: [
+              { id: 1, name: 'Produk A', sku: 'A-1', price: '1000.00', stock_quantity: 10 },
+              { id: 2, name: 'Produk B', sku: 'B-2', price: '2000.00', stock_quantity: 10 },
+            ],
+            total: 40,
+            hasMore: true,
+            categories: ['Minuman'],
+          }));
+        }
+        return jsonResponse({});
+      });
+
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Produk A')).toBeInTheDocument());
+
+      const openA = async () => {
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Produk A' })).toBeInTheDocument());
+        fireEvent.click(screen.getByRole('button', { name: 'Produk A' }));
+        await waitFor(() => expect(historyRequests.length).toBeGreaterThan(0));
+      };
+      const expectClosedAndAborted = async (requestIndex: number) => {
+        // Wait until the table has finished reloading first — the detail row is
+        // also absent while `loading` masks the table, so the assertion must
+        // observe the settled state to prove the row was really closed.
+        await waitFor(() => expect(screen.queryByText('Memuat produk...')).not.toBeInTheDocument());
+        await waitFor(() => expect(document.getElementById('product-detail-1')).not.toBeInTheDocument());
+        expect(historyRequests[requestIndex].signal).toBeDefined();
+        expect(historyRequests[requestIndex].signal).toHaveProperty('aborted', true);
+      };
+
+      await openA();
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } });
+      await expectClosedAndAborted(0);
+
+      await openA();
+      fireEvent.click(screen.getByText('Harga Jual'));
+      await expectClosedAndAborted(1);
+
+      await openA();
+      fireEvent.click(screen.getByRole('button', { name: 'Berikutnya' }));
+      await expectClosedAndAborted(2);
+      await waitFor(() => expect(screen.getByText('Produk B')).toBeInTheDocument());
+
+      // A's late response must not paint after another row is expanded.
+      fireEvent.click(screen.getByRole('button', { name: 'Produk B' }));
+      await waitFor(() => expect(historyRequests.length).toBe(4));
+      historyRequests[0].deferred.resolve(jsonResponse({
+        status: 'success',
+        data: { data: [{ id: 999, product_id: 1, old_price: '1', new_price: '999999', changed_by: 1, changed_at: '2026-09-12T10:00:00Z' }], meta: { limit: 5, cursor: 0, has_more: false, next_cursor: null } },
+      }));
+      await act(async () => { await Promise.resolve(); });
+      expect(screen.queryByText(/Rp 9\.999\.99/)).not.toBeInTheDocument();
+    });
+
+    it('keeps the same close lifecycle in dummy mode without history network calls', async () => {
+      useDummyStore.getState().toggle();
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+
+      const findTrigger = () => screen.getAllByRole('button').find((button) => button.getAttribute('aria-controls')?.startsWith('product-detail-'));
+      await waitFor(() => expect(findTrigger()).toBeDefined());
+      fireEvent.click(findTrigger()!);
+      await waitFor(() => expect(findTrigger()).toHaveAttribute('aria-expanded', 'true'));
+      await waitFor(() => expect(screen.queryByText(/Nilai stok/)).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } });
+      await waitFor(() => expect(findTrigger()).toHaveAttribute('aria-expanded', 'false'));
+      expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes('/prices')).length).toBe(0);
+    });
+  });
+
   // ── Cycle 3: adapter contract + dummy parity ────────────────────────────
   describe('adapter contract + dummy parity', () => {
     it('serializes clarity filters and parses supplier/meta contract in real mode', async () => {

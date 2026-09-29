@@ -10,7 +10,8 @@ import {
   deriveProductDetailFacts,
   normalizeStock,
 } from './product-clarity';
-import type { AdminProduct } from './api';
+import type { AdminProduct, PriceHistoryResult } from './api';
+import PriceHistoryPanel, { type PriceHistoryFetchParams } from './PriceHistoryPanel';
 
 /** Shared tooltip/label copy: what the `price` value actually represents. */
 export const PRICE_TOOLTIP = 'Harga jual yang digunakan dalam order';
@@ -19,6 +20,8 @@ export type ProductRowDetailProps = {
   product: AdminProduct;
   /** Stable DOM id for the panel; also the row trigger's `aria-controls` target. */
   detailId?: string;
+  /** Optional price-history seam: bound to this product's id by the page. */
+  historyFetch?: (params: PriceHistoryFetchParams) => Promise<PriceHistoryResult>;
 };
 
 /** Label/value pair used by the fact grid below. */
@@ -98,7 +101,7 @@ export function ProductRowPriceAction({
  * note, and timestamps. Pure display — all status/stock derivation comes from
  * the T2 `product-clarity` helpers (never re-derived here).
  */
-export default function ProductRowDetail({ product, detailId }: ProductRowDetailProps) {
+export default function ProductRowDetail({ product, detailId, historyFetch }: ProductRowDetailProps) {
   const facts = deriveProductDetailFacts(product);
   const stock = normalizeStock(product.stock_quantity);
   const price = Number(product.price ?? 0);
@@ -128,6 +131,13 @@ export default function ProductRowDetail({ product, detailId }: ProductRowDetail
           <Fact label="Dibuat" value={formatDateTime(product.created_at ?? null)} />
           <Fact label="Diperbarui" value={formatDateTime(product.updated_at ?? null)} />
         </div>
+
+        {historyFetch ? (
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Riwayat harga</h4>
+            <PriceHistoryPanel fetchHistory={historyFetch} />
+          </div>
+        ) : null}
       </Card>
     </div>
   );

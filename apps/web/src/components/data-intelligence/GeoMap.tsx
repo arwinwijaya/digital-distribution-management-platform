@@ -5,9 +5,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { GeographicMapPoint } from '@/lib/data-intelligence-api';
 
+interface MapPoint extends GeographicMapPoint {
+  /** Count after the page's active status/period filter. */
+  filteredOrders?: number;
+}
+
 interface Props {
-  points: GeographicMapPoint[];
-  onSelectOutlet?: (point: GeographicMapPoint) => void;
+  points: MapPoint[];
+  onSelectOutlet?: (point: MapPoint) => void;
   resetSignal?: number;
 }
 
@@ -55,8 +60,8 @@ export function isValidPoint(point: GeographicMapPoint): boolean {
   return true;
 }
 
-function popupHtml(point: GeographicMapPoint): string {
-  return `${point.outlet_name} — ${point.territory} — ${point.orders} pesanan — ${point.sales}`;
+function popupHtml(point: MapPoint): string {
+  return `${point.outlet_name} — ${point.territory} — ${point.filteredOrders ?? point.orders} pesanan — ${point.sales}`;
 }
 
 export default function GeoMap({ points, onSelectOutlet, resetSignal }: Props) {
@@ -75,7 +80,7 @@ export default function GeoMap({ points, onSelectOutlet, resetSignal }: Props) {
   /* A ref that always holds the latest valid points by outlet_id so retained
      markers' click handlers can look up the current point at click time,
      avoiding stale closures when points are updated (e.g., coordinates/counts). */
-  const pointsByOutletIdRef = useRef<Map<number, GeographicMapPoint>>(new Map());
+  const pointsByOutletIdRef = useRef<Map<number, MapPoint>>(new Map());
   pointsByOutletIdRef.current = new Map(validPoints.map((p) => [p.outlet_id, p]));
 
   /* Stable Leaflet lifecycle. The map is created once when the container node
@@ -210,7 +215,7 @@ export default function GeoMap({ points, onSelectOutlet, resetSignal }: Props) {
                 }
               }}
             >
-              {point.outlet_name} — {point.territory} — {point.orders} pesanan
+              {point.outlet_name} — {point.territory} — {point.filteredOrders ?? point.orders} pesanan
             </button>
           </li>
         ))}

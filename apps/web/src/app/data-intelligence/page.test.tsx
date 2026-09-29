@@ -13,12 +13,15 @@ jest.mock('@/components/data-intelligence/GeoMap', () => {
   const React = require('react');
   return {
     __esModule: true,
-    default: ({ points, onSelectOutlet }: { points: Array<{ outlet_id: number; outlet_name: string }>; onSelectOutlet?: (point: unknown) => void }) => (
+    default: ({ points, onSelectOutlet }: { points: Array<{ outlet_id: number; outlet_name: string; filteredOrders?: number }>; onSelectOutlet?: (point: unknown) => void }) => (
       <div aria-label="Daftar outlet peta">
         {points.map((point) => (
-          <button key={point.outlet_id} type="button" onClick={() => onSelectOutlet?.(point)}>
-            {point.outlet_name}
-          </button>
+          <div key={point.outlet_id}>
+            <button type="button" onClick={() => onSelectOutlet?.(point)}>
+              {point.outlet_name}
+            </button>
+            <span data-testid={`marker-count-${point.outlet_id}`}>{point.filteredOrders ?? 'legacy'}</span>
+          </div>
         ))}
       </div>
     ),
@@ -426,6 +429,36 @@ it('shows a marker for the V1 legacy row under 30d and excludes it under 7d', as
     });
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Outlet V1' })).not.toBeInTheDocument());
     expect(screen.getByTestId('outlets-without-daily-detail')).toHaveTextContent('1');
+  });
+
+it('passes the filtered marker count to GeoMap for 30d and 7d filters', async () => {
+    geographicPayload = geographicPayloadWith([
+      makeV2Point({
+        outlet_id: 101,
+        outlet_name: 'Outlet H',
+        orders: 10,
+        orders_by_status: { New: 4, Confirmed: 3, Delivered: 2, 'Partially Paid': 1 },
+        sales_by_status: { New: '40000.00', Confirmed: '30000.00', Delivered: '20000.00', 'Partially Paid': '10000.00' },
+        daily_by_status: [
+          { date: '2026-09-10', counts: { New: 1, Confirmed: 0, Delivered: 1, 'Partially Paid': 0 }, sales: {} },
+          { date: '2026-09-11', counts: { New: 0, Confirmed: 1, Delivered: 0, 'Partially Paid': 1 }, sales: {} },
+          { date: '2026-09-13', counts: { New: 2, Confirmed: 1, Delivered: 1, 'Partially Paid': 0 }, sales: {} },
+        ],
+      }),
+    ]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+
+    // Default {New,Confirmed}+30d: New4+Conf3=7, not the legacy total of 10.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Outlet H' })).toBeInTheDocument());
+    expect(screen.getByTestId('marker-count-101')).toHaveTextContent('7');
+
+    // Semua+7d: literal daily sum 1+1+2+1+1+1+1=8, not 10.
+    await act(async () => {
+      screen.getByRole('button', { name: 'Semua' }).click();
+      screen.getByRole('button', { name: '7 hari' }).click();
+    });
+    await waitFor(() => expect(screen.getByTestId('marker-count-101')).toHaveTextContent('8'));
   });
 
   it('discloses outlets without daily detail only for narrow periods', async () => {

@@ -197,10 +197,18 @@ export default function DataIntelligencePage() {
     if (!geographic || !snapshotWindow) return [];
     return geographic.map_points
       .map((point) => ({ point, counts: computeFilteredCounts(point, statuses, period, snapshotWindow) }))
+      // Legacy v1 rows reach this gate through computeFilteredCounts' 30d
+      // legacy fallback (legacyOnly rows surface their window-total orders);
+      // narrow periods stay zero because v1 rows carry no daily detail.
       .filter((entry) => entry.counts.filteredOrders > 0);
   }, [geographic, snapshotWindow, statuses, period]);
 
-  const visiblePoints = useMemo(() => filteredPoints.map((entry) => entry.point), [filteredPoints]);
+  const visiblePoints = useMemo(() =>
+    filteredPoints.map(({ point, counts }) => ({
+      ...point,
+      filteredOrders: counts.filteredOrders,
+    })),
+  [filteredPoints]);
 
   const invalidCount = useMemo(
     () => visiblePoints.filter((point) => point.plottable === false).length,

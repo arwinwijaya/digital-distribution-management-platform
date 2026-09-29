@@ -381,6 +381,19 @@ describe('marker_layer_diff_with_stable_map_instance', () => {
     expect(onSelectOutlet).toHaveBeenCalledWith(POINT_A);
   });
 
+  it('renders the filtered count, not the legacy total, in popup and outlet list', async () => {
+    const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
+    const filteredPoint = { ...POINT_A, orders: 10, filteredOrders: 7 };
+    render(<GeoMap points={[filteredPoint]} />);
+
+    const marker = mockLeafletMarkers.find(
+      (entry) => Array.isArray(entry.latlng) && entry.latlng[0] === POINT_A.latitude,
+    );
+    expect(marker?.popup).toContain('7 pesanan');
+    expect(marker?.popup).not.toContain('10 pesanan');
+    expect(screen.getByRole('button', { name: /outlet a/i })).toHaveTextContent('7 pesanan');
+  });
+
   it('renders tile fallback while keeping the outlet list usable', async () => {
     const GeoMap = (await import('@/components/data-intelligence/GeoMap')).default;
     const onSelectOutlet = jest.fn();

@@ -227,6 +227,29 @@ describe('admin page consumes shared API contract', () => {
     }
   });
 
+  it('renders the truncation warning when meta.truncated=true', async () => {
+    geographicPayload = geographicPayloadWith([makeV2Point()], {
+      meta: { truncated: true, omitted_zero_days: 0, product_summary_capped: true },
+    });
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Data peta dipangkas untuk performa. Beberapa detail mungkin tidak lengkap.')).toBeInTheDocument();
+    });
+  });
+
+  it('shows no truncation warning when meta.truncated=false even with omitted_zero_days > 0', async () => {
+    geographicPayload = geographicPayloadWith([makeV2Point()], {
+      meta: { truncated: false, omitted_zero_days: 18, product_summary_capped: false },
+    });
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+
+    await waitFor(() => expect(screen.getByTestId('territory-table')).toBeInTheDocument());
+    expect(screen.queryByText('Data peta dipangkas untuk performa. Beberapa detail mungkin tidak lengkap.')).not.toBeInTheDocument();
+  });
+
   it('renders territory table data, supplier coverage/status, stock actions, WAPE/pending status', async () => {
     const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
     render(<DataIntelligencePage />);

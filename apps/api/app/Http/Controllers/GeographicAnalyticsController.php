@@ -100,20 +100,11 @@ class GeographicAnalyticsController extends Controller
         $geographicSectionAvailable = $table !== [] || $mapPoints !== [];
         $windowDays = $this->windowDays($window);
 
-        $omittedZeroDays = 0;
-        $productSummaryCapped = false;
-        foreach ($mapPoints as $point) {
-            if (($point['product_summary_truncated'] ?? null) === true) {
-                $productSummaryCapped = true;
-            }
-            // Rows with zero orders or without a daily_by_status array
-            // contribute nothing — omitted days are intentional compression.
-            if (($point['orders'] ?? 0) > 0 && is_array($point['daily_by_status'] ?? null)) {
-                $omittedZeroDays += max(0, $windowDays - count($point['daily_by_status']));
-            }
-        }
+        $metaStats = $this->computeMetaStats($mapPoints, $windowDays);
+        $omittedZeroDays = $metaStats['omitted_zero_days'];
+        $productSummaryCapped = $metaStats['product_summary_capped'];
 
-        return response()->json([
+        $payload = [
             'status' => 'success',
             'data' => [
                 'snapshot_available' => true,
@@ -128,7 +119,96 @@ class GeographicAnalyticsController extends Controller
                     'product_summary_capped' => $productSummaryCapped,
                 ],
             ],
-        ]);
+        ];
+
+        // Response-size guard: if the serialized payload exceeds the budget,
+        // apply the documented truncation cap (cap product_summary to top-5 and
+        // clear daily_by_status for ALL rows) and set meta.truncated=true —
+        // never silently cut.
+        $budgetBytes = (int) config('geographic.response_budget_bytes', 500 * 1024);
+        $serialized = json_encode($payload);
+        if ($serialized !== false && strlen($serialized) > $budgetBytes) {
+            $mapPoints = $this->applyTruncationCap($mapPoints);
+            $payload['data']['map_points'] = $mapPoints;
+
+            // If the per-row field cap is still not enough for an unusually
+            // small configured budget, omit rows from the end until the
+            // envelope itself fits. The metadata makes this loss explicit.
+            while ($mapPoints !== [] && strlen((string) json_encode($payload)) > $budgetBytes) {
+                array_pop($mapPoints);
+                $payload['data']['map_points'] = $mapPoints;
+            }
+
+            $metaStats = $this->computeMetaStats($mapPoints, $windowDays);
+            $payload['data']['meta'] = [
+                'truncated' => true,
+                'omitted_zero_days' => $metaStats['omitted_zero_days'],
+                'product_summary_capped' => $metaStats['product_summary_capped'],
+            ];
+        }
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Envelope aggregate: windowDays - daily buckets per in-window row.
+     *
+     * @param array<int, array> $mapPoints
+     * @return array{omitted_zero_days: int, product_summary_capped: bool}
+     */
+    private function computeMetaStats(array $mapPoints, int $windowDays): array
+    {
+        $omittedZeroDays = 0;
+        $productSummaryCapped = false;
+        foreach ($mapPoints as $point) {
+            if (($point['product_summary_truncated'] ?? null) === true) {
+                $productSummaryCapped = true;
+            }
+            // Rows with zero orders or without a daily_by_status array
+            // contribute nothing — omitted days are intentional compression.
+            if (($point['orders'] ?? 0) > 0 && is_array($point['daily_by_status'] ?? null)) {
+                $omittedZeroDays += max(0, $windowDays - count($point['daily_by_status']));
+            }
+        }
+
+        return [
+            'omitted_zero_days' => $omittedZeroDays,
+            'product_summary_capped' => $productSummaryCapped,
+        ];
+    }
+
+    /**
+     * Documented truncation cap: progressively reduce payload until it
+     * fits the budget or nothing remains. Steps:
+     * 1. Cap product_summary to top-5 entries per row (flag per row).
+     * 2. Clear daily_by_status for ALL rows (omitted days tracked in meta).
+     * 3. If still over budget, drop map_points from the end.
+     *
+     * @param array<int, array> $mapPoints
+     * @return array<int, array>
+     */
+    private function applyTruncationCap(array $mapPoints): array
+    {
+        // Step 1: cap product_summary to 5 for all rows.
+        foreach ($mapPoints as &$point) {
+            $summary = $point['product_summary'] ?? null;
+            if (is_array($summary) && count($summary) > 5) {
+                $point['product_summary'] = array_slice(array_values($summary), 0, 5);
+                $point['product_summary_truncated'] = true;
+            }
+        }
+        unset($point);
+
+        // Step 2: clear daily_by_status for all rows (this is the main
+        // size contributor after product_summary is already capped).
+        foreach ($mapPoints as &$point) {
+            if (is_array($point['daily_by_status'] ?? null)) {
+                $point['daily_by_status'] = [];
+            }
+        }
+        unset($point);
+
+        return $mapPoints;
     }
 
     private function windowDays(?array $window): int

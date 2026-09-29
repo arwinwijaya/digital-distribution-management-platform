@@ -21,6 +21,16 @@ function result(data: PriceHistoryEntry[], hasMore = false, nextCursor: number |
   return { data, hasMore, limit: 5, cursor: 0, nextCursor };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('PriceHistoryPanel', () => {
   it('loads five entries initially from a 12-entry history and shows the load-more control', async () => {
     const all = Array.from({ length: 12 }, (_, index) => entry(index + 1));
@@ -31,7 +41,8 @@ describe('PriceHistoryPanel', () => {
     render(<PriceHistoryPanel fetchHistory={fetchHistory} />);
 
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(5));
-    expect(fetchHistory.mock.calls[0][0]).toEqual({ limit: 5 });
+    expect(fetchHistory.mock.calls[0][0]).toEqual(expect.objectContaining({ limit: 5 }));
+    expect(fetchHistory.mock.calls[0][0].signal).toBeInstanceOf(AbortSignal);
     expect(screen.getByRole('button', { name: 'Muat lebih banyak' })).toBeInTheDocument();
   });
 
@@ -84,5 +95,65 @@ describe('PriceHistoryPanel', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/dihapus/i));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'Coba lagi' })).not.toBeInTheDocument();
+  });
+
+  it('disables repeated load-more clicks while one request is pending', async () => {
+    const firstPage = deferred<PriceHistoryResult>();
+    const nextPage = deferred<PriceHistoryResult>();
+    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn(({ cursor }) =>
+      cursor === undefined ? firstPage.promise : nextPage.promise,
+    );
+
+    render(<PriceHistoryPanel fetchHistory={fetchHistory} />);
+    firstPage.resolve(result(Array.from({ length: 5 }, (_, index) => entry(index + 1)), true, 5));
+
+    const loadMore = await screen.findByRole('button', { name: 'Muat lebih banyak' });
+    fireEvent.click(loadMore);
+    fireEvent.click(loadMore);
+
+    expect(fetchHistory).toHaveBeenCalledTimes(2);
+    expect(loadMore).toBeDisabled();
+    expect(fetchHistory.mock.calls[1][0]).toEqual(expect.objectContaining({ limit: 5, cursor: 5 }));
+    expect(fetchHistory.mock.calls[1][0].signal).toBeInstanceOf(AbortSignal);
+
+    nextPage.resolve(result([entry(6)], false, null));
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(6));
+    expect(screen.queryByRole('button', { name: 'Muat lebih banyak' })).not.toBeInTheDocument();
+  });
+
+  it('ignores a slower first-page response after switching products', async () => {
+    const productA = deferred<PriceHistoryResult>();
+    const productB = deferred<PriceHistoryResult>();
+    const fetchA: jest.MockedFunction<FetchHistory> = jest.fn(() => productA.promise);
+    const fetchB: jest.MockedFunction<FetchHistory> = jest.fn(() => productB.promise);
+
+    const view = render(<PriceHistoryPanel fetchHistory={fetchA} />);
+    const requestA = fetchA.mock.calls[0][0];
+    view.rerender(<PriceHistoryPanel fetchHistory={fetchB} />);
+    expect(requestA.signal).toBeInstanceOf(AbortSignal);
+    expect(requestA.signal?.aborted).toBe(true);
+
+    productA.resolve(result([entry(1)]));
+    await Promise.resolve();
+    expect(screen.queryByText(/Rp 1\.500/)).not.toBeInTheDocument();
+
+    productB.resolve(result([entry(2)]));
+    await waitFor(() => expect(screen.getByText(/Rp 2\.500/)).toBeInTheDocument());
+    expect(screen.queryByText(/Rp 1\.500/)).not.toBeInTheDocument();
+  });
+
+  it('ignores a response that resolves after the panel unmounts', async () => {
+    const pending = deferred<PriceHistoryResult>();
+    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn(() => pending.promise);
+    const view = render(<PriceHistoryPanel fetchHistory={fetchHistory} />);
+    const signal = fetchHistory.mock.calls[0][0].signal;
+
+    view.unmount();
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal?.aborted).toBe(true);
+
+    pending.resolve(result([entry(1)]));
+    await Promise.resolve();
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
   });
 });

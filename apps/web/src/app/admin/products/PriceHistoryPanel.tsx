@@ -41,37 +41,67 @@ function classifyPriceHistoryError(error: unknown): PriceHistoryError {
 }
 
 /**
- * Expandable price history panel (initial page with retry and deleted-product handling).
- *
- * Requests the first page with `limit: 5` through the supplied typed
- * history-fetch callback and renders the rows; the load-more control is
- * shown only while the fetched page reports `hasMore`.
+ * Expandable price history panel with in-flight guard, request identity,
+ * and stale-response suppression for concurrent/async seam safety.
  */
 export default function PriceHistoryPanel({ fetchHistory, onClose }: PriceHistoryPanelProps) {
   const [entries, setEntries] = React.useState<PriceHistoryResult['data']>([]);
   const [hasMore, setHasMore] = React.useState(false);
   const [error, setError] = React.useState<PriceHistoryError | null>(null);
   const [retryKey, setRetryKey] = React.useState(0);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const requestId = React.useRef(0);
 
+  // Initial load effect
   React.useEffect(() => {
-    let active = true;
+    const currentRequestId = ++requestId.current;
+    const controller = new AbortController();
+
     setError(null);
-    fetchHistory({ limit: 5 })
+    fetchHistory({ limit: 5, signal: controller.signal })
       .then((page) => {
-        if (!active) return;
+        if (requestId.current !== currentRequestId) return;
         setEntries(page.data ?? []);
         setHasMore(Boolean(page.hasMore));
       })
       .catch((requestError: unknown) => {
-        if (!active) return;
+        if (requestId.current !== currentRequestId) return;
+        if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
         const nextError = classifyPriceHistoryError(requestError);
         setError(nextError);
         if (nextError.kind === 'deleted') onClose?.();
       });
+
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [fetchHistory, onClose, retryKey]);
+
+  const handleLoadMore = React.useCallback(async () => {
+    if (loadingMore) return;
+    if (!hasMore) return;
+
+    const currentRequestId = ++requestId.current;
+    const controller = new AbortController();
+    setLoadingMore(true);
+
+    try {
+      const page = await fetchHistory({ limit: 5, cursor: entries.length, signal: controller.signal });
+      if (requestId.current !== currentRequestId) return;
+      setEntries((prev) => [...prev, ...(page.data ?? [])]);
+      setHasMore(Boolean(page.hasMore));
+    } catch (requestError) {
+      if (requestId.current !== currentRequestId) return;
+      if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
+      // Load-more errors are surfaced as retryable inline errors without closing the panel.
+      const nextError = classifyPriceHistoryError(requestError);
+      setError(nextError);
+    } finally {
+      if (requestId.current === currentRequestId) {
+        setLoadingMore(false);
+      }
+    }
+  }, [fetchHistory, entries.length, hasMore, loadingMore]);
 
   if (error) {
     return (
@@ -97,7 +127,15 @@ export default function PriceHistoryPanel({ fetchHistory, onClose }: PriceHistor
           </li>
         ))}
       </ul>
-      {hasMore ? <button type="button">Muat lebih banyak</button> : null}
+      {hasMore ? (
+        <button
+          type="button"
+          onClick={handleLoadMore}
+          disabled={loadingMore}
+        >
+          {loadingMore ? 'Memuat…' : 'Muat lebih banyak'}
+        </button>
+      ) : null}
     </div>
   );
 }

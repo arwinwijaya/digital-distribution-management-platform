@@ -14,31 +14,75 @@ export type PriceHistoryFetchParams = {
 
 export type PriceHistoryPanelProps = {
   fetchHistory: (params: PriceHistoryFetchParams) => Promise<PriceHistoryResult>;
+  onClose?: () => void;
 };
 
+type PriceHistoryError = {
+  kind: 'error' | 'deleted';
+  message: string;
+};
+
+type ErrorWithDetails = {
+  message?: unknown;
+  status?: unknown;
+};
+
+function classifyPriceHistoryError(error: unknown): PriceHistoryError {
+  const details = error && typeof error === 'object' ? error as ErrorWithDetails : {};
+  const message = typeof details.message === 'string' && details.message.trim()
+    ? details.message
+    : 'Riwayat harga tidak dapat dimuat.';
+  const status = details.status;
+  const isDeleted = status === 404 || /(?:deleted|dihapus|not found|tidak ditemukan)/i.test(message);
+
+  return isDeleted
+    ? { kind: 'deleted', message: 'Produk ini sudah dihapus.' }
+    : { kind: 'error', message };
+}
+
 /**
- * Expandable price history panel (minimal cycle: initial page only).
+ * Expandable price history panel (initial page with retry and deleted-product handling).
  *
  * Requests the first page with `limit: 5` through the supplied typed
  * history-fetch callback and renders the rows; the load-more control is
- * shown only while the fetched page reports `hasMore`. Later cycles add
- * pagination, retry/404 and abort lifecycle handling.
+ * shown only while the fetched page reports `hasMore`.
  */
-export default function PriceHistoryPanel({ fetchHistory }: PriceHistoryPanelProps) {
+export default function PriceHistoryPanel({ fetchHistory, onClose }: PriceHistoryPanelProps) {
   const [entries, setEntries] = React.useState<PriceHistoryResult['data']>([]);
   const [hasMore, setHasMore] = React.useState(false);
+  const [error, setError] = React.useState<PriceHistoryError | null>(null);
+  const [retryKey, setRetryKey] = React.useState(0);
 
   React.useEffect(() => {
     let active = true;
-    fetchHistory({ limit: 5 }).then((page) => {
-      if (!active) return;
-      setEntries(page.data ?? []);
-      setHasMore(Boolean(page.hasMore));
-    });
+    setError(null);
+    fetchHistory({ limit: 5 })
+      .then((page) => {
+        if (!active) return;
+        setEntries(page.data ?? []);
+        setHasMore(Boolean(page.hasMore));
+      })
+      .catch((requestError: unknown) => {
+        if (!active) return;
+        const nextError = classifyPriceHistoryError(requestError);
+        setError(nextError);
+        if (nextError.kind === 'deleted') onClose?.();
+      });
     return () => {
       active = false;
     };
-  }, [fetchHistory]);
+  }, [fetchHistory, onClose, retryKey]);
+
+  if (error) {
+    return (
+      <div role="alert">
+        <p>{error.message}</p>
+        {error.kind === 'error' ? (
+          <button type="button" onClick={() => setRetryKey((key) => key + 1)}>Coba lagi</button>
+        ) : null}
+      </div>
+    );
+  }
 
   if (entries.length === 0) {
     return <p>Belum ada riwayat harga</p>;

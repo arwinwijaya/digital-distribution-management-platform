@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import PriceHistoryPanel from './PriceHistoryPanel';
 import type { PriceHistoryEntry, PriceHistoryResult } from './api';
@@ -54,5 +54,35 @@ describe('PriceHistoryPanel', () => {
     await waitFor(() => expect(screen.getByText('Belum ada riwayat harga')).toBeInTheDocument());
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Muat lebih banyak' })).not.toBeInTheDocument();
+  });
+
+  it('shows a retryable error and recovers after exactly one retry request', async () => {
+    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn()
+      .mockRejectedValueOnce(new Error('Request timeout'))
+      .mockResolvedValueOnce(result([entry(1)]));
+
+    render(<PriceHistoryPanel fetchHistory={fetchHistory} />);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Request timeout'));
+    expect(screen.getByRole('button', { name: 'Coba lagi' })).toBeInTheDocument();
+    expect(fetchHistory).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Coba lagi' }));
+
+    await waitFor(() => expect(screen.getByRole('listitem')).toBeInTheDocument());
+    expect(fetchHistory).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('button', { name: 'Coba lagi' })).not.toBeInTheDocument();
+  });
+
+  it('shows a deleted-product message and safely closes on a 404 rejection', async () => {
+    const deletedError = Object.assign(new Error('Product not found'), { status: 404 });
+    const fetchHistory: jest.MockedFunction<FetchHistory> = jest.fn().mockRejectedValue(deletedError);
+    const onClose = jest.fn();
+
+    render(<PriceHistoryPanel fetchHistory={fetchHistory} onClose={onClose} />);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/dihapus/i));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Coba lagi' })).not.toBeInTheDocument();
   });
 });

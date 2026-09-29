@@ -440,7 +440,17 @@ describe('admin page consumes shared API contract', () => {
     expect(calls.some((url) => url.includes('/admin/analytics/geographic'))).toBe(false);
   });
 
-  it('shows freshness from snapshot window end and safely falls back for unknown deep-link filters', async () => {
+  it('applies a valid deep-link and falls back safely for unknown deep-link filters', async () => {
+    window.history.pushState({}, '', '/data-intelligence?status=Delivered&period=7d');
+    {
+      const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+      const view = render(<DataIntelligencePage />);
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Delivered' })).toHaveAttribute('aria-pressed', 'true'));
+      expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByRole('button', { name: '7 hari' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: '30 hari' })).toHaveAttribute('aria-pressed', 'false');
+      view.unmount();
+    }
     window.history.pushState({}, '', '/data-intelligence?status=unknown&period=tomorrow');
     const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
     render(<DataIntelligencePage />);

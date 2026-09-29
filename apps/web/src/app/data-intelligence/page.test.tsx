@@ -9,11 +9,29 @@ import { render, screen, waitFor, act, within } from '@testing-library/react';
 import { useDummyStore } from '@/dummy/store';
 import { installDummy } from '@/dummy/install';
 
+jest.mock('@/components/data-intelligence/GeoMap', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ points, onSelectOutlet }: { points: Array<{ outlet_id: number; outlet_name: string }>; onSelectOutlet?: (point: unknown) => void }) => (
+      <div aria-label="Daftar outlet peta">
+        {points.map((point) => (
+          <button key={point.outlet_id} type="button" onClick={() => onSelectOutlet?.(point)}>
+            {point.outlet_name}
+          </button>
+        ))}
+      </div>
+    ),
+  };
+});
+
 const mockGetStoredToken = jest.fn(() => 'test-token');
+const mockClearStoredToken = jest.fn();
 jest.mock('@/lib/api', () => ({
   apiUrl: (p: string) => `http://localhost:8000/api${p}`,
   authHeaders: (token: string) => ({ Authorization: `Bearer ${token}` }),
   getStoredToken: (...args: unknown[]) => (mockGetStoredToken as (...a: unknown[]) => string | null)(...args),
+  clearStoredToken: (...args: unknown[]) => mockClearStoredToken(...args),
 }));
 
 const geographicResponse = {
@@ -126,6 +144,42 @@ const forecastMeasurementResponse = {
   },
 };
 
+// Mutable geographic payload so each test can drive one empty-state scenario.
+let geographicPayload: unknown = geographicResponse.data;
+
+function makeV2Point(overrides: Record<string, unknown> = {}) {
+  return {
+    outlet_id: 11,
+    outlet_name: 'Outlet A',
+    territory: 'Jakarta Selatan',
+    latitude: -6.2,
+    longitude: 106.8,
+    plottable: true,
+    orders: 4,
+    sales: '40000.00',
+    orders_by_status: { New: 4, Confirmed: 0, Delivered: 0, 'Partially Paid': 0 },
+    sales_by_status: { New: '40000.00', Confirmed: '0.00', Delivered: '0.00', 'Partially Paid': '0.00' },
+    daily_by_status: [
+      {
+        date: '2026-09-14',
+        counts: { New: 4, Confirmed: 0, Delivered: 0, 'Partially Paid': 0 },
+        sales: { New: '40000.00', Confirmed: '0.00', Delivered: '0.00', 'Partially Paid': '0.00' },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function geographicPayloadWith(map_points: unknown[], extra: Record<string, unknown> = {}) {
+  return {
+    table: [{ territory: 'Jakarta Selatan', sales: '40000.00', orders: 4, outlets: 1 }],
+    map_points,
+    snapshot_version: 7,
+    window: { start: '2026-08-16', end: '2026-09-14', timezone: 'Asia/Jakarta' },
+    ...extra,
+  };
+}
+
 function mockFetchForSuccess() {
   const fetchSpy = jest.fn(async (url: RequestInfo) => {
     const urlString = String(url);
@@ -147,13 +201,15 @@ describe('admin page consumes shared API contract', () => {
 
   beforeEach(() => {
     mockGetStoredToken.mockReturnValue('test-token');
+    geographicPayload = geographicResponse.data;
     useDummyStore.getState().reset();
     installDummy();
     originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
     (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (...args: unknown[]) => {
       const url = String(args[0]);
       let body: unknown;
-      if (url.includes('/admin/analytics/geographic')) body = geographicResponse;
+      if (url.includes('/auth/me')) body = { status: 'success', data: { role: 'admin', rbac: {} } };
+      else if (url.includes('/admin/analytics/geographic')) body = { status: 'success', data: geographicPayload };
       else if (url.includes('/admin/analytics/measurement/forecasts')) body = forecastMeasurementResponse;
       else if (url.includes('/admin/analytics/measurement/recommendations')) body = recommendationMeasurementResponse;
       else if (url.includes('/admin/analytics/stock-planning')) body = stockResponse;
@@ -258,6 +314,167 @@ describe('admin page consumes shared API contract', () => {
     expect(sentBodies[0].event_uuid).toBe(stableKey);
     expect(sentBodies[1].event_uuid).toBe(stableKey);
     expect(sentBodies[0].event_type).toBe('clicked');
+  });
+
+  it('renders default status and period chips and keeps an intentionally empty selection', async () => {
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New' })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Delivered' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '30 hari' })).toHaveAttribute('aria-pressed', 'true');
+
+    // Deliberately remove both defaults: an empty selection is a real state,
+    // not an instruction to silently restore New + Confirmed.
+    await act(async () => {
+      screen.getByRole('button', { name: 'New' }).click();
+      screen.getByRole('button', { name: 'Confirmed' }).click();
+    });
+    expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Tidak ada request pada periode ini')).toBeInTheDocument();
+  });
+
+  it('shows Data peta belum tersedia when no active snapshot', async () => {
+    geographicPayload = {
+      snapshot_available: false,
+      geographic_section_available: false,
+      map_points: [],
+      table: [],
+      snapshot_version: null,
+      window: null,
+    };
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Data peta belum tersedia')).toBeInTheDocument());
+    expect(screen.queryByText('Tidak ada request pada periode ini')).not.toBeInTheDocument();
+    expect(screen.queryByText(/koordinat belum tersedia/)).not.toBeInTheDocument();
+  });
+
+  it('shows Data peta belum tersedia when geographic section unavailable', async () => {
+    geographicPayload = geographicPayloadWith([], { geographic_section_available: false });
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Data peta belum tersedia')).toBeInTheDocument());
+  });
+
+  it('shows coordinate warning when filtered orders exist but all coordinates invalid', async () => {
+    geographicPayload = geographicPayloadWith([
+      makeV2Point({ latitude: null, plottable: false }),
+      makeV2Point({ outlet_id: 12, outlet_name: 'Outlet B', latitude: 0, longitude: 0, plottable: false }),
+    ]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText(/Outlet memiliki request tetapi koordinat belum tersedia/)).toBeInTheDocument());
+    expect(screen.queryByText('Tidak ada request pada periode ini')).not.toBeInTheDocument();
+  });
+
+  it('shows no-request message when filtered orders equal zero', async () => {
+    geographicPayload = geographicPayloadWith([makeV2Point({ orders_by_status: { New: 0 } })]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Tidak ada request pada periode ini')).toBeInTheDocument());
+    expect(screen.queryByText(/koordinat belum tersedia/)).not.toBeInTheDocument();
+  });
+
+  it('discloses outlets without daily detail only for narrow periods', async () => {
+    geographicPayload = geographicPayloadWith([makeV2Point({ daily_by_status: undefined })]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByTestId('outlets-without-daily-detail')).toHaveTextContent('0'));
+    screen.getByRole('button', { name: '7 hari' }).click();
+    await waitFor(() => expect(screen.getByTestId('outlets-without-daily-detail')).toHaveTextContent('1'));
+  });
+
+  it('classifies a temporary server error and offers retry without stale map data', async () => {
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    fetchMock.mockImplementation(async (url: unknown) => String(url).includes('/auth/me')
+      ? ({ ok: true, status: 200, json: async () => ({ status: 'success', data: { role: 'admin', rbac: {} } }) } as Response)
+      : ({ ok: false, status: 500, json: async () => ({ status: 'error', message: 'Internal error' }) } as Response));
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Tidak dapat memuat data peta'));
+    expect(screen.getByRole('button', { name: 'Coba lagi' })).toBeInTheDocument();
+    expect(screen.queryByText('Outlet A')).not.toBeInTheDocument();
+  });
+
+  it('classifies forbidden as access denied without retry', async () => {
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    fetchMock.mockImplementation(async (url: unknown) => String(url).includes('/auth/me')
+      ? ({ ok: true, status: 200, json: async () => ({ status: 'success', data: { role: 'admin', rbac: {} } }) } as Response)
+      : ({ ok: false, status: 403, json: async () => ({ status: 'error', message: 'Forbidden' }) } as Response));
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Akses ditolak'));
+    expect(screen.queryByRole('button', { name: 'Coba lagi' })).not.toBeInTheDocument();
+  });
+
+  it('clears the token and shows the session-expired state on 401', async () => {
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    fetchMock.mockImplementation(async (url: unknown) => String(url).includes('/auth/me')
+      ? ({ ok: true, status: 200, json: async () => ({ status: 'success', data: { role: 'admin', rbac: {} } }) } as Response)
+      : ({ ok: false, status: 401, json: async () => ({ status: 'error', message: 'Unauthenticated' }) } as Response));
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Sesi berakhir. Silakan masuk kembali')).toBeInTheDocument());
+    expect(mockClearStoredToken).toHaveBeenCalled();
+  });
+
+  it('checks role before reading dummy data and denies non-admin users', async () => {
+    useDummyStore.getState().toggle();
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch as jest.Mock;
+    const calls: string[] = [];
+    fetchMock.mockImplementation(async (url: unknown) => {
+      calls.push(String(url));
+      if (String(url).includes('/auth/me')) {
+        return { ok: true, status: 200, json: async () => ({ status: 'success', data: { role: 'sales', rbac: {} } }) } as Response;
+      }
+      throw new Error('dummy data must not be read before role check');
+    });
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText('Akses ditolak')).toBeInTheDocument());
+    expect(calls.some((url) => url.includes('/auth/me'))).toBe(true);
+    expect(calls.some((url) => url.includes('/admin/analytics/geographic'))).toBe(false);
+  });
+
+  it('applies a valid deep-link and falls back safely for unknown deep-link filters', async () => {
+    window.history.pushState({}, '', '/data-intelligence?status=Delivered&period=7d');
+    {
+      const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+      const view = render(<DataIntelligencePage />);
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Delivered' })).toHaveAttribute('aria-pressed', 'true'));
+      expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByRole('button', { name: '7 hari' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: '30 hari' })).toHaveAttribute('aria-pressed', 'false');
+      view.unmount();
+    }
+    window.history.pushState({}, '', '/data-intelligence?status=unknown&period=tomorrow');
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByText(/Data per 14 Sep 2026 \(Asia\/Jakarta\)/)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '30 hari' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('opens a frozen outlet drawer from a marker and shows the freeze banner after filter changes', async () => {
+    geographicPayload = geographicPayloadWith([makeV2Point({ latest_request: { order_id: '301', status: 'New', created_at: '2026-09-14T10:00:00+07:00' } })]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Outlet A' })).toBeInTheDocument());
+    await act(async () => {
+      screen.getByRole('button', { name: 'Outlet A' }).click();
+    });
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Outlet A' })).toBeInTheDocument());
+    expect(screen.getByText(/Filtered orders/)).toBeInTheDocument();
+    await act(async () => {
+      screen.getByRole('button', { name: 'Delivered' }).click();
+    });
+    await waitFor(() => expect(screen.getByTestId('outlet-drawer-freeze-banner')).toBeInTheDocument());
+    expect(screen.getByText(/Filtered orders/)).toBeInTheDocument();
   });
 
   it('re-fetches and shows dummy data when Mode Dummy is toggled on', async () => {

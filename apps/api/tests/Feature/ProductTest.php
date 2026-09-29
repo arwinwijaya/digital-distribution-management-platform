@@ -24,6 +24,7 @@ class ProductTest extends TestCase
     private const ORPHAN_FIXTURE_TESTS = [
         'test_include_unpurchasable_exposes_supplier_ineligible_products_without_changing_legacy_eligibility',
         'test_product_list_orphan_supplier_reference_serializes_supplier_as_null',
+        'test_admin_product_list_matches_frontend_clarity_contract_across_filters_sorts_and_legacy_eligibility',
     ];
 
     private bool $allowOrphanSupplierFixtures = false;
@@ -623,6 +624,163 @@ class ProductTest extends TestCase
         $response->assertOk();
         $this->assertSame(2, $response->json('meta.summary.total'));
         $this->assertSame(1, $response->json('meta.summary.out_of_stock'));
+    }
+
+    public function test_admin_product_list_matches_frontend_clarity_contract_across_filters_sorts_and_legacy_eligibility(): void
+    {
+        $activeSupplier = Supplier::factory()->active()->create(['name' => 'PT Segar']);
+        $inactiveSupplier = Supplier::factory()->create([
+            'name' => 'CV Expired',
+            'subscription_status' => 'inactive',
+        ]);
+
+        Product::factory()->create([
+            'name' => 'Active Minuman',
+            'category' => 'Minuman',
+            'stock_quantity' => 5,
+            'supplier_id' => $activeSupplier->id,
+            'is_active' => true,
+        ]);
+        Product::factory()->create([
+            'name' => 'Expired Minuman',
+            'category' => 'Minuman',
+            'stock_quantity' => 0,
+            'supplier_id' => $inactiveSupplier->id,
+            'is_active' => true,
+        ]);
+        Product::factory()->create([
+            'name' => 'Inactive Minuman',
+            'category' => 'Minuman',
+            'stock_quantity' => 20,
+            'supplier_id' => $activeSupplier->id,
+            'is_active' => false,
+        ]);
+        Product::factory()->create([
+            'name' => 'No Supplier',
+            'category' => null,
+            'stock_quantity' => 0,
+            'supplier_id' => null,
+            'is_active' => true,
+        ]);
+        Product::factory()->create([
+            'name' => 'Orphan Supplier',
+            'category' => 'Sembako',
+            'stock_quantity' => 5,
+            'supplier_id' => 999999,
+            'is_active' => true,
+        ]);
+        Product::factory()->create([
+            'name' => 'History Product',
+            'category' => 'Zeta',
+            'stock_quantity' => 40,
+            'supplier_id' => $activeSupplier->id,
+            'is_active' => true,
+            'created_at' => now()->subDay(),
+            'updated_at' => now(),
+        ]);
+
+        $headers = $this->authHeaders();
+        $admin = $this->withHeaders($headers)->getJson(
+            '/api/products?include_unpurchasable=1&sort=status&order=asc&limit=100&cursor=0'
+        );
+
+        $admin->assertOk()->assertJsonStructure([
+            'status',
+            'data' => ['*' => [
+                'id', 'supplier_id', 'name', 'description', 'price', 'sku',
+                'stock_quantity', 'category', 'is_active', 'created_at', 'updated_at', 'supplier',
+            ]],
+            'meta' => ['has_more', 'limit', 'cursor', 'total', 'summary', 'categories'],
+        ]);
+        $this->assertSame(['status', 'data', 'meta'], array_keys($admin->json()));
+        $this->assertSame(['has_more', 'limit', 'cursor', 'total', 'summary', 'categories'], array_keys($admin->json('meta')));
+        $this->assertSame(['total', 'out_of_stock'], array_keys($admin->json('meta.summary')));
+        $this->assertSame(6, $admin->json('meta.total'));
+        $this->assertSame(6, $admin->json('meta.summary.total'));
+        $this->assertSame(2, $admin->json('meta.summary.out_of_stock'));
+        $this->assertSame(100, $admin->json('meta.limit'));
+        $this->assertSame(0, $admin->json('meta.cursor'));
+        $this->assertFalse($admin->json('meta.has_more'));
+        $this->assertSame(['Minuman', 'Sembako', 'Zeta'], $admin->json('meta.categories'));
+
+        $rows = collect($admin->json('data'))->keyBy('name');
+        // Exact envelope field SET per row (adapter's AdminProduct contract);
+        // attribute order follows the physical schema and is not part of it.
+        $this->assertEqualsCanonicalizing(
+            ['id', 'supplier_id', 'name', 'description', 'price', 'sku', 'stock_quantity', 'category', 'is_active', 'created_at', 'updated_at', 'supplier'],
+            array_keys($rows->get('Active Minuman'))
+        );
+        $this->assertSame(
+            ['id', 'name', 'subscription_status'],
+            array_keys($rows->get('Active Minuman')['supplier'])
+        );
+        $this->assertSame([
+            'id' => $activeSupplier->id,
+            'name' => 'PT Segar',
+            'subscription_status' => 'active',
+        ], $rows->get('Active Minuman')['supplier']);
+        $this->assertNull($rows->get('No Supplier')['supplier']);
+        $this->assertNull($rows->get('Orphan Supplier')['supplier']);
+
+        // Status sort is a real response ordering consumed by the adapter/page:
+        // priority Aktif(0) -> supplier-ineligible(1) -> Nonaktif(2), id DESC ties.
+        $this->assertSame([
+            'History Product', 'Orphan Supplier', 'No Supplier', 'Active Minuman',
+            'Expired Minuman', 'Inactive Minuman',
+        ], collect($admin->json('data'))->pluck('name')->all());
+
+        $category = $this->withHeaders($headers)->getJson(
+            '/api/products?include_unpurchasable=1&sort=category&order=asc&limit=100&cursor=0'
+        );
+        $category->assertOk();
+        // Trimmed alphabetic, null/empty last, id DESC ties within a value.
+        $this->assertSame([
+            'Inactive Minuman', 'Expired Minuman', 'Active Minuman', 'Orphan Supplier',
+            'History Product', 'No Supplier',
+        ], collect($category->json('data'))->pluck('name')->all());
+
+        // Cursor pagination contract: has_more=true beyond the page, cursor echoes the offset.
+        $page = $this->withHeaders($headers)->getJson('/api/products?include_unpurchasable=1&limit=2&cursor=0&sort=id&order=asc');
+        $page->assertOk();
+        $this->assertSame(['Active Minuman', 'Expired Minuman'], collect($page->json('data'))->pluck('name')->all());
+        $this->assertTrue($page->json('meta.has_more'));
+        $this->assertSame(2, $page->json('meta.limit'));
+        $this->assertSame(0, $page->json('meta.cursor'));
+        $this->assertSame(6, $page->json('meta.total'));
+
+        $lastPage = $this->withHeaders($headers)->getJson('/api/products?include_unpurchasable=1&limit=2&cursor=4&sort=id&order=asc');
+        $lastPage->assertOk();
+        $this->assertSame(['Orphan Supplier', 'History Product'], collect($lastPage->json('data'))->pluck('name')->all());
+        $this->assertFalse($lastPage->json('meta.has_more'));
+        $this->assertSame(4, $lastPage->json('meta.cursor'));
+
+        $filtered = $this->withHeaders($headers)->getJson(
+            '/api/products?include_unpurchasable=1&category=Minuman&status=active&stock_health=low&sort=status&order=asc'
+        );
+        $filtered->assertOk();
+        $this->assertSame(['Active Minuman'], collect($filtered->json('data'))->pluck('name')->all());
+        $this->assertSame(1, $filtered->json('meta.total'));
+        $this->assertSame(['total' => 1, 'out_of_stock' => 0], $filtered->json('meta.summary'));
+
+        // Omitting the admin flag preserves supplier eligibility: products of a
+        // non-active supplier and orphan-supplier rows are absent from the
+        // legacy list (the status/stock filters keep the non-active product out).
+        $legacy = $this->withHeaders($headers)->getJson('/api/products?limit=100');
+        $legacy->assertOk();
+        $this->assertSame([
+            'Active Minuman', 'Inactive Minuman', 'No Supplier', 'History Product',
+        ], collect($legacy->json('data'))->pluck('name')->all());
+        $this->assertFalse(collect($legacy->json('data'))->contains('Expired Minuman'));
+        $this->assertFalse(collect($legacy->json('data'))->contains('Orphan Supplier'));
+
+        // Same clarity-filtered request without the admin flag: the ineligible
+        // and orphan rows are excluded exactly as legacy requires.
+        $legacyFiltered = $this->withHeaders($headers)->getJson(
+            '/api/products?category=Minuman&status=active&stock_health=low&sort=status&order=asc'
+        );
+        $legacyFiltered->assertOk();
+        $this->assertSame(['Active Minuman'], collect($legacyFiltered->json('data'))->pluck('name')->all());
+        $this->assertSame(1, $legacyFiltered->json('meta.total'));
     }
 
     public function test_empty_catalog_returns_empty_array(): void

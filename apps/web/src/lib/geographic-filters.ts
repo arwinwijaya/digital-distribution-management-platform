@@ -97,6 +97,8 @@ interface DailyBucket {
 
 /** A geographic map point row; v1 rows simply omit the v2 fields. */
 export interface GeographicPoint {
+  orders?: number;
+  sales?: number | string;
   orders_by_status?: Record<string, number> | null;
   sales_by_status?: Record<string, string> | null;
   daily_by_status?: DailyBucket[] | null;
@@ -167,12 +169,23 @@ export function computeFilteredCounts(
 
   const hasStatusMap = point.orders_by_status != null;
   const hasDailyDetail = Array.isArray(point.daily_by_status);
+  const legacyOnly = !hasStatusMap && !hasDailyDetail;
+
+  // Legacy v1 rows carry only full-window totals: surface them for 30d so the
+  // marker stays visible with its legacy badge, while narrow periods (7d/today)
+  // keep the zero result because no daily detail exists to slice. An empty
+  // status selection still means zero selected orders — the legacy total is only
+  // the badge for the selected statuses, which v1 rows cannot attribute.
+  if (legacyOnly && effectivePeriod === '30d' && selected.length > 0) {
+    filteredOrders = toCount(point.orders);
+    salesCents = toCents(point.sales);
+  }
 
   return {
     filteredOrders,
     statusCounts,
     salesCents,
-    legacyOnly: !hasStatusMap && !hasDailyDetail,
+    legacyOnly,
     hasDailyDetail,
   };
 }

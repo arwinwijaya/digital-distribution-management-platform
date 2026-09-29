@@ -402,6 +402,32 @@ describe('admin page consumes shared API contract', () => {
     expect(screen.queryByText(/koordinat belum tersedia/)).not.toBeInTheDocument();
   });
 
+it('shows a marker for the V1 legacy row under 30d and excludes it under 7d', async () => {
+    geographicPayload = geographicPayloadWith([
+      makeV2Point({
+        outlet_id: 105,
+        outlet_name: 'Outlet V1',
+        latitude: -6.4,
+        longitude: 107.0,
+        orders: 10,
+        sales: '100000.00',
+        legacy_only: true,
+        orders_by_status: undefined,
+        sales_by_status: undefined,
+        daily_by_status: undefined,
+      }),
+    ]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Outlet V1' })).toBeInTheDocument());
+    await act(async () => {
+      screen.getByRole('button', { name: '7 hari' }).click();
+    });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Outlet V1' })).not.toBeInTheDocument());
+    expect(screen.getByTestId('outlets-without-daily-detail')).toHaveTextContent('1');
+  });
+
   it('discloses outlets without daily detail only for narrow periods', async () => {
     geographicPayload = geographicPayloadWith([makeV2Point({ daily_by_status: undefined })]);
     const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');

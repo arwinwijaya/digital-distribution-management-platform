@@ -1,0 +1,67 @@
+{
+  "task_id": "T5",
+  "task_name": "Price history panel pagination, retry, abort, and stale-response guard",
+  "cycle": 2,
+  "timestamp": "2026-09-29T07:45:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "api.ts:371 — fetchPriceHistoryReal now attaches status=404 on real Laravel 404 (commit 33635f9). Panel's classifyPriceHistoryError matches status===404, producing 'Produk ini sudah dihapus.' and calling onClose.",
+      "ProductRowDetail.tsx + page.tsx — onClose wired page→ProductRowDetail.onClose→PriceHistoryPanel.onClose (commit d92e2c1). 404 in integrated flow closes expanded row via closeExpandedRows().",
+      "Mechanical gate re-confirmed: 8/8 PriceHistoryPanel tests, 33/33 page tests, 66/66 total products suite, tsc --noEmit exit 0, git diff --check clean."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Complete AbortController + monotonically increasing requestId dual guard across initial load, load-more, product change, and unmount — no stale responses observed in tests.",
+      "Duplicate load-more protection via loadingMore flag + button disabled; retry key isolation on initial-load retries.",
+      "Dummy mode parity maintained: zero-network history, same pagination/empty/error presentation.",
+      "Clean separation: panel handles its own concurrency; page manages expansion lifecycle and filter/sort/page aborts."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Adapter 404 status propagation (api.ts:373) lacks a dedicated test; panel 404 test uses fabricated Error({status:404, message:'Product not found'}) whose message also matches the regex fallback, so the test would pass even if status branch were removed. Consider an adapter-boundary test with a real 404 response body that does not match the regex.",
+        "location": "apps/web/src/app/admin/products/api.ts:373"
+      },
+      {
+        "severity": "Minor",
+        "description": "onClose wiring (page.tsx:299 → ProductRowDetail.tsx:106 → PriceHistoryPanel.tsx:140) has no regression test. Removing the onClose prop at any layer would not fail the test suite.",
+        "location": "apps/web/src/app/admin/products/page.tsx:299"
+      },
+      {
+        "severity": "Minor",
+        "description": "Unstable callback identities: page.tsx passes historyFetch as inline arrow (recreated every render) and closeExpandedRows as plain function (recreated every render). PriceHistoryPanel's initial-load effect depends on [fetchHistory, onClose, retryKey], so any parent re-render (e.g., typing in search box while a row is expanded) aborts the in-flight history request and refetches. No test covers this interaction; useCallback for both props would stabilize.",
+        "location": "apps/web/src/app/admin/products/page.tsx:300"
+      },
+      {
+        "severity": "Minor",
+        "description": "Load-more request creates its own AbortController but never aborts it on unmount/product change; correctness is preserved by requestId guard, but the network request is not cancelled. Consider storing the load-more controller and aborting in cleanup.",
+        "location": "apps/web/src/app/admin/products/PriceHistoryPanel.tsx:95"
+      },
+      {
+        "severity": "Minor",
+        "description": "api.ts uses (err as any).status = 404 instead of the existing ApiError class (src/lib/api-error.ts) which provides typed status and retryable semantics. Consistency with sibling admin pages (e.g., data-intelligence) would use ApiError.",
+        "location": "apps/web/src/app/admin/products/api.ts:373"
+      },
+      {
+        "severity": "Minor",
+        "description": "Load-more 404 path classifies as deleted and shows 'Produk ini sudah dihapus.' but does not call onClose (only initial-load path does). DELIVERABLE \"404 gives a clear deleted-product message and safe close\" is satisfied for initial load; load-more deviation is a minor UX inconsistency.",
+        "location": "apps/web/src/app/admin/products/PriceHistoryPanel.tsx:108"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 0
+  },
+  "reviewed_sha": "d92e2c14d0a95e8e3153ad370984b80622ba2c3a"
+}

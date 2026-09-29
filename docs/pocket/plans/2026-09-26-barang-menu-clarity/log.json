@@ -1,0 +1,62 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-09-26-barang-menu-clarity",
+    "plan_type": "flat",
+    "status": "DONE",
+    "date_started": "2026-09-28",
+    "date_completed": "2026-09-29",
+    "baseline_sha": "12a2782f7339eb81b0b82cd6868aeac36273c604",
+    "pipeline": 4
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/index.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Backend product list contract, filters, summary, supplier, and sorting",
+          "file": "execution-plan/tasks/T1-backend-product-list-contract-filters-summary-supplier-and-sorting.md",
+          "status": "DONE",
+          "done_sha": "e7e615aca2882b952b7b76869c13c2489d5eeb07"
+        },
+        {
+          "id": "T2",
+          "name": "Frontend product contract, clarity helpers, sort mirror, and dummy parity",
+          "file": "execution-plan/tasks/T2-frontend-product-contract-clarity-helpers-sort-mirror-and-dummy-parity.md",
+          "status": "DONE",
+          "done_sha": "954c28f733c235dd9d54ace02e4b42fe69cba271"
+        },
+        {
+          "id": "T3",
+          "name": "Local expandable Products identity/detail row and accessibility",
+          "file": "execution-plan/tasks/T3-local-expandable-products-identity-detail-row-and-accessibility.md",
+          "status": "DONE",
+          "done_sha": "966ad6471ee0ca14715ce956d4e335ae01120375"
+        },
+        {
+          "id": "T4",
+          "name": "Server-side filter controls, state reset, summary, sorting, paging, and list retry",
+          "file": "execution-plan/tasks/T4-server-side-filter-controls-state-reset-summary-sorting-paging-and-list-retry.md",
+          "status": "DONE",
+          "done_sha": "bb3217ad875aa3c97d66345a59ea96758d78311a"
+        },
+        {
+          "id": "T5",
+          "name": "Price history panel pagination, retry, abort, and stale-response guard",
+          "file": "execution-plan/tasks/T5-price-history-panel-pagination-retry-abort-and-stale-response-guard.md",
+          "status": "DONE",
+          "done_sha": "d92e2c14d0a95e8e3153ad370984b80622ba2c3a"
+        },
+        {
+          "id": "T6",
+          "name": "Cross-unit contract and regression verification",
+          "file": "execution-plan/tasks/T6-cross-unit-contract-and-regression-verification.md",
+          "status": "DONE",
+          "done_sha": "8601bc88edc08a94eec87c4f164aa3386f88afa3"
+        }
+      ]
+    }
+  ]
+}

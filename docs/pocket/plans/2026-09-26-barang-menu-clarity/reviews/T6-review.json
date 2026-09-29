@@ -1,0 +1,52 @@
+{
+  "task_id": "T6",
+  "task_name": "Cross-unit contract and regression verification",
+  "cycle": 1,
+  "timestamp": "2026-09-29T07:58:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Backend contract test verifies real Laravel HTTP endpoint response envelope (status, data, meta), supplier nested object, meta.summary shape, meta.categories, status sort priority (Aktif→supplier-ineligible→Nonaktif), category sort (trim alphabetic, null-last, id DESC ties), pagination contract, AND-filtered summary, and legacy eligibility preservation without include_unpurchasable=1.",
+      "Frontend page contract test verifies rendered page with real adapter + mocked global fetch: legacy default request params (limit=15, cursor=0, sort=created_at, order=desc, include_unpurchasable=1) present, no new filter params sent by default; identity columns (category with em dash fallback), status precedence (Nonaktif for inactive product overrides expired supplier), stock health (0→Habis, 40→Aman), summary strip from meta.summary; sort=category and sort=status header clicks send correct params with cursor reset; clarity filter params (status, stock_health, category) sent with AND semantics and include_unpurchasable=1 preserved.",
+      "Legacy regression guard verifies default id ASC ordering, limit=100 hard page size, has_more=true with 101 total, supplier eligibility excludes non-active/orphan suppliers without include_unpurchasable flag.",
+      "All acceptance criteria from spec mapped to test assertions: main table clarity, stock normalization/health, filter contract (AND semantics, invalid ignored, categories from meta), status/category sorting contracts, filtered summary/API contract, legacy defaults preserved.",
+      "Mechanical gate verified: apps/api ProductTest 22 passed (236 assertions), apps/api full suite 692 passed/7 skipped, apps/web products tests 4 suites 70 passed, apps/web full suite 74 suites 677 passed, tsc --noEmit exit 0, git diff on Table.tsx and database schema empty."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Contract tests cross real HTTP/render seams: backend uses Laravel's real getJson endpoint; frontend mocks only global fetch, adapter and page render for real.",
+      "Assertions are precise and non-tautological: exact envelope key sets (assertSame on array_keys), exact field sets per row (assertEqualsCanonicalizing), exact supplier shape, exact sort orders with id DESC tie-break, exact filtered totals/summaries.",
+      "Fixtures cover all critical edge cases: active/inactive product, active/inactive supplier, null supplier, orphan supplier (supplier_id=999999), null/empty category, zero/negative/fractional stock via backend normalization, history product for id DESC tie-break.",
+      "No silent fallback: tests assert sort=category and sort=status are sent on header click, filters send all three params simultaneously with cursor reset.",
+      "Scope hygiene perfect: exactly 2 test files modified (352 insertions), no implementation files, no Table.tsx, no database schema, no cross-module files.",
+      "Dummy mode boundary intact: T6 tests run in real mode only; existing dummy parity tests pass unchanged.",
+      "Clear test naming and section comments explaining each contract dimension being verified."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "New backend test method test_admin_product_list_matches_frontend_clarity_contract_across_filters_sorts_and_legacy_eligibility is ~157 lines (exceeds ~50-line heuristic). This is a feature-test convention in the codebase (pre-existing tests also exceed 50 lines: test_category_and_status_sort_contracts at 88 lines, test_no_category_sentinel at 62 lines). The test is well-structured with clear comment-delimited sections for each contract dimension.",
+        "location": "apps/api/tests/Feature/ProductTest.php:630-785"
+      },
+      {
+        "severity": "Minor",
+        "description": "Both test files exceed 300 lines (ProductTest.php 871 lines, page.test.tsx ~1199 lines) — pre-existing state (656/1062 before T6). Large feature test classes are the established convention for this codebase (T4 review accepted 320-line page.tsx within sibling convention).",
+        "location": "apps/api/tests/Feature/ProductTest.php, apps/web/src/app/admin/products/page.test.tsx"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "8601bc88edc08a94eec87c4f164aa3386f88afa3"
+}

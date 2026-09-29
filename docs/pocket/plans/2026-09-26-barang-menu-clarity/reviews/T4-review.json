@@ -1,0 +1,40 @@
+{
+  "task_id": "T4",
+  "task_name": "Server-side filter controls, state reset, summary, sorting, paging, and list retry",
+  "cycle": 2,
+  "timestamp": "2026-09-29T01:38:25Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Cycle-1 Critical (sentinel returned 0 rows) RESOLVED: ProductController.php:190-194 intercepts '__none__' with whereNull('category') OR TRIM(category)='' instead of literal match; frontend api.ts NO_CATEGORY_FILTER='__none__' sends category=__none__ (page.tsx:224-231, api.ts:223,303) and backend test test_no_category_sentinel_filters_null_and_empty_categories_with_other_filters asserts null + whitespace-only rows match with AND semantics and include_unpurchasable=1.",
+      "Cycle-1 Critical (binary category sort) RESOLVED: resolveCategories now sorts with strcasecmp (ProductController.php:117), test expectation updated to ['Alpha','beta','Sembako','Zebra'], matching frontend localeCompare sensitivity 'base' (api.ts:129,164). The T1/T3 category-sort case-insensitivity Minor is therefore resolved and dropped, not re-emitted."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Tanpa kategori works end-to-end: frontend sends category=__none__ and backend matches only null/empty/whitespace-only via whereNull OR TRIM(category)='', never literal '__none__' (points a,b).",
+      "Ordinary category filter stays exact-after-trim and case-sensitive (whereRaw TRIM(category)=?, no LOWER), so 'Minuman' matches 'Minuman'/'  Minuman  ' but not 'minuman'/'Minuman Ringan' (point c).",
+      "Filters are server-side with AND semantics for category+status+stock_health; include_unpurchasable=1 passes through and skips only supplier eligibility; legacy path without the flag unchanged (points d,e).",
+      "Filter change resets cursor to 0, preserves selected sort/order via sortRef, closes all expanded rows, and summary/has_more come from the filtered response meta (points f,g,h,i).",
+      "Retryable list error with keyboard-accessible native Button 'Coba lagi', disabled + guard while loading so no duplicate requests (point j).",
+      "AbortController per list load with abort-on-new-load and abort-on-unmount, aborted-signal early returns, and loading cleared only by the current controller; stale responses cannot paint (point k).",
+      "Category metadata distinct, non-empty, trimmed, case-insensitively sorted (strcasecmp) matching frontend base-sensitivity ordering (point l).",
+      "No changes to Table.tsx, no database migration, no order/inventory deduction or public-catalog eligibility changes; OutletDrawer/T8 files in range noted as out-of-scope parallel-plan changes and not charged to T4 (point m).",
+      "Refactor heuristics checked and cleared: no identical logic 3+ times in scope; page.tsx (320 lines, component 292) and api.ts (375) sit within sibling admin-page convention (drivers 462, outlets 374, promotions 307); splitting the page component would add out-of-scope abstractions."
+    ],
+    "issues": [],
+    "assessment": "Approved. All QUALITY BAR must-haves present, must-not-haves absent, red flags clear; all 13 end-to-end points (a-m) verified by code and tests; mechanical gate context accepted (ProductTest 20 passed, full API 688 passed/7 skipped, page.test.tsx 31 passed, full frontend 72 suites/641 tests, tsc exit 0)."
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "bb3217ad875aa3c97d66345a59ea96758d78311a"
+}

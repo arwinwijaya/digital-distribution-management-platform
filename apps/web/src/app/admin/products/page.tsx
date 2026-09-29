@@ -296,6 +296,7 @@ export default function AdminProductsPage() {
                   <ProductRowDetail
                     product={expandedProduct}
                     detailId={`product-detail-${expandedProduct.id}`}
+                    onClose={closeExpandedRows}
                     historyFetch={(params: PriceHistoryFetchParams) =>
                       fetchPriceHistory(token as string, expandedProduct.id, {
                         limit: params.limit,

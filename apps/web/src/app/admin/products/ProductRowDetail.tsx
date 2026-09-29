@@ -22,6 +22,8 @@ export type ProductRowDetailProps = {
   detailId?: string;
   /** Optional price-history seam: bound to this product's id by the page. */
   historyFetch?: (params: PriceHistoryFetchParams) => Promise<PriceHistoryResult>;
+  /** Called when the price-history panel detects a deleted product (404). */
+  onClose?: () => void;
 };
 
 /** Label/value pair used by the fact grid below. */
@@ -101,7 +103,7 @@ export function ProductRowPriceAction({
  * note, and timestamps. Pure display — all status/stock derivation comes from
  * the T2 `product-clarity` helpers (never re-derived here).
  */
-export default function ProductRowDetail({ product, detailId, historyFetch }: ProductRowDetailProps) {
+export default function ProductRowDetail({ product, detailId, historyFetch, onClose }: ProductRowDetailProps) {
   const facts = deriveProductDetailFacts(product);
   const stock = normalizeStock(product.stock_quantity);
   const price = Number(product.price ?? 0);
@@ -135,7 +137,7 @@ export default function ProductRowDetail({ product, detailId, historyFetch }: Pr
         {historyFetch ? (
           <div className="mt-4 border-t border-gray-100 pt-4">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Riwayat harga</h4>
-            <PriceHistoryPanel fetchHistory={historyFetch} />
+            <PriceHistoryPanel fetchHistory={historyFetch} onClose={onClose} />
           </div>
         ) : null}
       </Card>

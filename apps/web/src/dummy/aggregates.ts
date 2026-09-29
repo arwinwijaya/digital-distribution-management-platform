@@ -21,6 +21,7 @@ import { daysBetween } from './dates';
 import type {
   GeographicTableRow,
   GeographicMapPoint,
+  GeographicMeta,
 } from '@/lib/data-intelligence-api';
 import type { SupplierRecord, StockPlanRecord } from '@/lib/data-intelligence-api';
 import type { ReadinessData, OperationIssue } from '@/lib/operations-types';
@@ -198,6 +199,11 @@ interface MeasurementData {
   forecasts: ForecastMeasurementData;
 }
 
+interface MeasurementData {
+  recommendations: RecommendationMeasurementData;
+  forecasts: ForecastMeasurementData;
+}
+
 interface OperationsData {
   readiness: ReadinessData;
   issues: OperationIssue[];
@@ -211,6 +217,7 @@ export interface Aggregates {
     map_points: GeographicMapPoint[];
     snapshot_version: number;
     window: SnapshotWindow;
+    meta: GeographicMeta;
   };
   suppliers: SupplierPerformanceData;
   stock: StockPlanningData;
@@ -564,6 +571,8 @@ export function buildGeographic(
     map_points: mapPoints,
     snapshot_version: 2,
     window: { start: window.start, end: window.end, timezone: 'Asia/Jakarta' },
+    // Dummy data is generated locally and never capped: no budget truncation applies.
+    meta: { truncated: false, omitted_zero_days: 0, product_summary_capped: false },
   };
 }
 

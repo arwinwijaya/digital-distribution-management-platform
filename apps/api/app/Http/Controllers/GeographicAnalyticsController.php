@@ -122,9 +122,9 @@ class GeographicAnalyticsController extends Controller
         ];
 
         // Response-size guard: if the serialized payload exceeds the budget,
-        // apply the documented truncation cap (daily buckets already omit
-        // zero days; cap product_summary to top-5 + drop daily detail for
-        // zero-order rows) and set meta.truncated=true — never silently cut.
+        // apply the documented truncation cap (cap product_summary to top-5 and
+        // clear daily_by_status for ALL rows) and set meta.truncated=true —
+        // never silently cut.
         $budgetBytes = (int) config('geographic.response_budget_bytes', 500 * 1024);
         $serialized = json_encode($payload);
         if ($serialized !== false && strlen($serialized) > $budgetBytes) {

@@ -148,6 +148,9 @@ class GeographicScaleTest extends ApiTestCase
      */
     public function test_oversized_response_triggers_truncation_cap(): void
     {
+        // Deterministic fixture: the size guard, not random data, is under test.
+        mt_srand(1109);
+
         // Create a large but valid dataset that would exceed a small budget.
         $activeOutlets = collect(range(1, 50))->map(function () {
             $user = User::factory()->outlet()->create();

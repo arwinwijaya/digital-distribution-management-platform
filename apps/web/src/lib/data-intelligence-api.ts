@@ -104,11 +104,18 @@ export interface GeographicMapPoint {
   latest_request?: GeographicLatestRequest | null;
 }
 
+export interface GeographicMeta {
+  truncated: boolean;
+  omitted_zero_days: number;
+  product_summary_capped: boolean;
+}
+
 export interface GeographicData {
   table: GeographicTableRow[];
   map_points: GeographicMapPoint[];
   snapshot_version: number;
   window: { start: string; end: string; timezone: string };
+  meta: GeographicMeta;
 }
 
 export async function fetchGeographicData(): Promise<GeographicData> {

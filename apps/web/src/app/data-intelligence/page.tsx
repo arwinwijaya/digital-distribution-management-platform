@@ -294,6 +294,11 @@ export default function DataIntelligencePage() {
         </div>
       )}
       <SnapshotMetadata data={snapshot.geographic ?? snapshot.suppliers ?? snapshot.stock ?? snapshot.recommendationFunnel ?? snapshot.forecast} />
+      {geographic?.meta?.truncated && (
+        <div role="alert" className="mb-5 rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-700">
+          Data peta dipangkas untuk performa. Beberapa detail mungkin tidak lengkap.
+        </div>
+      )}
 
       <div className="space-y-4">
         <Card className="p-5">

@@ -368,7 +368,11 @@ async function fetchPriceHistoryReal(token: string, productId: number, opts?: { 
   if (opts?.cursor !== undefined && opts.cursor !== null) query.set('cursor', String(opts.cursor));
   const response = await fetch(apiUrl(`/admin/products/${productId}/prices?${query.toString()}`), { headers: authHeaders(token), signal: opts?.signal });
   const data = await response.json();
-  if (!response.ok) throw new Error(parseError(data, 'Riwayat harga tidak dapat dimuat.'));
+  if (!response.ok) {
+    const err = new Error(parseError(data, 'Riwayat harga tidak dapat dimuat.'));
+    if (response.status === 404) (err as any).status = 404;
+    throw err;
+  }
   const inner = data.data as { data: PriceHistoryEntry[]; meta: { limit: number; cursor: number; has_more: boolean; next_cursor: number | null } } | PriceHistoryEntry[];
   if (Array.isArray(inner)) return { data: inner, hasMore: false, limit: opts?.limit ?? 15, cursor: 0, nextCursor: null };
   return { data: inner.data ?? [], hasMore: Boolean(inner.meta?.has_more), limit: Number(inner.meta?.limit ?? 15), cursor: Number(inner.meta?.cursor ?? 0), nextCursor: inner.meta?.next_cursor ?? null };

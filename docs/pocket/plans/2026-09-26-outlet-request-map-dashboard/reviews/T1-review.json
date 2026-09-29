@@ -32,15 +32,42 @@
       "Zero out-of-scope file changes; helper remains leaf-level"
     ],
     "issues": [
-      {"severity": "Minor", "description": "Dead branch in normalizeStatuses: expanded.includes(SEMUA) is always false because expandSemua never emits 'Semua'; the Semua case is already handled by expandSemua. Harmless but misleading.", "location": "apps/web/src/lib/geographic-filters.ts:185"},
-      {"severity": "Minor", "description": "O(n²) deduplication using indexOf; a Set-based dedupe would be O(n) and clearer.", "location": "apps/web/src/lib/geographic-filters.ts:190"},
-      {"severity": "Minor", "description": "Test file re-declares SnapshotWindow inline instead of importing the exported type from geographic-filters.ts.", "location": "apps/web/src/lib/geographic-filters.test.ts:3"},
-      {"severity": "Minor", "description": "Local toCents adds defensive guards (empty/'-'/'.' strings) not present in the aggregates.ts convention; functionally safer but not a shared import.", "location": "apps/web/src/lib/geographic-filters.ts:116-123"}
+      {
+        "severity": "Minor",
+        "description": "Dead branch in normalizeStatuses: expanded.includes(SEMUA) is always false because expandSemua never emits 'Semua'; the Semua case is already handled by expandSemua. Harmless but misleading.",
+        "location": "apps/web/src/lib/geographic-filters.ts:185"
+      },
+      {
+        "severity": "Minor",
+        "description": "O(n²) deduplication using indexOf; a Set-based dedupe would be O(n) and clearer.",
+        "location": "apps/web/src/lib/geographic-filters.ts:190"
+      },
+      {
+        "severity": "Minor",
+        "description": "Test file re-declares SnapshotWindow inline instead of importing the exported type from geographic-filters.ts.",
+        "location": "apps/web/src/lib/geographic-filters.test.ts:3"
+      },
+      {
+        "severity": "Minor",
+        "description": "Local toCents adds defensive guards (empty/'-'/'.' strings) not present in the aggregates.ts convention; functionally safer but not a shared import.",
+        "location": "apps/web/src/lib/geographic-filters.ts:116-123"
+      }
     ],
     "assessment": "Approved"
   },
   "overall": "REVIEW_PASS",
   "fix_instructions": "",
-  "loop_info": {"current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2},
-  "reviewed_sha": "1420934"
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "55bec46",
+  "fanout_note": {
+    "type": "conflict_free_parallel_merge_sha_rewrite",
+    "reason": "Pocket two-stage review SHA pinning requires conflict-free parallel task artifacts to pin the task merge commit after merge; no re-audit dispatched.",
+    "previous_reviewed_sha": "1420934",
+    "merge_commit": "55bec46",
+    "source": "skills/pocket-development/references/two-stage-review.md#sha-pinning"
+  }
 }

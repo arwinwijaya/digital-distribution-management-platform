@@ -1,14 +1,17 @@
 {
   "task": "T11",
   "plan": "docs/pocket/plans/2026-09-26-outlet-request-map-dashboard",
-  "reviewed_sha": "b0cfb9efd86d32866f4c79b8ad6e10f49600b42a",
-  "review_sha_note": "Auditor reviewed implementation commit b0cfb9e; done_sha 05eb504 is the no-ff merge. Post-review changes: none to implementation files (f2c45d3 added only this review artifact). Verdict is stale relative to done_sha per pocket-closing exact-match freshness rule; re-gate required before close.",
+  "reviewed_sha": "686ea12",
   "reviewer_mode": "read-only auditor (subagent) + main agent mechanical gates",
   "stage1": "PASS",
   "stage2": "PASS",
   "overall": "REVIEW_PASS",
   "status_note": "DONE_WITH_CONCERNS is the plan-level red-flag interpretation because the deliverable required controller/page/API type/test changes beyond the three primary packet files. The pocket CLI task schema accepts only DONE/REVIEW/WAITING/BLOCKED, so the task is recorded as DONE and this concern is preserved here.",
-  "loop_info": { "current_cycle": 1, "max_cycles": 2, "cycles_remaining": 1 },
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
   "stage1_spec_compliance": {
     "real_ScaleFixtureSeeder_use": "PASS - GeographicScaleTest Test 1 seeds Database\\Seeders\\ScaleFixtureSeeder (500 outlets / 100 active / 5 suppliers / 220 products / 500 orders), publishes via the real pipeline, and GETs the real endpoint as admin.",
     "red_before_production": "SUBSTANTIATED-BY-INSPECTION - test file did not exist before 87d1e94 and parent controller hardcoded truncated=false, so Test 2 (asserts truncated=true under forced 2KB budget) necessarily RED pre-impl; likewise the page warning test pre-ee4b793. No RED log in commit bodies.",
@@ -25,14 +28,43 @@
     "full_gate_evidence": "PASS - full api suite 697 tests / 4425 assertions / 0 failures; full web suite 73 suites / 660 tests; post-fix packet gates: GeographicScaleTest 2 tests / 12 assertions, perf+page 23 tests, tsc exit 0."
   },
   "findings": [
-    { "severity": "Minor", "id": "Minor-1", "description": "No recorded RED-before-GREEN evidence in commit bodies; RED is logically substantiated by parent-code inspection." },
-    { "severity": "Minor", "id": "Minor-2", "description": "Guard comment originally described zero-order rows, while implementation clears daily detail for all rows. Fixed in b0cfb9e." },
-    { "severity": "Minor", "id": "Minor-3", "description": "GeographicData.meta was required but dummy buildGeographic originally emitted no meta. Fixed in b0cfb9e by emitting meta and extending the Aggregates type." },
-    { "severity": "Minor", "id": "Minor-4", "description": "The 50-iteration soak budget is broad; the two single-recompute assertions carry the meaningful <100ms gate." },
-    { "severity": "Minor", "id": "Minor-5", "description": "Oversized fixture originally used unseeded mt_rand. Fixed in b0cfb9e with mt_srand(1109)." },
-    { "severity": "Minor", "id": "Minor-6", "description": "Full gate evidence was initially partial during audit; subsequently addressed by the main agent's recorded full-suite results and post-fix smoke gates." },
-    { "severity": "Concern", "id": "Scope-expansion", "description": "Implementation includes required deliverable support files page.tsx, data-intelligence-api.ts, page.test.tsx, and dummy/aggregates.ts in addition to the packet's three primary files. No CLI DONE_WITH_CONCERNS state exists, so this is documented rather than represented as a task status." }
+    {
+      "severity": "Minor",
+      "id": "Minor-1",
+      "description": "No recorded RED-before-GREEN evidence in commit bodies; RED is logically substantiated by parent-code inspection."
+    },
+    {
+      "severity": "Minor",
+      "id": "Minor-2",
+      "description": "Guard comment originally described zero-order rows, while implementation clears daily detail for all rows. Fixed in b0cfb9e."
+    },
+    {
+      "severity": "Minor",
+      "id": "Minor-3",
+      "description": "GeographicData.meta was required but dummy buildGeographic originally emitted no meta. Fixed in b0cfb9e by emitting meta and extending the Aggregates type."
+    },
+    {
+      "severity": "Minor",
+      "id": "Minor-4",
+      "description": "The 50-iteration soak budget is broad; the two single-recompute assertions carry the meaningful <100ms gate."
+    },
+    {
+      "severity": "Minor",
+      "id": "Minor-5",
+      "description": "Oversized fixture originally used unseeded mt_rand. Fixed in b0cfb9e with mt_srand(1109)."
+    },
+    {
+      "severity": "Minor",
+      "id": "Minor-6",
+      "description": "Full gate evidence was initially partial during audit; subsequently addressed by the main agent's recorded full-suite results and post-fix smoke gates."
+    },
+    {
+      "severity": "Concern",
+      "id": "Scope-expansion",
+      "description": "Implementation includes required deliverable support files page.tsx, data-intelligence-api.ts, page.test.tsx, and dummy/aggregates.ts in addition to the packet's three primary files. No CLI DONE_WITH_CONCERNS state exists, so this is documented rather than represented as a task status."
+    }
   ],
   "blockers": [],
-  "fix_instructions": "No re-review required - no Blocker/Major findings."
+  "fix_instructions": "",
+  "fanout_note": "Refreshed by phase-3 verdict fan-out. Corrections attributed to T11: aafc8a7 (F1), 686ea12 (F2). reviewed_sha = max-by-commit-time(done_sha 05eb504, corrections) = 686ea12 per phase-level-pass.md. Correction auditor verdict: REVIEW_PASS (both stages)."
 }

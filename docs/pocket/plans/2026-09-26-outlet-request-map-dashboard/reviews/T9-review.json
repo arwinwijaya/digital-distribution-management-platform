@@ -5,44 +5,15 @@
   "timestamp": "2026-09-28T10:30:00Z",
   "reviewer_mode": "read-only",
   "reviewer_config": "batch-parallel",
-  "stage_1": {
-    "status": "PASS",
-    "issues": [],
-    "concerns_addressed": [
-      "Default {New,Confirmed}+30d chips are real buttons with aria-pressed; empty selection preserved to no-request state (page.tsx toggleStatus/no-revert + normalizeStatuses empty passthrough)",
-      "Semua toggles all four canonical statuses (page.tsx toggleSemua/statuses.length check)",
-      "Filter math via T1 computeFilteredCounts status x period wiring (page.tsx filteredPoints useMemo)",
-      "Empty-state precedence strict: sectionUnavailable > all-invalid with count > zero-orders with no coordinate warning (page.tsx mapContent branches)",
-      "outlets_without_daily_detail computed for narrow periods via daily_by_status absence + 30d window-orders guard, 0 for 30d, disclosed via testid (page.tsx outletsWithoutDailyDetail memo)",
-      "Unknown deep-link status/period safely falls back to default without throw (page.tsx URLSearchParams every/includes guards + normalize fallback)",
-      "Typed-error classification branches on ApiError.status (401 clears token + Sesi berakhir, 403 Akses ditolak no retry, else Tidak dapat memuat data peta + Coba lagi); geographic cleared to null so no stale snapshot (page.tsx loadAll catch)",
-      "Admin role verified via /auth/me before token set; loadAll/withDummyRead gated on admin token so non-admin dummy never reads geographic (page.tsx useAdminGuard + useEffect/useDummyRefresh guards)",
-      "Freshness label from window.end + timezone + snapshot_version via formatSnapshotEnd, no new Date() and no live claim (page.tsx SnapshotMetadata)",
-      "Drawer wiring passes frozen openingFilter copy + live currentFilter + window; freeze/banner/focus/dialog semantics owned by OutletDrawer useFrozenSnapshot/filtersEqual (page.tsx onSelectOutlet + OutletDrawer props)"
-    ]
-  },
-  "stage_2": {
-    "status": "PASS",
-    "strengths": [
-      "Chips are real <button type=\"button\"> with aria-pressed; Semua toggles all four via toggleSemua",
-      "Empty status selection preserved as real state rendering no-request message, never silently reverted; normalizeStatuses empty preserved",
-      "outlets_without_daily_detail computed from daily_by_status absence plus 30d window counts and disclosed via testid for narrow periods, 0 for 30d",
-      "Unknown deep-link status/period safely falls back to {New,Confirmed}+30d via every/some guards plus normalizeStatuses/normalizePeriod",
-      "Retry button rendered only when retryable (5xx/network); 403 no retry, 401 clears token and shows session-expired",
-      "Freshness label from window.end + timezone + snapshot_version via formatSnapshotEnd; no new Date()",
-      "Role checked via /auth/me admin guard before any loadAll/withDummyRead; token-gated fetch plus useDummyRefresh reload; non-admin denied with no geographic fetch",
-      "Stale geographic cleared on ApiError (geographic:null); frozen drawer snapshot via openingFilter/currentFilter with freeze banner"
-    ],
-    "issues": [
-      {"severity": "Minor", "description": "DataIntelligencePage component exceeds 50 lines and file approaches ~300 lines, but logic is decomposed into useAdminGuard, SnapshotMetadata, memos and delegated tables/map/drawer; no further split required in-scope.", "location": "apps/web/src/app/data-intelligence/page.tsx"},
-      {"severity": "Minor", "description": "outlets-without-daily-detail paragraph renders even when sectionUnavailable (Data peta belum tersedia); noisy but does not hide precedence.", "location": "apps/web/src/app/data-intelligence/page.tsx"},
-      {"severity": "Minor", "description": "formatSnapshotEnd assumes valid YYYY-MM-DD without validation; SnapshotMetadata relies on snapshot_version null guard to avoid null-window dereference.", "location": "apps/web/src/app/data-intelligence/page.tsx"}
-    ],
-    "assessment": "Approved"
-  },
+  "stage_1": "PASS",
+  "stage_2": "PASS",
   "overall": "REVIEW_PASS",
   "fix_instructions": "",
-  "loop_info": {"current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2},
-  "reviewed_sha": "27763b95bf89d1e9fefc01a970b026ff40fc57a",
-  "review_sha_note": "Corrupted SHA: stored value 27763b95bf89d1e9fefc01a970b026ff40fc57a does not exist in repo. Real commit 27763b94cefdd385f0191fc457427ad5f672ea4e (test(page): cover valid deep-link filters) is ancestor of merge^2 60ab208. Verdict stale per pocket-closing freshness rule; re-gate required."
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "aafc8a7",
+  "fanout_note": "Refreshed by phase-3 verdict fan-out. Correction attributed to T9: aafc8a7 (F1). reviewed_sha = max-by-commit-time(done_sha 7f8fae3050, correction) = aafc8a7 per phase-level-pass.md. Correction auditor verdict: REVIEW_PASS (both stages). Supersedes the prior note about a corrupted pre-correction SHA."
 }

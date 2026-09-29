@@ -113,6 +113,26 @@
           "file": "execution-plan/tasks/T11-performance-scalefixtureseeder-baseline-100ms-recompute-500kb-response-truncation-cap-frontend-warning.md",
           "done_sha": "05eb50468c2e8fa9f9cb12a915c914942f824100"
         }
+      ],
+      "corrections": [
+        {
+          "sha": "aafc8a7",
+          "files": [
+            "apps/web/src/app/data-intelligence/page.test.tsx",
+            "apps/web/src/lib/geographic-filters.ts"
+          ],
+          "for_task": "T9"
+        },
+        {
+          "sha": "686ea12",
+          "files": [
+            "apps/web/src/app/data-intelligence/page.test.tsx",
+            "apps/web/src/app/data-intelligence/page.tsx",
+            "apps/web/src/components/data-intelligence/GeoMap.test.tsx",
+            "apps/web/src/components/data-intelligence/GeoMap.tsx"
+          ],
+          "for_task": "T10"
+        }
       ]
     }
   ]

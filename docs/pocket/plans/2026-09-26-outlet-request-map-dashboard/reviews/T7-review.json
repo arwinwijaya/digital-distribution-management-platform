@@ -31,6 +31,17 @@
   },
   "overall": "REVIEW_PASS",
   "fix_instructions": "",
-  "loop_info": {"current_cycle": 2, "max_cycles": 2, "cycles_remaining": 0},
-  "reviewed_sha": "81d09cf"
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 0
+  },
+  "reviewed_sha": "77e7ac17b9ce312ae4239f2a6c4a525f14b5d012",
+  "fanout_note": {
+    "type": "conflict_free_parallel_merge_sha_rewrite",
+    "reason": "Pocket two-stage review SHA pinning requires conflict-free parallel task artifacts to pin the task merge commit after merge; no re-audit dispatched.",
+    "previous_reviewed_sha": "81d09cf",
+    "merge_commit": "77e7ac17b9ce312ae4239f2a6c4a525f14b5d012",
+    "source": "skills/pocket-development/references/two-stage-review.md#sha-pinning"
+  }
 }

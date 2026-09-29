@@ -1,0 +1,75 @@
+{
+  "phase_key": "phase-3",
+  "phase_file": "execution-plan/phase-3.md",
+  "timestamp": "2026-09-29T05:40:20Z",
+  "reviewer_mode": "read-only",
+  "head_sha": "d92e2c14d0a95e8e3153ad370984b80622ba2c3a",
+  "task_shas": {
+    "T8_done": "a8007203",
+    "T9_done": "7f8fae3050",
+    "T10_done": "3a76bc19",
+    "T11_done": "05eb504",
+    "T11_followup": "b0cfb9e"
+  },
+  "status": "PHASE_PASS_RESOLVED",
+  "findings": [
+    {
+      "id": "F1",
+      "category": "integration-mismatch",
+      "severity": "blocking",
+      "tasks": [
+        "T9",
+        "T10"
+      ],
+      "title": "Legacy v1 rows never reach the map under any period, including 30d",
+      "spec_refs": [
+        "spec.md:423-436 (legacy marker renders from legacy orders/sales; 30d legacy display remains available)",
+        "spec.md:571-577,705-706 (fixture: V1 count=10 legacy badge under default {New,Conf}+30d; excluded only under 7d/Hari ini)"
+      ],
+      "evidence": [
+        "apps/web/src/lib/geographic-filters.ts computeFilteredCounts(): a v1 row (no orders_by_status/daily_by_status) yields filteredOrders=0 for every period, including 30d.",
+        "apps/web/src/app/data-intelligence/page.tsx:196-203 filteredPoints keeps only entries with counts.filteredOrders > 0, with no legacy fallback.",
+        "Same file:210-219 outletsWithoutDailyDetail DOES apply the legacy fallback (legacyOnly ? Number(point.orders) > 0 : ...) — the two adjacent memos disagree on legacy handling.",
+        "No phase-3 test covers it: page.test.tsx has no v1-row marker test."
+      ],
+      "impact": "Default 30d view omits the V1 legacy marker (fixture expects H=7 + V1=10); legacy outlets are invisible instead of disclosed.",
+      "fix_direction": "Apply the same legacy fallback in the filteredPoints gate as outletsWithoutDailyDetail already uses (legacyOnly ? Number(point.orders) > 0), or equivalent; add a page-level test with a v1 row asserting marker presence under 30d and exclusion + disclosure under 7d/Hari ini. Record as append-only correction; do not move any done_sha."
+    },
+    {
+      "id": "F2",
+      "category": "integration-mismatch",
+      "severity": "blocking",
+      "tasks": [
+        "T9",
+        "T10"
+      ],
+      "title": "Filtered counts gate marker presence but marker badges display unfiltered legacy totals",
+      "spec_refs": [
+        "spec.md:256-264 (one marker per outlet shown only when filtered count > 0; marker count is 7 for New4+Conf3)",
+        "spec.md:573 (H marker count is exactly 8 under 7d, not the 30-day total of 10)",
+        "T9 packet test intent: 'markers reflect the filtered counts'"
+      ],
+      "evidence": [
+        "page.tsx:231-232 passes the original point objects (visiblePoints) to GeoMap; the computed counts from computeFilteredCounts are discarded at the boundary.",
+        "GeoMap.tsx:59 popupHtml and :213 outlet list render point.orders (full-window legacy total), never a filtered count — fixture outlet H would badge 10 instead of 7 under default {New,Conf}+30d, and 10 instead of 8 under 7d.",
+        "The drawer side is correct (OutletDrawer recomputes via computeFilteredCounts), so drawer counts and marker badges disagree for the same outlet/filter.",
+        "No phase-3 test asserts a rendered marker badge value."
+      ],
+      "impact": "Every filtered view overstates per-outlet counts on markers/popups/list; spec literal counts (7/8/3) are not rendered anywhere on the map surface.",
+      "fix_direction": "Propagate the filtered count across the page→GeoMap boundary (e.g. pass counts alongside points and render counts.filteredOrders in popup/list), keeping legacyOnly rows on the legacy-orders display; add an integration test asserting badge text equals the filtered literal for default and 7d selections. Record as append-only correction; do not move any done_sha."
+    }
+  ],
+  "checked_and_clean": [
+    "No cross-task duplication: T1 filter math is shared by page/drawer/perf; GeoMap.isValidPoint mirrors backend isValidCoordinate by documented design; toCents duplication is acknowledged in-code and per-task-reviewed.",
+    "No cross-file regression: T11 controller changes are envelope-additive (meta + optional truncation); frontend reads meta via optional chaining with tested warning gating.",
+    "Drawer freeze/banner/order-link sync (T8/T10 boundary) verified consistent between page wiring and drawer snapshot logic."
+  ],
+  "note_out_of_scope": "T11 review artifact records reviewed_sha b0cfb9e vs done_sha 05eb504 (stale per exact-match freshness rule). That is per-task verdict freshness for pocket-closing, not a cross-task concern.",
+  "cross_task_integration_clean": false,
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "recovery_stage": ""
+}

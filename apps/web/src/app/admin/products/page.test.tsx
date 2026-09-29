@@ -1059,4 +1059,141 @@ describe('admin products page', () => {
       expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes('/products')).length).toBe(0);
     });
   });
+
+  // ── T6: rendered page contract with a backend-shaped response ─────────
+  describe('T6 page contract: legacy defaults, clarity fields, no fallback', () => {
+    /** A response shaped exactly like the real GET /products adapter contract. */
+    const contractResponse = {
+      status: 'success',
+      data: [
+        {
+          id: 11,
+          name: 'Kopi Kapal',
+          sku: 'SKU-001',
+          price: '15000.00',
+          stock_quantity: 40,
+          category: 'Minuman',
+          is_active: true,
+          supplier: { id: 1, name: 'PT Segar', subscription_status: 'active' },
+          supplier_id: 1,
+          description: 'Kopi kapal sachet',
+          created_at: '2026-09-05T08:00:00Z',
+          updated_at: '2026-09-10T10:00:00Z',
+        },
+        {
+          id: 12,
+          name: 'Gula Pasir 1kg',
+          sku: 'SKU-002',
+          price: '19000.00',
+          stock_quantity: 0,
+          category: null,
+          is_active: false,
+          supplier: { id: 2, name: 'CV Tani', subscription_status: 'expired' },
+          supplier_id: 2,
+          description: null,
+          created_at: '2026-09-01T08:00:00Z',
+          updated_at: '2026-09-11T10:00:00Z',
+        },
+      ],
+      meta: {
+        has_more: false,
+        limit: 15,
+        cursor: 0,
+        total: 2,
+        summary: { total: 2, out_of_stock: 1 },
+        categories: ['Minuman'],
+      },
+    };
+
+    beforeEach(() => {
+      fetchMock.mockImplementation(async (url: unknown) => {
+        if (String(url).includes('/products')) return jsonResponse(contractResponse);
+        return jsonResponse({});
+      });
+    });
+
+    it('keeps legacy request defaults present (limit, cursor, include_unpurchasable, sort)', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      const url = new URL(lastProductsUrl(fetchMock));
+      expect(url.searchParams.get('limit')).toBe('15');
+      expect(url.searchParams.get('cursor')).toBe('0');
+      expect(url.searchParams.get('sort')).toBe('created_at');
+      expect(url.searchParams.get('order')).toBe('desc');
+      expect(url.searchParams.get('include_unpurchasable')).toBe('1');
+      // No new filter params are sent by default.
+      expect(url.searchParams.has('category')).toBe(false);
+      expect(url.searchParams.has('status')).toBe(false);
+      expect(url.searchParams.has('stock_health')).toBe(false);
+    });
+
+    it('renders identity, clarity, status and summary fields from the contract response', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      const cellsOf = (name: string) =>
+        Array.from((screen.getByText(name).closest('tr') as HTMLTableRowElement).querySelectorAll('td'));
+
+      // Identity columns: category with em dash fallback.
+      expect(cellsOf('Kopi Kapal')[2]).toHaveTextContent('Minuman');
+      expect(cellsOf('Gula Pasir 1kg')[2]).toHaveTextContent('\u2014');
+
+      // Status precedence: Nonaktif for inactive product with expired supplier.
+      expect(cellsOf('Kopi Kapal')[3].textContent?.trim()).toBe('Aktif');
+      expect(cellsOf('Gula Pasir 1kg')[3].textContent?.trim()).toBe('Nonaktif');
+
+      // Price and stock health normalization.
+      expect(cellsOf('Kopi Kapal')[5]).toHaveTextContent('40');
+      expect(cellsOf('Kopi Kapal')[5]).toHaveTextContent('Aman');
+      expect(cellsOf('Gula Pasir 1kg')[5]).toHaveTextContent('0');
+      expect(cellsOf('Gula Pasir 1kg')[5]).toHaveTextContent('Habis');
+
+      // Summary strip consumes meta.summary + meta.total.
+      const summary = screen.getByTestId('table-summary');
+      expect(summary).toHaveTextContent('2 produk');
+      expect(summary).toHaveTextContent('1 stok habis');
+    });
+
+    it('sends sort=category and sort=status when those headers are clicked (no silent fallback)', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Kategori', { selector: 'th' }));
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('sort=category'));
+      expect(lastProductsUrl(fetchMock)).toContain('order=desc');
+      expect(lastProductsUrl(fetchMock)).toContain('cursor=0');
+      await waitFor(() => expect(screen.getByText('Status', { selector: 'th' })).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Status', { selector: 'th' }));
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('sort=status'));
+      expect(lastProductsUrl(fetchMock)).toContain('order=desc');
+    });
+
+    it('sends clarity filter params when filters change (no silent omission)', async () => {
+      const { default: Page } = await import('@/app/admin/products/page');
+      render(<Page />);
+      await waitFor(() => expect(screen.getByText('Kopi Kapal')).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('status=active'));
+
+      fireEvent.change(screen.getByLabelText('Kesehatan stok'), { target: { value: 'low' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('stock_health=low'));
+
+      fireEvent.change(screen.getByLabelText('Kategori'), { target: { value: 'Minuman' } });
+      await waitFor(() => expect(lastProductsUrl(fetchMock)).toContain('category=Minuman'));
+
+      // All three params coexist in the final request.
+      const url = lastProductsUrl(fetchMock);
+      expect(url).toContain('status=active');
+      expect(url).toContain('stock_health=low');
+      expect(url).toContain('category=Minuman');
+      expect(url).toContain('cursor=0');
+      expect(url).toContain('include_unpurchasable=1');
+    });
+  });
 });

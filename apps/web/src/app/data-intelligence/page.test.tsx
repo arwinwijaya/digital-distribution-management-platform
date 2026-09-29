@@ -503,4 +503,136 @@ describe('admin page consumes shared API contract', () => {
     });
     expect(geographicCalls()).toBe(callsBefore);
   });
+
+  it('syncs a filter change across markers and the frozen drawer on the same map surface', async () => {
+    window.history.pushState({}, '', '/data-intelligence');
+    geographicPayload = geographicPayloadWith([
+      makeV2Point({
+        outlet_id: 12,
+        outlet_name: 'Outlet B',
+        orders: 8,
+        sales: '80000.00',
+        orders_by_status: { New: 2, Confirmed: 1, Delivered: 5, 'Partially Paid': 0 },
+        sales_by_status: { New: '20000.00', Confirmed: '10000.00', Delivered: '50000.00', 'Partially Paid': '0.00' },
+        daily_by_status: [
+          {
+            date: '2026-08-20',
+            counts: { New: 1, Confirmed: 2, Delivered: 3, 'Partially Paid': 0 },
+            sales: { New: '10000.00', Confirmed: '20000.00', Delivered: '30000.00', 'Partially Paid': '0.00' },
+          },
+          {
+            date: '2026-09-10',
+            counts: { New: 1, Confirmed: 1, Delivered: 0, 'Partially Paid': 0 },
+            sales: { New: '10000.00', Confirmed: '10000.00', Delivered: '0.00', 'Partially Paid': '0.00' },
+          },
+          {
+            date: '2026-09-13',
+            counts: { New: 1, Confirmed: 0, Delivered: 2, 'Partially Paid': 0 },
+            sales: { New: '10000.00', Confirmed: '0.00', Delivered: '20000.00', 'Partially Paid': '0.00' },
+          },
+        ],
+      }),
+      makeV2Point({
+        outlet_id: 13,
+        outlet_name: 'Outlet C',
+        orders: 2,
+        sales: '20000.00',
+        orders_by_status: { New: 0, Confirmed: 0, Delivered: 2, 'Partially Paid': 0 },
+        sales_by_status: { New: '0.00', Confirmed: '0.00', Delivered: '20000.00', 'Partially Paid': '0.00' },
+        daily_by_status: [
+          {
+            date: '2026-09-12',
+            counts: { New: 0, Confirmed: 0, Delivered: 2, 'Partially Paid': 0 },
+            sales: { New: '0.00', Confirmed: '0.00', Delivered: '20000.00', 'Partially Paid': '0.00' },
+          },
+        ],
+      }),
+    ]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByRole('button', { name: '7 hari' })).toBeInTheDocument());
+
+    // Open the drawer under the opening filter {New,Confirmed}+7d.
+    await act(async () => {
+      screen.getByRole('button', { name: '7 hari' }).click();
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Outlet B' })).toBeInTheDocument());
+    // Outlet C has no New/Confirmed orders in 7d, so it has no marker yet.
+    expect(screen.queryByRole('button', { name: 'Outlet C' })).not.toBeInTheDocument();
+    await act(async () => {
+      screen.getByRole('button', { name: 'Outlet B' }).click();
+    });
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Outlet B' })).toBeInTheDocument());
+    const dialog = screen.getByRole('dialog', { name: 'Outlet B' });
+    expect(within(dialog).getByText('New: 2')).toBeInTheDocument();
+    expect(within(dialog).getByText('Confirmed: 1')).toBeInTheDocument();
+    const openingHref = (within(dialog).getByRole('link', { name: 'Lihat semua order' }) as HTMLAnchorElement).href;
+
+    // Toggle Delivered: markers diff on the same surface while the drawer freezes.
+    await act(async () => {
+      screen.getByRole('button', { name: 'Delivered' }).click();
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Outlet C' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('outlet-drawer-freeze-banner')).toBeInTheDocument());
+    // The drawer keeps its opening snapshot: no Delivered row, link unchanged.
+    expect(within(dialog).queryByText(/Delivered/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText('New: 2')).toBeInTheDocument();
+    expect((within(dialog).getByRole('link', { name: 'Lihat semua order' }) as HTMLAnchorElement).href).toBe(openingHref);
+  });
+
+  it('builds the drawer order link from the opening filter with encoded outlet, status, and dates', async () => {
+    window.history.pushState({}, '', '/data-intelligence');
+    geographicPayload = geographicPayloadWith([
+      makeV2Point({
+        outlet_id: 12,
+        outlet_name: 'Outlet B',
+        orders_by_status: { New: 2, Confirmed: 1, Delivered: 5, 'Partially Paid': 0 },
+        sales_by_status: { New: '20000.00', Confirmed: '10000.00', Delivered: '50000.00', 'Partially Paid': '0.00' },
+        daily_by_status: [
+          {
+            date: '2026-09-10',
+            counts: { New: 1, Confirmed: 1, Delivered: 0, 'Partially Paid': 0 },
+            sales: { New: '10000.00', Confirmed: '10000.00', Delivered: '0.00', 'Partially Paid': '0.00' },
+          },
+          {
+            date: '2026-09-13',
+            counts: { New: 1, Confirmed: 0, Delivered: 2, 'Partially Paid': 0 },
+            sales: { New: '10000.00', Confirmed: '0.00', Delivered: '20000.00', 'Partially Paid': '0.00' },
+          },
+        ],
+      }),
+    ]);
+    const { default: DataIntelligencePage } = await import('@/app/data-intelligence/page');
+    render(<DataIntelligencePage />);
+    await waitFor(() => expect(screen.getByRole('button', { name: '7 hari' })).toBeInTheDocument());
+
+    await act(async () => {
+      screen.getByRole('button', { name: '7 hari' }).click();
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Outlet B' })).toBeInTheDocument());
+    await act(async () => {
+      screen.getByRole('button', { name: 'Outlet B' }).click();
+    });
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Outlet B' })).toBeInTheDocument());
+
+    const dialog = screen.getByRole('dialog', { name: 'Outlet B' });
+    const href = (within(dialog).getByRole('link', { name: 'Lihat semua order' }) as HTMLAnchorElement).getAttribute('href') ?? '';
+    expect(href).toContain('outlet_id=12');
+    // Comma-joined statuses are URL-encoded by URLSearchParams.
+    expect(href).toContain('status=New%2CConfirmed');
+    expect(href).toContain('start=2026-09-08');
+    expect(href).toContain('end=2026-09-14');
+    const query = new URL(href, 'http://localhost').searchParams;
+    expect(query.get('outlet_id')).toBe('12');
+    expect(query.get('status')).toBe('New,Confirmed');
+    expect(query.get('start')).toBe('2026-09-08');
+    expect(query.get('end')).toBe('2026-09-14');
+
+    // Changing the page filter must not rewrite the drawer's opening-filter link.
+    await act(async () => {
+      screen.getByRole('button', { name: 'Delivered' }).click();
+    });
+    await waitFor(() => expect(screen.getByTestId('outlet-drawer-freeze-banner')).toBeInTheDocument());
+    expect((within(dialog).getByRole('link', { name: 'Lihat semua order' }) as HTMLAnchorElement).getAttribute('href')).toBe(href);
+  });
 });

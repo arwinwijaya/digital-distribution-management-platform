@@ -25,6 +25,7 @@ class ProductTest extends TestCase
         'test_include_unpurchasable_exposes_supplier_ineligible_products_without_changing_legacy_eligibility',
         'test_product_list_orphan_supplier_reference_serializes_supplier_as_null',
         'test_admin_product_list_matches_frontend_clarity_contract_across_filters_sorts_and_legacy_eligibility',
+        'test_legacy_product_list_defaults_to_id_asc_limit_100_and_supplier_eligibility',
     ];
 
     private bool $allowOrphanSupplierFixtures = false;
@@ -781,6 +782,62 @@ class ProductTest extends TestCase
         $legacyFiltered->assertOk();
         $this->assertSame(['Active Minuman'], collect($legacyFiltered->json('data'))->pluck('name')->all());
         $this->assertSame(1, $legacyFiltered->json('meta.total'));
+    }
+
+    public function test_legacy_product_list_defaults_to_id_asc_limit_100_and_supplier_eligibility(): void
+    {
+        $inactiveSupplier = Supplier::factory()->create([
+            'name' => 'Hidden Supplier',
+            'subscription_status' => 'inactive',
+        ]);
+        $activeSupplier = Supplier::factory()->active()->create(['name' => 'Eligible Supplier']);
+
+        Product::factory()->create([
+            'name' => 'Hidden inactive supplier',
+            'supplier_id' => $inactiveSupplier->id,
+            'is_active' => true,
+        ]);
+        Product::factory()->create([
+            'name' => 'Hidden orphan supplier',
+            'supplier_id' => 999999,
+            'is_active' => true,
+        ]);
+
+        $eligibleIds = [];
+        for ($i = 1; $i <= 101; $i++) {
+            $product = Product::factory()->create([
+                'name' => sprintf('Eligible %03d', $i),
+                'supplier_id' => $activeSupplier->id,
+                'is_active' => true,
+            ]);
+            $eligibleIds[] = $product->id;
+        }
+
+        $response = $this->withHeaders($this->authHeaders())->getJson('/api/products');
+
+        $response->assertOk();
+        $data = $response->json('data');
+
+        // Legacy default remains the hard page size of 100 with offset cursor 0.
+        $this->assertCount(100, $data);
+        $this->assertSame(100, $response->json('meta.limit'));
+        $this->assertSame(0, $response->json('meta.cursor'));
+        $this->assertTrue($response->json('meta.has_more'));
+        $this->assertSame(101, $response->json('meta.total'));
+        $this->assertSame(101, $response->json('meta.summary.total'));
+
+        // Default ordering remains id ASC for legacy callers with no new params.
+        $ids = collect($data)->pluck('id')->all();
+        $this->assertSame(array_slice($eligibleIds, 0, 100), $ids);
+        $this->assertSame(collect($ids)->sort()->values()->all(), $ids);
+        $this->assertSame('Eligible 001', $data[0]['name']);
+        $this->assertSame('Eligible 100', $data[99]['name']);
+
+        // Supplier eligibility is unchanged without include_unpurchasable: rows
+        // from non-active suppliers and orphan supplier references stay excluded.
+        $names = collect($data)->pluck('name');
+        $this->assertFalse($names->contains('Hidden inactive supplier'));
+        $this->assertFalse($names->contains('Hidden orphan supplier'));
     }
 
     public function test_empty_catalog_returns_empty_array(): void

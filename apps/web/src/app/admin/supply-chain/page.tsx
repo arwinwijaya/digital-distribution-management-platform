@@ -112,7 +112,6 @@ export default function SupplyChainPage() {
   const { token, ready, accessError, setToken } = useAdminGuard();
   const [plans, setPlans] = useState<ReplenishmentPlan[]>([]);
   const [lastResult, setLastResult] = useState<ReplenishmentPlansListResult | null>(null);
-  const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -127,7 +126,6 @@ export default function SupplyChainPage() {
   cursorRef.current = cursor;
 
   const loadPlans = useCallback(async (authToken: string, opts?: { resetCursor?: boolean; cursor?: number; sort?: ColumnSort }) => {
-    setLoading(true);
     setError(null);
     try {
       const nextSort = opts?.sort ?? sortRef.current;
@@ -149,7 +147,6 @@ export default function SupplyChainPage() {
       setLastResult(null);
       setHasMore(false);
     } finally {
-      setLoading(false);
       setHasLoaded(true);
     }
   }, []);

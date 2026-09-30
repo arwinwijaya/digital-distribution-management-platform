@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Order;
 use App\Models\Outlet;
 use App\Models\Product;
+use App\Models\Promotion;
 use App\Models\User;
 use App\Services\AuthService;
 use App\Services\Recommendation\RecommendationModelAdapter;
@@ -27,6 +28,26 @@ class Phase9AdapterFallbackTest extends TestCase
         $token = app(AuthService::class)->createToken($admin)['token'];
 
         return ['Authorization' => "Bearer {$token}"];
+    }
+
+    public function test_default_http_recommendations_use_deterministic_adapter_without_fallback_flags(): void
+    {
+        config(['ai_actions.enabled' => true, 'ai_actions.ml_adapter.driver' => 'deterministic']);
+
+        $headers = $this->adminHeaders();
+        $response = $this->withHeaders($headers)->getJson('/api/ai/recommendations');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.fallback', true)
+            ->assertJsonPath('data.method', 'purchase_frequency_v1')
+            ->assertJsonPath('data.method_version', '1.0.0');
+
+        $this->assertArrayNotHasKey('adapter_error', $response->json('data'));
+        $this->assertArrayNotHasKey('invalid_output', $response->json('data'));
+        $this->assertArrayNotHasKey('mutation_attempt', $response->json('data'));
+        $this->assertSame(0, Order::count(), 'Default deterministic recommendation path is read-only');
+        $this->assertSame(0, Promotion::count(), 'Default deterministic recommendation path is read-only');
     }
 
     /** @test Scenario A: External adapter throws → fallback, no 500, no Order mutation */
@@ -64,6 +85,7 @@ class Phase9AdapterFallbackTest extends TestCase
 
         // Business state must not be mutated by adapter fallback path
         $this->assertSame(0, Order::count(), 'Adapter fallback must not create Orders');
+        $this->assertSame(0, Promotion::count(), 'Adapter fallback must not create Promotions');
     }
 
     /** @test Scenario B: External adapter returns invalid output → rejected, fallback, no Order */
@@ -95,6 +117,7 @@ class Phase9AdapterFallbackTest extends TestCase
             ->assertJsonPath('data.method', 'purchase_frequency_v1');
 
         $this->assertSame(0, Order::count(), 'Invalid adapter output must not create Orders');
+        $this->assertSame(0, Promotion::count(), 'Invalid adapter output must not create Promotions');
     }
 
     /** @test Scenario C: External adapter attempts mutation → detected, rolled back, fallback, no Order */
@@ -107,13 +130,23 @@ class Phase9AdapterFallbackTest extends TestCase
                 public function __construct(private readonly int $productId) {}
                 public function predict(?int $outletId, int $limit = 10): array
                 {
-                    // Side effect: attempt to create an Order (malicious/buggy adapter)
+                    // Side effect: attempt to create business state (malicious/buggy adapter).
                     Order::create([
                         'order_id' => 'ADAPTER-MUTATE-'.bin2hex(random_bytes(4)),
                         'outlet_id' => $outletId ?? 1,
                         'status' => 'New',
                         'total_amount' => 100,
                         'idempotency_key' => 'adapter-mutate-'.bin2hex(random_bytes(8)),
+                    ]);
+                    Promotion::create([
+                        'name' => 'Adapter Mutated Campaign',
+                        'description' => 'must roll back',
+                        'discount_type' => 'fixed',
+                        'discount_value' => 100,
+                        'min_order' => 0,
+                        'start_date' => now()->toDateString(),
+                        'end_date' => now()->addDay()->toDateString(),
+                        'is_active' => true,
                     ]);
 
                     // Return valid-looking output so validator would pass without mutation guard
@@ -149,6 +182,7 @@ class Phase9AdapterFallbackTest extends TestCase
             ->assertJsonPath('data.method', 'purchase_frequency_v1');
 
         $this->assertSame(0, Order::count(), 'Mutation attempt must be rolled back, zero Orders');
+        $this->assertSame(0, Promotion::count(), 'Mutation attempt must be rolled back, zero Promotions');
     }
 
     /** @test Scenario D: Slow adapter exceeds timeout → timeout fallback, no Order */
@@ -196,5 +230,6 @@ class Phase9AdapterFallbackTest extends TestCase
             ->assertJsonPath('data.method', 'purchase_frequency_v1');
 
         $this->assertSame(0, Order::count(), 'Timeout fallback must not create Orders');
+        $this->assertSame(0, Promotion::count(), 'Timeout fallback must not create Promotions');
     }
 }

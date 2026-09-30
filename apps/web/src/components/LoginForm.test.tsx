@@ -27,6 +27,40 @@ describe('LoginForm', () => {
     expect(screen.getByRole('button', { name: 'Masuk & pesan ulang' })).toBeInTheDocument();
   });
 
+  it('shows an inline credential error without persisting auth or clearing values', async () => {
+    const onLogin = jest.fn();
+    const dispatchSpy = jest.spyOn(window, 'dispatchEvent');
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ message: 'Email atau kata sandi salah.' }),
+    });
+
+    render(<LoginForm onLogin={onLogin} />);
+    const email = screen.getByLabelText('Email');
+    const password = screen.getByLabelText('Kata sandi');
+    fireEvent.change(email, { target: { value: 'wrong@example.com' } });
+    fireEvent.change(password, { target: { value: 'wrong-secret' } });
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('button', { name: 'Masuk' }));
+    });
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Email atau kata sandi salah.'));
+    expect(email).toHaveValue('wrong@example.com');
+    expect(password).toHaveValue('wrong-secret');
+    expect(localStorage.getItem('ddp_token')).toBeNull();
+    expect(localStorage.getItem('ddp_role')).toBeNull();
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/login'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email: 'wrong@example.com', password: 'wrong-secret' }),
+    });
+  });
+
   it('persists auth state and preserves the login request shape after a successful login', async () => {
     const onLogin = jest.fn();
     const dispatchSpy = jest.spyOn(window, 'dispatchEvent');

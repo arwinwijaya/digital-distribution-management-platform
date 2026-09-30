@@ -1,15 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { getTrack, type TrackResponse, type TrackPoint } from './api';
 import { loadDeliveries, type Delivery } from '@/app/delivery/api';
 import { useDummyRefresh } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { Button, Card, EmptyState, PageHeader, Select } from '@/components/ui';
 import { formatDateTime } from '@/lib/admin-table';
-import GeoMap from '@/components/data-intelligence/GeoMap';
 import type { GeographicMapPoint } from '@/lib/data-intelligence-api';
+
+const GeoMap = dynamic(() => import('@/components/data-intelligence/GeoMap'), { ssr: false });
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -25,7 +27,7 @@ function toGeoMapPoint(p: TrackPoint, label: string): GeographicMapPoint {
   };
 }
 
-export default function TrackingPage() {
+function TrackingContent() {
   const searchParams = useSearchParams();
   const { isDummy } = useDummyStore();
   const [token, setToken] = useState<string | null>(null);
@@ -226,5 +228,18 @@ export default function TrackingPage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * `useSearchParams()` opts the page into client-side rendering, so the tree that
+ * calls it must sit behind a Suspense boundary during prerendering (see
+ * https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout).
+ */
+export default function TrackingPage() {
+  return (
+    <Suspense fallback={<p className="text-center text-sm text-gray-500 py-12">Memuat...</p>}>
+      <TrackingContent />
+    </Suspense>
   );
 }

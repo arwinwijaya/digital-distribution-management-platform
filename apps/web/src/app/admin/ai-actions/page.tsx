@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import LoginForm from '@/components/LoginForm';
-import { apiUrl, authHeaders, clearStoredToken, getStoredToken } from '@/lib/api';
+import { clearStoredToken, getStoredToken } from '@/lib/api';
 import { Button, Card, EmptyState, PageHeader, StatusBadge, Table, TableDensityToggle, TablePagination, TableSummary } from '@/components/ui';
 import { formatDateTime, toggleSort, type ColumnSort } from '@/lib/admin-table';
 import { useTableDensity } from '@/hooks/useTableDensity';
@@ -12,6 +12,7 @@ import {
   executeAction,
   fetchRecommendationActions,
   rejectAction,
+  verifyAdminAccess,
   type RecommendationAction,
   type RecommendationActionsListResult,
 } from '@/lib/ai-actions-api';
@@ -39,14 +40,7 @@ function useAdminGuard(): GuardState {
     }
 
     let active = true;
-    fetch(apiUrl('/auth/me'), { headers: authHeaders(stored) })
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok || body.status === 'error') {
-          throw new ApiError(response.status, body.message || 'Sesi tidak dapat diverifikasi.');
-        }
-        return body.data?.role as string | undefined;
-      })
+    verifyAdminAccess(stored)
       .then((role) => {
         if (!active) return;
         if (role === 'admin' || role === 'platform_owner') {

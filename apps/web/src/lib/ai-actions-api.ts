@@ -1,4 +1,5 @@
 import { apiUrl, authHeaders } from '@/lib/api';
+import { ApiError } from '@/lib/api-error';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { compareRows, paginate } from '@/lib/admin-table';
@@ -47,6 +48,16 @@ export interface RecommendationActionFilters {
   status?: string;
   type?: string;
   outlet_id?: number;
+}
+
+/** Verify the stored actor through the same envelope contract as inbox calls. */
+export async function verifyAdminAccess(token: string): Promise<string> {
+  const response = await fetch(apiUrl('/auth/me'), { headers: authHeaders(token) });
+  const body = await response.json();
+  if (!response.ok || body.status === 'error') {
+    throw new ApiError(response.status, body.message || 'Sesi tidak dapat diverifikasi.');
+  }
+  return (body.data?.role as string | undefined) ?? '';
 }
 
 function listDummyRecommendationActions(filters: RecommendationActionFilters = {}): RecommendationActionsListResult {

@@ -10,10 +10,31 @@ This file is loaded as context for every Pi session in this project. It document
 
 | Server | Purpose | When to call |
 |--------|---------|--------------|
-| **serena** | Semantic code navigation, LSP-backed edit/search/refactor | Any code modification, symbol lookup, reference finding, rename, diagnostics |
-| **graphify** | Whole-repo knowledge graph, architectural queries | Any question about "how X works", cross-module impact, onboarding, design decisions |
+| **serena** | Semantic code navigation, LSP-backed edit/search/refactor | Any code modification, symbol lookup, reference finding, rename, diagnostics — **MUST** run MCP Bootstrap (`pi --approve mcp reconnect` + `serena project health-check`) before the first `serena_*` call |
+| **graphify** | Whole-repo knowledge graph, architectural queries | Any question about "how X works", cross-module impact, onboarding, design decisions — **MUST** run MCP Bootstrap before the first `graphify` query |
 
 > **Rule of thumb:** if the task touches **code**, reach for **serena** first; if the task needs **context/architecture/impact**, reach for **graphify** first. They are complementary — use both.
+
+## 🟢 MCP Bootstrap — Pastikan server ready sebelum pakai tool
+
+Setiap skill yang memakai Serena atau Graphify **MUST** menjalankan bootstrap ini dulu (sekali per sesi Pi, atau sekali per subagent baru). Jika server sudah hidup, `reconnect` selesai instan — tidak ada efek samping.
+
+```bash
+# 1) Pastikan adapter MCP ter-install dan di-approve (sekali per repo)
+pi --approve mcp install
+
+# 2) Reconnect bila server mati / belum listening (aman dipanggil tiap sesi)
+pi --approve mcp reconnect
+
+# 3) Verifikasi keduanya listening
+pi --approve mcp list
+# Expected: serena (listening), graphify (listening)
+
+# 4) Aktifkan project Serena — memuat LSP, memories, dan symbol index
+serena project health-check   # alternatif: serena activate-project
+```
+
+> Skill helper internal: `/mcp-bootstrap` — cukup panggil ini di awal skill lain, lalu lanjut ke `serena_*` / `graphify_*` / `graphify` CLI. Tidak perlu tulis ulang perintah `pi --approve mcp ...` di tiap skill.
 
 ### How to invoke in practice
 
@@ -24,25 +45,33 @@ This file is loaded as context for every Pi session in this project. It document
 
 ### Pocket skill examples with mandatory integrations
 
+> **Step 0 for every example below:** `/mcp-bootstrap` (`pi --approve mcp reconnect` + `serena project health-check`) — ensures Serena & Graphify are listening before any tool call.
+
 ```text
 /pocketto:bug-hunting "checkout total off by 1 cent"
+  → Step 0: /mcp-bootstrap
   → MUST call serena: find_symbol "checkout", find_referencing_symbols, get_diagnostics_for_file
   → MAY call graphify: query "how is checkout total calculated across modules?"
 
 /pocketto:hotfix "bump rate-limit window to 60s"
+  → Step 0: /mcp-bootstrap
   → MUST call serena: find_symbol "rateLimit", replace_symbol_body, rename_symbol
 
 /pocketto:pocket-grinding "add dark mode toggle"
+  → Step 0: /mcp-bootstrap
   → MUST call graphify: query "current theming approach and UI token structure"
   → MAY call serena: find_symbol "theme" after graphify identifies target files
 
 /pocketto:pocket-planning
+  → Step 0: /mcp-bootstrap
   → MUST call graphify: query "which modules are affected by the acceptance criteria?"
 
 /pocketto:pocket-development
+  → Step 0: /mcp-bootstrap (parent + each subagent packet)
   → Each subagent packet MUST include serena tools for edits, graphify for context
 
 /pocketto:pocket-closing <plan_dir>
+  → Step 0: /mcp-bootstrap
   → MUST commit ALL remaining changes (traveling state, plan docs, code) before closing
   → MUST run `graphify update .` after the commit so the knowledge graph reflects the closed phase
   → MUST verify the graph refreshed (graph.json / GRAPH_REPORT.md timestamps) before reporting CLOSED
@@ -89,14 +118,20 @@ This file is loaded as context for every Pi session in this project. It document
 Both servers are configured in `.pi/mcp-adapter.json` and approved via `settings.projectServers = "allow"`.
 
 ```bash
-# Verify they are live
-pi --approve mcp list
+# Bootstrap (run at session start — safe to run every time)
+pi --approve mcp reconnect
+pi --approve mcp list          # verify live
+
+# If a server shows not listening / 0 tools, reconnect again:
+pi --approve mcp reconnect
 ```
 
 Expected output includes:
-- **Context7** (2 tools)
-- **Serena** (29 tools — code editing/analysis)
-- **Graphify** (tools from `graphify-mcp`)
+- **Context7** (2 tools, listening)
+- **Serena** (29 tools, listening — code editing/analysis)
+- **Graphify** (16 tools, listening — from `graphify-mcp`)
+
+> If `pi --approve mcp list` shows `not listening` or `0 tools`, do **not** proceed to Serena/Graphify calls — run `pi --approve mcp reconnect` first and re-verify. Fallback: CLI `graphify query` still works even when MCP is down, but Serena LSP calls will fail.
 
 ---
 

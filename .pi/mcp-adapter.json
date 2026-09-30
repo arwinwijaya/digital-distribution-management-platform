@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "serena",
+      "args": [
+        "start-mcp-server",
+        "--project-from-cwd"
+      ]
+    },
+    "graphify": {
+      "command": "graphify-mcp"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import LoginForm from '@/components/LoginForm';
 import { OutletPerformanceChart, SalesTrendChart, OutletPoint, TrendPoint } from '@/components/Charts';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
@@ -177,6 +178,7 @@ function DashboardDataView({ role, dashboard, financeMetrics, loading }: { role:
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [startDate, setStartDate] = useState(() => jakartaDateString(-29));
   const [endDate, setEndDate] = useState(() => jakartaDateString(0));
   const [group, setGroup] = useState<Group>('daily');
@@ -189,8 +191,20 @@ export default function DashboardPage() {
     }
   });
 
-  if (!session.ready) return <p className="text-sm text-gray-500">Memuat...</p>;
-  if (!session.token) return <div className="mx-auto max-w-6xl"><PageHeader title="Dasbor eksekutif" description="Ringkasan performa bisnis dan keuangan." /><LoginForm expectedRole={['admin', 'finance']} onLogin={(nextToken, nextRole) => { session.setToken(nextToken); session.setRole(nextRole); session.setReady(true); void data.loadForRole(nextToken, nextRole); }} /></div>;
+  useEffect(() => {
+    if (!session.ready) return;
+    if (!session.token) {
+      router.replace('/login?redirect=%2Fdashboard');
+      return;
+    }
+    if (session.role === 'outlet') {
+      router.replace('/orders');
+    }
+  }, [router, session.ready, session.role, session.token]);
+
+  if (!session.ready || !session.token || session.role === 'outlet') {
+    return <p className="text-sm text-gray-500">Memuat...</p>;
+  }
 
   return <div className="mx-auto max-w-6xl">
     <PageHeader title={session.role === 'finance' ? 'Dasbor keuangan' : 'Dasbor eksekutif'} description={session.role === 'finance' ? 'Pantau invoice, piutang, pembayaran, dan pengingat.' : 'Ringkasan performa penjualan, pembayaran, produk, dan outlet.'} />

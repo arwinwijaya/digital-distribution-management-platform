@@ -21,7 +21,7 @@ use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PromotionBroadcastController;
-use App\Http\Controllers\RecommendationActionController;
+use App\Http\Controllers\ReplenishmentPlanController;
 use App\Http\Controllers\RbacMatrixController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UserRoleController;
@@ -202,6 +202,10 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/admin/recommendation-actions/{id}/reject', [RecommendationActionController::class, 'reject'])->middleware('rbac:ai_actions:edit');
     // Phase 9 T7: approval-gated execution (draft_order via OrderCreationService).
     Route::post('/admin/recommendation-actions/{id}/execute', [RecommendationActionController::class, 'execute'])->middleware('rbac:ai_actions:edit');
+
+    // Phase 9 T10: replenishment approve/execute (draft PO metadata only).
+    Route::post('/admin/replenishment-plans/{id}/approve', [ReplenishmentPlanController::class, 'approve'])->middleware('rbac:supply_chain:edit');
+    Route::post('/admin/replenishment-plans/{id}/execute', [ReplenishmentPlanController::class, 'execute'])->middleware('rbac:supply_chain:edit');
 
     // WhatsApp outbound operations use the authenticated outlet/admin identity.
     Route::post('/whatsapp/catalog', [WhatsAppController::class, 'catalog'])->middleware('rbac:orders:edit');

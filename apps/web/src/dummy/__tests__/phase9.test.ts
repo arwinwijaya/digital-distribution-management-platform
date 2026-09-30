@@ -154,3 +154,41 @@ describe('Phase 9 dummy API parity', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });
+
+describe('Phase 9 menu RBAC wiring', () => {
+  beforeEach(() => {
+    localStorage.setItem('ddp_token', 't-token');
+  });
+
+  it.each(['admin', 'platform_owner'])('shows Aksi AI, Rantai Pasok, and Eksperimen AI for %s', async (role) => {
+    localStorage.setItem('ddp_role', role);
+    useDummyStore.getState().toggle();
+
+    render(React.createElement(Sidebar));
+
+    await expect(screen.findByText('Aksi AI')).resolves.toBeInTheDocument();
+    await expect(screen.findByText('Rantai Pasok')).resolves.toBeInTheDocument();
+    await expect(screen.findByText('Eksperimen AI')).resolves.toBeInTheDocument();
+  });
+
+  it.each(['outlet', 'sales'])('hides all Phase 9 menus for %s', async (role) => {
+    localStorage.setItem('ddp_role', role);
+    useDummyStore.getState().toggle();
+
+    render(React.createElement(Sidebar));
+
+    await waitFor(() => expect(screen.getByText('Dasbor')).toBeInTheDocument());
+    expect(screen.queryByText('Aksi AI')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rantai Pasok')).not.toBeInTheDocument();
+    expect(screen.queryByText('Eksperimen AI')).not.toBeInTheDocument();
+  });
+
+  it('guards role via dummy RBAC matrix for ai_actions and supply_chain', () => {
+    const adminMap = getDummyMatrix('admin');
+    const outletMap = getDummyMatrix('outlet');
+    expect(adminMap.ai_actions).toBe('edit');
+    expect(adminMap.supply_chain).toBe('edit');
+    expect(outletMap.ai_actions).toBe('none');
+    expect(outletMap.supply_chain).toBe('none');
+  });
+});

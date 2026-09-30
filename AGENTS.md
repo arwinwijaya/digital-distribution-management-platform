@@ -1,0 +1,187 @@
+# Project Instructions — Digital Distribution Management Platform
+
+This file is loaded as context for every Pi session in this project. It documents conventions, tooling, and mandatory tooling integrations.
+
+---
+
+## ⚡ Mandatory Tooling Integrations
+
+**Every Pocket-to-PI skill invocation MUST use the following MCP servers when relevant:**
+
+| Server | Purpose | When to call |
+|--------|---------|--------------|
+| **serena** | Semantic code navigation, LSP-backed edit/search/refactor | Any code modification, symbol lookup, reference finding, rename, diagnostics |
+| **graphify** | Whole-repo knowledge graph, architectural queries | Any question about "how X works", cross-module impact, onboarding, design decisions |
+
+> **Rule of thumb:** if the task touches **code**, reach for **serena** first; if the task needs **context/architecture/impact**, reach for **graphify** first. They are complementary — use both.
+
+### How to invoke in practice
+
+- **Serena tools** are exposed as `mcp__serena__<tool>` (e.g., `mcp__serena__find_symbol`, `mcp__serena__replace_symbol_body`, `mcp__serena__get_diagnostics_for_file`).
+- **Graphify** is available via:
+  - Direct CLI: `graphify query "<question>"`, `graphify path "A" "B"`, `graphify explain "X"`
+  - MCP (when `graphify-mcp` is running): `mcp__graphify__<tool>` — check `/mcp` for live tool list.
+
+### Pocket skill examples with mandatory integrations
+
+```text
+/pocketto:bug-hunting "checkout total off by 1 cent"
+  → MUST call serena: find_symbol "checkout", find_referencing_symbols, get_diagnostics_for_file
+  → MAY call graphify: query "how is checkout total calculated across modules?"
+
+/pocketto:hotfix "bump rate-limit window to 60s"
+  → MUST call serena: find_symbol "rateLimit", replace_symbol_body, rename_symbol
+
+/pocketto:pocket-grinding "add dark mode toggle"
+  → MUST call graphify: query "current theming approach and UI token structure"
+  → MAY call serena: find_symbol "theme" after graphify identifies target files
+
+/pocketto:pocket-planning
+  → MUST call graphify: query "which modules are affected by the acceptance criteria?"
+
+/pocketto:pocket-development
+  → Each subagent packet MUST include serena tools for edits, graphify for context
+```
+
+---
+
+## 🛠️ MCP Server Status
+
+Both servers are configured in `.pi/mcp-adapter.json` and approved via `settings.projectServers = "allow"`.
+
+```bash
+# Verify they are live
+pi --approve mcp list
+```
+
+Expected output includes:
+- **Context7** (2 tools)
+- **Serena** (29 tools — code editing/analysis)
+- **Graphify** (tools from `graphify-mcp`)
+
+---
+
+## 🔧 Serena Project Config
+
+`.serena/project.yml` includes both language servers:
+
+```yaml
+language_servers:
+  - php       # apps/api (Laravel)
+  - typescript # apps/web (Next.js) + packages/shared
+```
+
+Run health check:
+```bash
+serena project health-check
+```
+
+Memories (auto-loaded on activation):
+```
+.serena/memories/conventions.md
+.serena/memories/database.md
+.serena/memories/api/{auth,core,domain,request_flow}.md
+.serena/memories/web/{core,dummy_mode}.md
+...
+```
+
+---
+
+## 🕸️ Graphify State
+
+Graph built and up-to-date in `graphify-out/`:
+
+```bash
+graphify update .          # incremental refresh
+graphify query "..."       # ask the graph
+graphify path "A" "B"      # shortest path
+graphify explain "X"       # plain-language node summary
+```
+
+Key outputs:
+- `graphify-out/graph.json` — raw graph
+- `graphify-out/GRAPH_REPORT.md` — audit report (God Nodes, Surprising Connections, Suggested Questions)
+- `graphify-out/graph.html` — interactive visual
+
+---
+
+## 📦 Pocket-to-PI Skills Available
+
+| Skill | Trigger | Typical use |
+|-------|---------|-------------|
+| `pocket-pitching` | "pitch this", "explore idea" | Pre-grinding exploration |
+| `pocket-grinding` | "brainstorm", "plan this" | BDD spec + acceptance criteria |
+| `pocket-planning` | "create plan", auto from grinding | TDD execution plan |
+| `pocket-structuring` | "structure plan", auto from planning | Task files + index |
+| `pocket-development` | "execute plan", "delegate tasks" | Subagent execution with audit |
+| `pocket-closing` | "close the plan", after dev pass | Reconcile, gate, summarize |
+| `bug-hunting` | "fix bug", "debug" | Systematic debugging |
+| `hotfix` | "quick fix", "small change" | Fast gated changes |
+| `brand-design` | "design system", "creative brief" | UI tokens & brand |
+| `structured-research` | "validate assumption" | Evidence-based verdict |
+| `pocket-help` | "what is pocket" | Router / onboarding |
+| `pocket-init` | "onboard this project" | Generate AGENTS.md, enable enterprise |
+| `create-pr` | "open a PR" | Enterprise PR recorder |
+
+---
+
+## 🧭 Quick Reference Commands
+
+```bash
+# Pocket flow
+/pocketto:pocket-grinding   "feature description"
+/pocketto:pocket-planning
+/pocketto:pocket-development
+/pocketto:pocket-closing    <plan_dir>
+
+# Standalone
+/pocketto:bug-hunting   "symptom"
+/pocketto:hotfix        "change description"
+/pocketto:structured-research "assumption to validate"
+
+# MCP verification
+pi --approve mcp list
+
+# Serena
+serena project health-check
+serena memories list
+
+# Graphify
+graphify update .
+graphify query "question"
+graphify explain "node"
+```
+
+---
+
+## 📁 Project Structure (Monorepo)
+
+```
+apps/api        # Laravel 11 + PHP 8.3
+apps/web        # Next.js 16 + React 18 + TS
+packages/shared # @ddp/shared (TS)
+docker/         # Compose dev stack
+docs/           # Technical docs + pocket plans
+.serena/        # Serena project config + memories
+graphify-out/   # Knowledge graph artifacts
+.pi/            # Pi config (mcp-adapter.json, tasks/)
+```
+
+---
+
+## 🧪 Testing Commands
+
+```bash
+# API (Laravel)
+cd apps/api && php artisan test
+cd apps/api && ./vendor/bin/pint  # lint
+
+# Web (Next.js)
+cd apps/web && npm run lint
+cd apps/web && npm run build
+cd apps/web && npm test
+```
+
+---
+
+*Generated by Pi session — keep this file up to date as tooling evolves.*

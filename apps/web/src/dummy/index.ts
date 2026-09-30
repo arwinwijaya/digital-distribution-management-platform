@@ -13,6 +13,8 @@ import { buildMasterData } from './factory';
 import { buildTransactions } from './factory-transactions';
 import { buildAggregates } from './aggregates';
 import type { Aggregates } from './aggregates';
+import { buildPhase9Dummy } from './phase9';
+import type { Phase9DummyEntities } from './phase9';
 import type { MasterData } from './factory';
 import type { Transactions } from './factory-transactions';
 // ── Sub-module re-exports ────────────────────────────────────────────────────
@@ -64,6 +66,9 @@ export type {
 export { buildAggregates } from './aggregates';
 export type { Aggregates } from './aggregates';
 
+export { buildPhase9Dummy } from './phase9';
+export type { Phase9DummyEntities } from './phase9';
+
 // ── Composition types ────────────────────────────────────────────────────────
 
 /**
@@ -75,7 +80,8 @@ export type { Aggregates } from './aggregates';
  */
 export type FullDummy = Omit<MasterData, 'suppliers'> &
   Transactions &
-  Aggregates;
+  Aggregates &
+  Phase9DummyEntities;
 
 // ── Composition ──────────────────────────────────────────────────────────────
 
@@ -101,5 +107,6 @@ export function buildFullDummy(today?: Date): FullDummy {
   const master = buildMasterData(rng, window);
   const tx = buildTransactions(master, window);
   const agg = buildAggregates(master, tx);
-  return { ...master, ...tx, ...agg };
+  const phase9 = buildPhase9Dummy(master, window);
+  return { ...master, ...tx, ...agg, ...phase9 };
 }

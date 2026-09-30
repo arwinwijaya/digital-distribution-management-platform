@@ -16,6 +16,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -178,5 +179,126 @@ class Phase9EndToEndTest extends TestCase
             $this->assertSame(1, RecommendationActionEvent::where('recommendation_action_id', $actionId)->where('event_type', 'approved')->count());
             $this->assertSame(1, RecommendationActionEvent::where('recommendation_action_id', $actionId)->where('event_type', 'executed')->count());
         }
+    }
+
+    public function test_replenishment_approve_execute_is_idempotent_audited_and_admin_only_via_http(): void
+    {
+        $admin = $this->admin();
+        $nonAdmin = $this->nonAdmin();
+        $headers = ['Authorization' => $this->bearerFor($admin)];
+        $nonAdminHeaders = ['Authorization' => $this->bearerFor($nonAdmin)];
+
+        $supplier = Supplier::factory()->create();
+        $product = Product::factory()->create(['stock_quantity' => 200, 'price' => 4500]);
+        $plan = ReplenishmentPlan::factory()->create([
+            'supplier_id' => $supplier->id,
+            'created_by' => $admin->id,
+            'status' => 'draft',
+        ]);
+        ReplenishmentPlanItem::factory()->create([
+            'replenishment_plan_id' => $plan->id,
+            'product_id' => $product->id,
+            'reorder_quantity' => 50,
+            'data_sufficiency' => 'sufficient',
+        ]);
+
+        $this->withHeaders($headers)
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/execute", ['logical_key' => 'phase9-repl-e2e'])
+            ->assertStatus(422)->assertJsonPath('status', 'error');
+        $this->withHeaders($nonAdminHeaders)
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/approve")
+            ->assertForbidden();
+
+        $this->withHeaders($headers)
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/approve")
+            ->assertOk()->assertJsonPath('data.status', 'approved')
+            ->assertJsonPath('data.approved_by', $admin->id)
+            ->assertJsonPath('data.idempotent_replay', false);
+        $this->withHeaders($headers)
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/approve")
+            ->assertOk()->assertJsonPath('data.idempotent_replay', true);
+
+        $execute = $this->withHeaders($headers)
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/execute", ['logical_key' => 'phase9-repl-e2e']);
+        $execute->assertOk()->assertJsonPath('data.status', 'executed')
+            ->assertJsonPath('data.executed_by', $admin->id)
+            ->assertJsonPath('data.idempotent_replay', false);
+        $result = $execute->json('data.execution_result');
+        $this->assertCount(1, $result['purchase_orders']);
+        $this->assertSame($supplier->id, $result['purchase_orders'][0]['supplier_id']);
+        $this->assertSame($product->id, $result['purchase_orders'][0]['items'][0]['product_id']);
+
+        $this->withHeaders($nonAdminHeaders)
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/execute", ['logical_key' => 'phase9-repl-e2e'])
+            ->assertForbidden();
+        $this->withHeaders($headers)
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/execute", ['logical_key' => 'phase9-repl-e2e'])
+            ->assertOk()->assertJsonPath('data.idempotent_replay', true)
+            ->assertJsonPath('data.execution_result', $result);
+
+        $events = OperationalEvent::where('route', "replenishment-plans/{$plan->id}")
+            ->orderBy('id')->pluck('action')->all();
+        $this->assertSame(['replenishment.approved', 'replenishment.executed'], $events);
+    }
+
+    public function test_calibration_and_revenue_lift_persist_contracts_without_false_zero_or_perfect_claim(): void
+    {
+        DB::table('forecast_actuals')->updateOrInsert(
+            ['dimension_key' => 'phase9-e2e-dim-a'],
+            ['pairs' => json_encode([
+                ['actual' => 10000, 'forecast' => 9500],
+                ['actual' => 12000, 'forecast' => 11000],
+            ])]
+        );
+        $cal1 = app(\App\Services\ForecastCalibrationService::class)->calibrate('phase9-e2e-dim-a');
+        $this->assertSame(1.0, $cal1['bias_factor']);
+        $this->assertSame(\App\Services\ForecastCalibrationService::METHOD_VERSION, $cal1['method_version']);
+        $this->assertTrue($cal1['fallback']);
+        $this->assertSame(2, $cal1['sample_size']);
+
+        DB::table('forecast_actuals')->updateOrInsert(
+            ['dimension_key' => 'phase9-e2e-dim-b'],
+            ['pairs' => json_encode([
+                ['actual' => 10000, 'forecast' => 9500],
+                ['actual' => 12000, 'forecast' => 11000],
+                ['actual' => 8000, 'forecast' => 7500],
+            ])]
+        );
+        $cal2 = app(\App\Services\ForecastCalibrationService::class)->calibrate('phase9-e2e-dim-b');
+        $this->assertGreaterThan(0.0, $cal2['bias_factor']);
+        $this->assertSame(\App\Services\ForecastCalibrationService::METHOD_VERSION, $cal2['method_version']);
+        $this->assertFalse($cal2['fallback']);
+        $this->assertSame(3, $cal2['sample_size']);
+
+        $applied = app(\App\Services\ForecastCalibrationService::class)->apply(['forecast_sales' => '10000.00'], 'phase9-e2e-dim-b');
+        $this->assertSame(\App\Services\ForecastCalibrationService::METHOD_VERSION, $applied['method_version']);
+        $this->assertFalse($applied['calibration']['fallback']);
+        $this->assertNotSame('0.00', $applied['forecast_sales']);
+
+        $experiment = \App\Models\AbExperiment::factory()->create(['name' => 'Phase9 E2E Lift Test', 'status' => 'running', 'minimum_sample_size' => 5]);
+        $lift1 = app(\App\Services\RevenueLiftService::class)->computeLift($experiment, [
+            'control' => [['revenue' => 1000.00], ['revenue' => 2000.00]],
+            'treatment' => [['revenue' => 1200.00], ['revenue' => 2200.00]],
+        ]);
+        $this->assertSame('insufficient-data', $lift1->status);
+        $this->assertNull($lift1->uplift);
+        $this->assertSame(\App\Services\RevenueLiftService::METHOD_VERSION, $lift1->method_version);
+
+        $experiment2 = \App\Models\AbExperiment::factory()->create(['name' => 'Phase9 E2E Lift Zero Control', 'status' => 'running', 'minimum_sample_size' => 2]);
+        $lift2 = app(\App\Services\RevenueLiftService::class)->computeLift($experiment2, [
+            'control' => [['revenue' => 0.00], ['revenue' => 0.00]],
+            'treatment' => [['revenue' => 5000.00], ['revenue' => 6000.00]],
+        ]);
+        $this->assertSame('insufficient-data', $lift2->status);
+        $this->assertNull($lift2->uplift);
+
+        $experiment3 = \App\Models\AbExperiment::factory()->create(['name' => 'Phase9 E2E Lift Computed', 'status' => 'running', 'minimum_sample_size' => 3]);
+        $lift3 = app(\App\Services\RevenueLiftService::class)->computeLift($experiment3, [
+            'control' => [['revenue' => 10000.00], ['revenue' => 10000.00], ['revenue' => 10000.00]],
+            'treatment' => [['revenue' => 11000.00], ['revenue' => 11000.00], ['revenue' => 11000.00]],
+        ]);
+        $this->assertSame('computed', $lift3->status);
+        $this->assertEquals(0.1, (float) $lift3->uplift);
+        $this->assertSame(\App\Services\RevenueLiftService::METHOD_VERSION, $lift3->method_version);
     }
 }

@@ -100,4 +100,25 @@ describe('LoginPage outlet-first presentation', () => {
     expect(bodyText).not.toMatch(/inventaris anda/);
     expect(bodyText).not.toMatch(/inventory/);
   });
+
+  it('orders branding/form/submit before benefits with no order-* visual reversal on mobile', async () => {
+    await renderLoginPage();
+
+    const heading = screen.getByRole('heading', { name: /^masuk$/i });
+    const submit = screen.getByRole('button', { name: 'Masuk & pesan ulang' });
+    const benefits = screen.getByTestId('login-benefits');
+    const firstBenefit = within(benefits).getAllByRole('listitem')[0];
+
+    expect(heading.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(submit.compareDocumentPosition(firstBenefit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(heading.compareDocumentPosition(firstBenefit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const layout = screen.getByTestId('login-layout');
+    const scoped = [layout, ...Array.from(layout.querySelectorAll('*'))];
+    for (const element of scoped) {
+      for (const cls of Array.from(element.classList)) {
+        expect(cls).not.toMatch(/^order-/);
+      }
+    }
+  });
 });

@@ -58,6 +58,13 @@ function LoginContent() {
   return (
     <div className="mx-auto max-w-5xl">
       <div data-testid="login-layout" className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-center">
+        <section data-testid="login-form-panel" className="mx-auto w-full max-w-md">
+          <PageHeader title="Masuk" description="Gunakan satu form ini untuk semua peran: outlet, admin, sales, driver, ataupun finance." />
+          <LoginForm onLogin={handleLogin} ctaLabel="Masuk & pesan ulang" />
+          <p className="mt-6 text-center text-xs text-gray-500">
+            Akun demo outlet: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">siti.nurhaliza@ddp.test</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">password123</code>
+          </p>
+        </section>
         <section data-testid="login-hero-panel" className="rounded-2xl bg-primary-50 p-6">
           <h1 className="text-2xl font-bold text-gray-900">Pesanan ulang untuk outlet</h1>
           <p className="mt-2 text-sm text-gray-600">
@@ -69,13 +76,6 @@ function LoginContent() {
             <li className="flex gap-2"><span aria-hidden="true">&#128205;</span><span>Pantau status pengiriman setiap pesanan.</span></li>
             <li className="flex gap-2"><span aria-hidden="true">&#128230;</span><span>Akses katalog produk dan harga terbaru.</span></li>
           </ul>
-        </section>
-        <section data-testid="login-form-panel" className="mx-auto w-full max-w-md">
-          <PageHeader title="Masuk" description="Gunakan satu form ini untuk semua peran: outlet, admin, sales, driver, ataupun finance." />
-          <LoginForm onLogin={handleLogin} ctaLabel="Masuk & pesan ulang" />
-          <p className="mt-6 text-center text-xs text-gray-500">
-            Akun demo outlet: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">siti.nurhaliza@ddp.test</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">password123</code>
-          </p>
         </section>
       </div>
     </div>

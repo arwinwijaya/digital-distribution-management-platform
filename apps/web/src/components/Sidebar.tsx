@@ -34,6 +34,8 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'operations',        href: '/operations',        label: 'Operasi',          icon: '🔧' },
   // AI Actions (Phase 9) — group analitik
   { key: 'ai_actions',      href: '/ai-actions',      label: 'Aksi AI',          icon: '🤖' },
+  // AI Experiments (Phase 9 / T15)
+  { key: 'ai_experiments',  href: '/admin/ai-experiments', label: 'Eksperimen AI',    icon: '🧪' },
   // Admin Management
   { key: 'admin_orders',            href: '/admin/orders',            label: 'Approval Pesanan', icon: '⚙️' },
   { key: 'admin_products',          href: '/admin/products',          label: 'Harga Produk',     icon: '💰' },

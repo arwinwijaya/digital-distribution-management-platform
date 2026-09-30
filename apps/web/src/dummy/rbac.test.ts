@@ -2,7 +2,7 @@
  * rbac.test.ts — dummy RBAC matrix fixture.
  *
  * Story 3 (dummy parity): dummy mode must mirror the seeded default matrix
- * with zero network. Guards the shape (23 explicit keys), the fallback for
+ * with zero network. Guards the shape (24 explicit keys), the fallback for
  * unknown roles (all `none`), and spot-check parity with the API seeder
  * (apps/api/database/seeders/RbacMatrixSeeder.php).
  */
@@ -37,29 +37,30 @@ const EXPECTED_MENU_KEYS = [
   'field_ops',
   'driver_roster',
   'ai_actions',
+  'ai_experiments',
   'supply_chain',
 ] as const;
 
 describe('DUMMY_RBAC_MATRIX shape', () => {
-  it('exposes exactly 23 menu keys in the canonical order', () => {
-    expect(MENU_KEYS).toHaveLength(23);
-    expect(new Set(MENU_KEYS).size).toBe(23);
+  it('exposes exactly 24 menu keys in the canonical order', () => {
+    expect(MENU_KEYS).toHaveLength(24);
+    expect(new Set(MENU_KEYS).size).toBe(24);
     expect([...MENU_KEYS]).toEqual([...EXPECTED_MENU_KEYS]);
   });
 
-  it('appends ai_actions and supply_chain after the 21 legacy keys', () => {
+  it('appends AI menus after the 21 legacy keys', () => {
     expect(MENU_KEYS.slice(0, 21)).toEqual([...EXPECTED_MENU_KEYS.slice(0, 21)]);
-    expect(MENU_KEYS.slice(21)).toEqual(['ai_actions', 'supply_chain']);
+    expect(MENU_KEYS.slice(21)).toEqual(['ai_actions', 'ai_experiments', 'supply_chain']);
   });
 
   it('exposes exactly 7 roles', () => {
     expect(ROLES).toHaveLength(7);
   });
 
-  it('resolves a 23-key map for every known role', () => {
+  it('resolves a 24-key map for every known role', () => {
     for (const role of ROLES) {
       const map = getDummyMatrix(role);
-      expect(Object.keys(map)).toHaveLength(23);
+      expect(Object.keys(map)).toHaveLength(24);
       for (const key of MENU_KEYS) {
         expect(['none', 'read', 'edit']).toContain(map[key]);
       }
@@ -70,7 +71,7 @@ describe('DUMMY_RBAC_MATRIX shape', () => {
 describe('getDummyMatrix fallback', () => {
   it('returns all-none for an unknown role', () => {
     const map = getDummyMatrix('unknown');
-    expect(Object.keys(map)).toHaveLength(23);
+    expect(Object.keys(map)).toHaveLength(24);
     for (const key of MENU_KEYS) {
       expect(map[key]).toBe('none');
     }
@@ -187,9 +188,9 @@ describe('getDummyMatrix parity spot-checks with the API seeder', () => {
     expect(driverRoster?.finance).toBeUndefined();
   });
 
-  it('matches the Phase 9 ai_actions + supply_chain rows from seeder', () => {
-    // Both new menus: platform_owner=edit, admin=edit; every other role absent.
-    for (const menu of ['ai_actions', 'supply_chain'] as const) {
+  it('matches the Phase 9 AI menu rows from seeder', () => {
+    // AI menus: platform_owner=edit, admin=edit; every other role absent.
+    for (const menu of ['ai_actions', 'ai_experiments', 'supply_chain'] as const) {
       expect(DUMMY_RBAC_MATRIX[menu]?.platform_owner).toBe('edit');
       expect(DUMMY_RBAC_MATRIX[menu]?.admin).toBe('edit');
       expect(DUMMY_RBAC_MATRIX[menu]?.outlet).toBeUndefined();

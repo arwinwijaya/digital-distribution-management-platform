@@ -35,6 +35,7 @@ export const MENU_KEYS = [
   'field_ops',
   'driver_roster',
   'ai_actions',
+  'ai_experiments',
   'supply_chain',
 ] as const;
 
@@ -136,6 +137,9 @@ export const DUMMY_RBAC_MATRIX: Record<string, Partial<Record<RbacRole, RbacLeve
     platform_owner: 'edit', admin: 'edit',
   },
   supply_chain: {
+    platform_owner: 'edit', admin: 'edit',
+  },
+  ai_experiments: {
     platform_owner: 'edit', admin: 'edit',
   },
 };

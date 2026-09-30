@@ -134,4 +134,20 @@ describe('LoginPage outlet-first presentation', () => {
     expect(demoText).toHaveClass('text-xs');
     expect(demoText).toHaveClass('text-gray-500');
   });
+
+  it('bypasses the login form when a valid stored token and role exist', async () => {
+    localStorage.setItem('ddp_token', 'valid-token');
+    localStorage.setItem('ddp_role', 'outlet');
+    const fetchMock = mockFetchByEndpoint({
+      me: response(true, { data: { role: 'outlet' } }),
+    });
+
+    await import('./page');
+    render(<LoginPage />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/orders'));
+    expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/me'), expect.objectContaining({ headers: expect.any(Object) }));
+    expect(screen.queryByRole('button', { name: 'Masuk & pesan ulang' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Masuk' })).not.toBeInTheDocument();
+  });
 });

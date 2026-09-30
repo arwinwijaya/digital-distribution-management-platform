@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\ForecastService;
+use App\Services\Recommendation\RecommendationModelAdapter;
 use App\Services\RecommendationService;
 use App\Services\SegmentationService;
 use Illuminate\Http\JsonResponse;
@@ -11,7 +12,7 @@ use Illuminate\Http\Request;
 class AIController extends Controller
 {
     public function __construct(
-        private readonly RecommendationService $recommendationService,
+        private readonly RecommendationModelAdapter $recommendationAdapter,
         private readonly ForecastService $forecastService,
         private readonly SegmentationService $segmentationService,
     ) {}
@@ -26,7 +27,7 @@ class AIController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $this->recommendationService->recommend($outletId, (int) ($validated['limit'] ?? RecommendationService::DEFAULT_LIMIT)),
+            'data' => $this->recommendationAdapter->resolve()->predict($outletId, (int) ($validated['limit'] ?? RecommendationService::DEFAULT_LIMIT)),
         ]);
     }
 

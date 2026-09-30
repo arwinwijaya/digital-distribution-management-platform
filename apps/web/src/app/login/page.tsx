@@ -63,6 +63,7 @@ function LoginContent() {
           <p className="mt-2 text-sm text-gray-600">
             Satu tempat untuk melihat kebutuhan outlet dan mengirim pesanan ulang tanpa ribet.
           </p>
+          <p className="mt-4 text-sm font-medium text-gray-700">Setelah masuk Anda bisa:</p>
           <ul data-testid="login-benefits" className="mt-5 space-y-3 text-sm text-gray-700">
             <li className="flex gap-2"><span aria-hidden="true">&#8635;</span><span>Ulang pesanan rutin dalam beberapa klik.</span></li>
             <li className="flex gap-2"><span aria-hidden="true">&#128205;</span><span>Pantau status pengiriman setiap pesanan.</span></li>

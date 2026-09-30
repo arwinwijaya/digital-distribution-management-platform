@@ -87,4 +87,17 @@ describe('LoginPage outlet-first presentation', () => {
     expect(formPanel.parentElement).toBe(layout);
     expect(heroPanel.parentElement).toBe(layout);
   });
+
+  it('uses honest ability-framed copy and makes no personal stock/promo claims', async () => {
+    await renderLoginPage();
+
+    expect(screen.getByText(/setelah masuk anda bisa/i)).toBeInTheDocument();
+
+    const bodyText = document.body.textContent?.toLowerCase() ?? '';
+    expect(bodyText).not.toMatch(/stok anda/);
+    expect(bodyText).not.toMatch(/promo anda/);
+    expect(bodyText).not.toMatch(/rekomendasi/);
+    expect(bodyText).not.toMatch(/inventaris anda/);
+    expect(bodyText).not.toMatch(/inventory/);
+  });
 });

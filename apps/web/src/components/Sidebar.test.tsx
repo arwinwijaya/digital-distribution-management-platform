@@ -181,6 +181,7 @@ describe('Sidebar Analitik gate', () => {
     await waitFor(() => expect(screen.getByText('Analitik')).toBeInTheDocument());
     expect(screen.getByText('Data Intelligence')).toBeInTheDocument();
     expect(screen.getByText('Aksi AI')).toBeInTheDocument();
+    expect(screen.getByText('Eksperimen AI')).toBeInTheDocument();
     expect(screen.getByText('Rantai Pasok')).toBeInTheDocument();
     for (const label of ADMIN_MENUS) {
       expect(screen.getByText(label)).toBeInTheDocument();
@@ -194,6 +195,7 @@ describe('Sidebar Analitik gate', () => {
     await waitFor(() => expect(screen.getByText('Analitik')).toBeInTheDocument());
     expect(screen.getByText('Analitik').closest('a')?.getAttribute('href')).toBe('/analytics');
     expect(screen.getByText('Aksi AI').closest('a')?.getAttribute('href')).toBe('/ai-actions');
+    expect(screen.getByText('Eksperimen AI').closest('a')?.getAttribute('href')).toBe('/admin/ai-experiments');
     expect(screen.getByText('Rantai Pasok').closest('a')?.getAttribute('href')).toBe('/supply-chain');
   });
 });

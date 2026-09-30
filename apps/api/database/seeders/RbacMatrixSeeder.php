@@ -107,6 +107,9 @@ class RbacMatrixSeeder extends Seeder
         'ai_actions' => [
             'platform_owner' => 'edit', 'admin' => 'edit',
         ],
+        'ai_experiments' => [
+            'platform_owner' => 'edit', 'admin' => 'edit',
+        ],
         'supply_chain' => [
             'platform_owner' => 'edit', 'admin' => 'edit',
         ],

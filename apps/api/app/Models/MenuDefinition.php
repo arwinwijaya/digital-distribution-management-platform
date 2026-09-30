@@ -44,7 +44,8 @@ class MenuDefinition extends Model
         ['key' => 'field_ops',              'label' => 'Operasi Lapangan',  'group' => 'operasional', 'sort' => 20],
         ['key' => 'driver_roster',          'label' => 'Roster Driver',     'group' => 'admin',       'sort' => 21],
         ['key' => 'ai_actions',              'label' => 'Aksi AI',             'group' => 'analitik',    'sort' => 22],
-        ['key' => 'supply_chain',            'label' => 'Rantai Pasok',        'group' => 'operasional', 'sort' => 23],
+        ['key' => 'ai_experiments',            'label' => 'Eksperimen AI',       'group' => 'analitik',    'sort' => 23],
+        ['key' => 'supply_chain',              'label' => 'Rantai Pasok',        'group' => 'operasional', 'sort' => 24],
     ];
 
     protected $primaryKey = 'key';

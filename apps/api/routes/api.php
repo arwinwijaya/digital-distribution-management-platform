@@ -205,8 +205,10 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/admin/recommendation-actions/{id}/execute', [RecommendationActionController::class, 'execute'])->middleware('rbac:ai_actions:edit');
 
     // Phase 9 T10: replenishment approve/execute (draft PO metadata only).
-    Route::post('/admin/replenishment-plans/{id}/approve', [ReplenishmentPlanController::class, 'approve'])->middleware('rbac:supply_chain:edit');
-    Route::post('/admin/replenishment-plans/{id}/execute', [ReplenishmentPlanController::class, 'execute'])->middleware('rbac:supply_chain:edit');
+    Route::post('/admin/replenishment-plans/{id}/approve', [ReplenishmentPlanController::class, 'approve'])
+        ->middleware(['reject.stale_jwt', 'rbac:supply_chain:edit']);
+    Route::post('/admin/replenishment-plans/{id}/execute', [ReplenishmentPlanController::class, 'execute'])
+        ->middleware(['reject.stale_jwt', 'rbac:supply_chain:edit']);
 
     // WhatsApp outbound operations use the authenticated outlet/admin identity.
     Route::post('/whatsapp/catalog', [WhatsAppController::class, 'catalog'])->middleware('rbac:orders:edit');

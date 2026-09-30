@@ -15,7 +15,8 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "docker:rebuild": "docker compose up -d --build",
-    "api:artisan": "cd apps/api && php artisan"
+    "api:artisan": "cd apps/api && php artisan",
+    "e2e:seed": "bash scripts/e2e-seed.sh"
   },
   "devDependencies": {
     "typescript": "^5.4.0"

@@ -180,21 +180,26 @@ describe('LoginPage outlet-first presentation', () => {
     expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/me'), expect.objectContaining({ headers: expect.any(Object) }));
   });
 
-  it('submits through the real LoginForm and issues exactly one correct /auth/login request with outlet redirect', async () => {
+  async function submitLogin(role: string, email = `${role}@ddp.test`) {
     const fetchMock = mockFetchByEndpoint({
-      login: response(true, { data: { token: 'token-outlet', user: { role: 'outlet' } } }),
+      login: response(true, { data: { token: `token-${role}`, user: { role } } }),
     });
-    const dispatchSpy = jest.spyOn(window, 'dispatchEvent');
 
     render(<LoginPage />);
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Masuk & pesan ulang' })).toBeInTheDocument());
-
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'outlet@ddp.test' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: email } });
     fireEvent.change(screen.getByLabelText('Kata sandi'), { target: { value: 'secret' } });
     await act(async () => {
       fireEvent.submit(screen.getByLabelText('Email').closest('form') as HTMLFormElement);
     });
+
+    return fetchMock;
+  }
+
+  it('submits through the real LoginForm and issues exactly one correct /auth/login request with outlet redirect', async () => {
+    const dispatchSpy = jest.spyOn(window, 'dispatchEvent');
+    const fetchMock = await submitLogin('outlet', 'outlet@ddp.test');
 
     const loginCall = fetchMock.mock.calls.find((call) => String(call[0]) === apiUrl('/auth/login'));
     expect(loginCall).toBeDefined();
@@ -210,5 +215,29 @@ describe('LoginPage outlet-first presentation', () => {
     expect(dispatchSpy.mock.calls[0][0]).toMatchObject({ type: 'ddp-auth-change', detail: { token: 'token-outlet', role: 'outlet' } });
     expect(mockReplace).toHaveBeenCalledWith('/orders');
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['admin', '/dashboard'],
+    ['finance', '/dashboard'],
+    ['platform_owner', '/dashboard'],
+    ['driver', '/delivery'],
+    ['sales', '/sales/orders'],
+  ])('redirects %s logins to %s and refreshes after replace', async (role, destination) => {
+    await submitLogin(role);
+
+    expect(mockReplace).toHaveBeenCalledWith(destination);
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockReplace.mock.invocationCallOrder[0]).toBeLessThan(mockRefresh.mock.invocationCallOrder[0]);
+  });
+
+  it('honors redirect param through roleDestination before refreshing', async () => {
+    mockRedirectParam = '/admin/supply-chain';
+
+    await submitLogin('admin', 'admin@ddp.test');
+
+    expect(mockReplace).toHaveBeenCalledWith('/admin/supply-chain');
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockReplace.mock.invocationCallOrder[0]).toBeLessThan(mockRefresh.mock.invocationCallOrder[0]);
   });
 });

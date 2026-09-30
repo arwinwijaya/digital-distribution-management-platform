@@ -10,9 +10,8 @@ function roleDestination(role: string, fallback: string) {
   if (role === 'outlet') return '/orders';
   if (role === 'driver') return '/delivery';
   if (role === 'sales') return '/sales/orders';
-  if (role === 'finance') return '/dashboard';
-  if (role === 'platform_owner') return '/dashboard';
-  if (role === 'admin') return '/dashboard';
+  // admin / finance / platform_owner home is the dashboard, but an explicit
+  // redirect param (passed as fallback) is honored for these roles.
   return fallback;
 }
 

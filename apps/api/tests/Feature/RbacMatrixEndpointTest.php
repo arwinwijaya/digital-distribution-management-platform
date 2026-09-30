@@ -43,7 +43,7 @@ class RbacMatrixEndpointTest extends TestCase
         $this->assertCount(7, $data);
 
         foreach ($data as $role => $map) {
-            $this->assertCount(23, $map, "role {$role} should expose 23 menu keys");
+            $this->assertCount(24, $map, "role {$role} should expose 24 menu keys");
         }
 
         $this->assertSame('read', $data['admin']['rbac_matrix']);
@@ -89,7 +89,7 @@ class RbacMatrixEndpointTest extends TestCase
         $data = $response->json('data');
         $this->assertCount(7, $data);
         foreach ($data as $map) {
-            $this->assertCount(23, $map);
+            $this->assertCount(24, $map);
             $this->assertSame(['none'], array_values(array_unique($map)));
         }
     }

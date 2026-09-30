@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * GET /auth/me must include a full 23-key `rbac` map for the caller's role.
+ * GET /auth/me must include a full 24-key `rbac` map for the caller's role.
  */
 class AuthMeRbacTest extends TestCase
 {
@@ -33,7 +33,7 @@ class AuthMeRbacTest extends TestCase
         $rbac = $response->json('data.rbac');
 
         $this->assertIsArray($rbac);
-        $this->assertCount(23, $rbac);
+        $this->assertCount(24, $rbac);
         $this->assertSame('read', $rbac['products']);
         $this->assertSame('edit', $rbac['orders']);
         $this->assertSame('none', $rbac['rbac_matrix']);
@@ -67,7 +67,7 @@ class AuthMeRbacTest extends TestCase
             ->assertOk()
             ->json('data.rbac');
 
-        $this->assertCount(23, $rbac);
+        $this->assertCount(24, $rbac);
         $this->assertSame(['none'], array_values(array_unique($rbac)));
     }
 }

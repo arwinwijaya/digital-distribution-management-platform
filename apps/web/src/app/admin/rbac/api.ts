@@ -4,7 +4,7 @@
  * All matrix traffic is funnelled through `useRbacStore` (never a direct fetch
  * from the component): the store owns the token handling, dummy-mode branch,
  * error parsing and the post-save refresh. `fetchMe` hydrates the caller's
- * role + 23-key map so the page can gate on `canRead('rbac_matrix')`.
+ * role + 24-key map so the page can gate on `canRead('rbac_matrix')`.
  */
 import { apiUrl, authHeaders } from '@/lib/api';
 import { useRbacStore, type RbacCell, type RbacMatrix } from '@/store/useRbacStore';

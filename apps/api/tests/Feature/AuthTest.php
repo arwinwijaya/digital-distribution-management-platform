@@ -55,6 +55,29 @@ class AuthTest extends TestCase
     }
 
     /**
+     * Inactive accounts must not receive authentication tokens.
+     */
+    public function test_inactive_user_cannot_login(): void
+    {
+        User::factory()->create([
+            'email' => 'inactive@ddp.com',
+            'password' => Hash::make('password123'),
+            'is_active' => false,
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'inactive@ddp.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJson([
+                'status' => 'error',
+                'message' => 'Account is inactive.',
+            ]);
+    }
+
+    /**
      * Test: Given invalid credentials, When user logs in, Then error is returned
      */
     public function test_user_cannot_login_with_invalid_credentials(): void

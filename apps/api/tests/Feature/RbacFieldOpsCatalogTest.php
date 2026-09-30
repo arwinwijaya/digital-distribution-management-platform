@@ -14,8 +14,8 @@ use Tests\TestCase;
  * Phase 8 RBAC catalog additions: `field_ops` + `driver_roster`.
  *
  * Locks the 19 -> 21 menu expansion and the default access levels added for
- * the mobile field operations surfaces (catalog now totals 23 keys after
- * Phase 9 `ai_actions` + `supply_chain`).
+ * the mobile field operations surfaces (catalog now totals 24 keys after
+ * Phase 9 `ai_actions`, `ai_experiments` + `supply_chain`).
  */
 class RbacFieldOpsCatalogTest extends TestCase
 {
@@ -27,7 +27,7 @@ class RbacFieldOpsCatalogTest extends TestCase
 
         $this->assertContains('field_ops', $keys);
         $this->assertContains('driver_roster', $keys);
-        $this->assertCount(23, $keys);
+        $this->assertCount(24, $keys);
     }
 
     public function test_catalog_metadata_continues_sort_order_and_grouping(): void
@@ -47,8 +47,8 @@ class RbacFieldOpsCatalogTest extends TestCase
     {
         $this->seed(RbacMatrixSeeder::class);
 
-        $this->assertSame(23, MenuDefinition::count());
-        $this->assertSame(87, RoleMenuAccess::where('level', '!=', 'none')->count());
+        $this->assertSame(24, MenuDefinition::count());
+        $this->assertSame(89, RoleMenuAccess::where('level', '!=', 'none')->count());
     }
 
     public function test_default_access_levels_for_new_menus(): void
@@ -81,7 +81,7 @@ class RbacFieldOpsCatalogTest extends TestCase
             ->assertOk();
 
         foreach ($response->json('data') as $role => $map) {
-            $this->assertCount(23, $map, "role {$role} should expose 23 menu keys");
+            $this->assertCount(24, $map, "role {$role} should expose 24 menu keys");
         }
 
         $this->assertSame('read', $response->json('data.driver.field_ops'));

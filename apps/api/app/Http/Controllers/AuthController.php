@@ -91,6 +91,13 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if (! $user->is_active) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Account is inactive.',
+            ], 403);
+        }
+
         $tokenData = $this->authService->createToken($user);
 
         return response()->json([

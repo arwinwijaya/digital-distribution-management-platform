@@ -11,9 +11,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Phase 9 RBAC catalog additions: `ai_actions` + `supply_chain`.
+ * Phase 9 RBAC catalog additions: `ai_actions` + `ai_experiments` + `supply_chain`.
  *
- * Locks the 21 -> 23 menu expansion and the default access levels added for
+ * Locks the 21 -> 24 menu expansion and the default access levels added for
  * the AI actions and supply chain surfaces.
  */
 class RbacAiActionsCatalogTest extends TestCase
@@ -47,11 +47,12 @@ class RbacAiActionsCatalogTest extends TestCase
             'driver_roster',
             // Phase 9 additions are appended in catalog order.
             'ai_actions',
+            'ai_experiments',
             'supply_chain',
         ];
 
         $this->assertSame($expectedKeys, MenuDefinition::keys());
-        $this->assertCount(23, MenuDefinition::keys());
+        $this->assertCount(24, MenuDefinition::keys());
     }
 
     public function test_catalog_metadata_continues_sort_order_and_grouping(): void
@@ -63,18 +64,23 @@ class RbacAiActionsCatalogTest extends TestCase
         $this->assertSame('analitik', $catalog['ai_actions']['group']);
         $this->assertSame(22, $catalog['ai_actions']['sort']);
 
-        // supply_chain: label "Rantai Pasok", group "operasional", sort 23
+        // ai_experiments: label "Eksperimen AI", group "analitik", sort 23
+        $this->assertSame('Eksperimen AI', $catalog['ai_experiments']['label']);
+        $this->assertSame('analitik', $catalog['ai_experiments']['group']);
+        $this->assertSame(23, $catalog['ai_experiments']['sort']);
+
+        // supply_chain: label "Rantai Pasok", group "operasional", sort 24
         $this->assertSame('Rantai Pasok', $catalog['supply_chain']['label']);
         $this->assertSame('operasional', $catalog['supply_chain']['group']);
-        $this->assertSame(23, $catalog['supply_chain']['sort']);
+        $this->assertSame(24, $catalog['supply_chain']['sort']);
     }
 
-    public function test_seeder_creates_twenty_three_menus_and_eighty_seven_cells(): void
+    public function test_seeder_creates_twenty_four_menus_and_eighty_nine_cells(): void
     {
         $this->seed(RbacMatrixSeeder::class);
 
-        $this->assertSame(23, MenuDefinition::count());
-        $this->assertSame(87, RoleMenuAccess::where('level', '!=', 'none')->count());
+        $this->assertSame(24, MenuDefinition::count());
+        $this->assertSame(89, RoleMenuAccess::where('level', '!=', 'none')->count());
     }
 
     public function test_default_access_levels_for_new_menus(): void
@@ -108,7 +114,7 @@ class RbacAiActionsCatalogTest extends TestCase
         );
     }
 
-    public function test_matrix_endpoint_exposes_twenty_three_keys_per_role(): void
+    public function test_matrix_endpoint_exposes_twenty_four_keys_per_role(): void
     {
         $admin = User::factory()->admin()->create();
         $token = 'Bearer ' . app(AuthService::class)->createToken($admin)['token'];
@@ -118,7 +124,7 @@ class RbacAiActionsCatalogTest extends TestCase
             ->assertOk();
 
         foreach ($response->json('data') as $role => $map) {
-            $this->assertCount(23, $map, "role {$role} should expose 23 menu keys");
+            $this->assertCount(24, $map, "role {$role} should expose 24 menu keys");
         }
 
         $this->assertSame('edit', $response->json('data.platform_owner.ai_actions'));

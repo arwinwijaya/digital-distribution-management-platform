@@ -218,11 +218,13 @@ describe('LoginPage outlet-first presentation', () => {
   });
 
   it.each([
+    ['outlet', '/orders'],
     ['admin', '/dashboard'],
     ['finance', '/dashboard'],
     ['platform_owner', '/dashboard'],
     ['driver', '/delivery'],
     ['sales', '/sales/orders'],
+    ['supplier', '/marketplace'],
   ])('redirects %s logins to %s and refreshes after replace', async (role, destination) => {
     await submitLogin(role);
 

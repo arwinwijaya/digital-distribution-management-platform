@@ -10,6 +10,9 @@ function roleDestination(role: string, fallback: string) {
   if (role === 'outlet') return '/orders';
   if (role === 'driver') return '/delivery';
   if (role === 'sales') return '/sales/orders';
+  // Supplier has no analytics access, so the dashboard would 403 — send it to
+  // the marketplace instead (supplier holds `edit` on the marketplace menu).
+  if (role === 'supplier') return '/marketplace';
   // admin / finance / platform_owner home is the dashboard, but an explicit
   // redirect param (passed as fallback) is honored for these roles.
   return fallback;
@@ -55,25 +58,28 @@ function LoginContent() {
   if (!ready) return <p className="text-center text-sm text-gray-500 py-12">Memuat...</p>;
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <div data-testid="login-layout" className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-center">
-        <section data-testid="login-form-panel" className="mx-auto w-full max-w-md">
-          <PageHeader title="Masuk" description="Gunakan satu form ini untuk semua peran: outlet, admin, sales, driver, ataupun finance." />
+    <div
+      data-testid="login-screen"
+      className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100 px-4 py-10"
+    >
+      <div data-testid="login-layout" className="grid w-full max-w-5xl grid-cols-1 gap-8 lg:grid-cols-2 lg:items-center">
+        <section data-testid="login-form-panel" className="mx-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-lg ring-1 ring-black/5">
+          <PageHeader title="Masuk" description="Masuk dengan akun outlet Anda untuk memesan ulang dalam hitungan detik." />
           <LoginForm onLogin={handleLogin} ctaLabel="Masuk & pesan ulang" />
           <p data-testid="login-demo-footer" className="mt-6 text-center text-xs text-gray-500">
             Akun demo outlet: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">siti.nurhaliza@ddp.test</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">password123</code>
           </p>
         </section>
-        <section data-testid="login-hero-panel" className="rounded-2xl bg-primary-50 p-6">
-          <h1 className="text-2xl font-bold text-gray-900">Pesanan ulang untuk outlet</h1>
-          <p className="mt-2 text-sm text-gray-600">
+        <section data-testid="login-hero-panel" className="rounded-2xl bg-primary-600 p-6 text-white shadow-lg lg:p-10">
+          <h1 className="text-2xl font-bold text-white">Pesanan ulang untuk outlet</h1>
+          <p className="mt-2 text-sm text-primary-50">
             Satu tempat untuk melihat kebutuhan outlet dan mengirim pesanan ulang tanpa ribet.
           </p>
-          <p className="mt-4 text-sm font-medium text-gray-700">Setelah masuk Anda bisa:</p>
-          <ul data-testid="login-benefits" className="mt-5 space-y-3 text-sm text-gray-700">
-            <li className="flex gap-2"><span aria-hidden="true">&#8635;</span><span>Ulang pesanan rutin dalam beberapa klik.</span></li>
-            <li className="flex gap-2"><span aria-hidden="true">&#128205;</span><span>Pantau status pengiriman setiap pesanan.</span></li>
-            <li className="flex gap-2"><span aria-hidden="true">&#128230;</span><span>Akses katalog produk dan harga terbaru.</span></li>
+          <p className="mt-6 text-sm font-medium text-white">Setelah masuk Anda bisa:</p>
+          <ul data-testid="login-benefits" className="mt-5 space-y-3 text-sm text-primary-50">
+            <li className="flex items-start gap-3"><span aria-hidden="true" className="text-base leading-none">&#8635;</span><span>Ulang pesanan rutin dalam beberapa klik.</span></li>
+            <li className="flex items-start gap-3"><span aria-hidden="true" className="text-base leading-none">&#128205;</span><span>Pantau status pengiriman setiap pesanan.</span></li>
+            <li className="flex items-start gap-3"><span aria-hidden="true" className="text-base leading-none">&#128230;</span><span>Akses katalog produk dan harga terbaru.</span></li>
           </ul>
         </section>
       </div>

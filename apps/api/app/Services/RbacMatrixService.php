@@ -29,7 +29,7 @@ class RbacMatrixService
     ];
 
     /**
-     * Access map for a single role: menu_key => level, all 23 keys explicit.
+     * Access map for a single role: menu_key => level, all 24 keys explicit.
      * Missing rows become `none`.
      *
      * @return array<string, string>
@@ -51,7 +51,7 @@ class RbacMatrixService
      */
     public function fullMatrix(): array
     {
-        // One query for every cell, then shape in memory (avoids 7x23 queries).
+        // One query for every cell, then shape in memory (avoids 7x24 queries).
         $rows = RoleMenuAccess::query()->get(['role', 'menu_key', 'level']);
 
         $byRole = [];
@@ -120,7 +120,7 @@ class RbacMatrixService
     }
 
     /**
-     * Build a full 23-key map from an already-fetched role slice.
+     * Build a full 24-key map from an already-fetched role slice.
      *
      * @param  array<string, string>  $levels
      * @return array<string, string>

@@ -15,9 +15,9 @@ class MenuDefinition extends Model
 {
     /**
      * Canonical menu catalog in display order — the single source of truth for
-     * the 23 menu keys shared by the seeder, RbacMatrixService and the frontend
+     * the 24 menu keys shared by the seeder, RbacMatrixService and the frontend
      * NavItem list. Kept as a constant (not only DB rows) so the RBAC endpoints
-     * can render a full 23-key map even on a fresh DB where the seed has not run.
+     * can render a full 24-key map even on a fresh DB where the seed has not run.
      *
      * @var list<array{key:string, label:string, group:string, sort:int}>
      */

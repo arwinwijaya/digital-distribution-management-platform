@@ -4,7 +4,7 @@ import { FormEvent, useState } from 'react';
 import { apiUrl, storeToken } from '@/lib/api';
 import { Button, Card, Input } from '@/components/ui';
 
-type UserRole = 'outlet' | 'admin' | 'sales' | 'driver' | 'finance';
+type UserRole = 'outlet' | 'admin' | 'sales' | 'driver' | 'finance' | 'supplier' | 'platform_owner';
 
 interface LoginFormProps {
   onLogin: (token: string, role: string) => void;
@@ -18,6 +18,8 @@ const roleLabels: Record<string, string> = {
   sales: 'sales',
   driver: 'driver',
   finance: 'finance',
+  supplier: 'supplier',
+  platform_owner: 'platform owner',
 };
 
 function allowedRoles(expectedRole?: UserRole | UserRole[]): UserRole[] | null {

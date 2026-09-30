@@ -13,7 +13,7 @@ use Illuminate\Database\Seeder;
  * ("Default Matrix (Seed)"), plus the `worktree` menu added during planning
  * (spec listed 18 menus; the app had 19), plus the Phase 8 field-operations
  * menus `field_ops` + `driver_roster`, plus the Phase 9 `ai_actions` +
- * `supply_chain` menus (23 menus x 7 roles = 87 non-none cells).
+ * `supply_chain` menus (24 menus x 7 roles = 89 non-none cells).
  *
  * Only non-`none` cells are persisted; a missing row is interpreted as `none`
  * by the Rbac middleware and by RbacMatrixService. Fully idempotent via

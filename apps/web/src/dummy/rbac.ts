@@ -153,7 +153,7 @@ const NONE_MAP: Record<MenuKey, RbacLevel> = MENU_KEYS.reduce(
 );
 
 /**
- * Resolve the 23-key level map for a role. Unknown / null roles fall back to
+ * Resolve the 24-key level map for a role. Unknown / null roles fall back to
  * an all-`none` map (matching the middleware's "missing row → none" rule).
  */
 export function getDummyMatrix(role: string | null): Record<MenuKey, RbacLevel> {

@@ -77,7 +77,7 @@ class AnalyticsInsightEndpointTest extends TestCase
         $this->getJson('/api/analytics/insight')->assertUnauthorized();
     }
 
-    public function test_inactive_platform_owner_is_forbidden(): void
+    public function test_inactive_platform_owner_cannot_login(): void
     {
         $owner = User::factory()->create([
             'role' => 'platform_owner',
@@ -86,10 +86,11 @@ class AnalyticsInsightEndpointTest extends TestCase
             'password' => Hash::make('password123'),
         ]);
 
-        $this->withHeaders($this->headers($this->tokenFor($owner)))
-            ->getJson('/api/analytics/insight')
-            ->assertForbidden()
-            ->assertJsonPath('status', 'error');
+        $this->postJson('/api/auth/login', [
+            'email' => $owner->email,
+            'password' => 'password123',
+        ])->assertStatus(403)
+          ->assertJsonPath('message', 'Account is inactive.');
     }
 
     /**

@@ -9,9 +9,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const isLanding = pathname === '/';
+  const isLogin = pathname === '/login' || pathname.startsWith('/login/');
 
-  // Landing page ("/") tampil full-screen tanpa shell — jadi pintu masuk public
-  if (isLanding) return <>{children}</>;
+  // Landing + Login tampil full-screen tanpa Sidebar/Topbar —
+  // login harus fokus untuk outlet agar "pesan lagi" tanpa distraksi chrome.
+  if (isLanding || isLogin) return <>{children}</>;
 
   return (
     <div className="min-h-screen bg-gray-100">

@@ -1,0 +1,41 @@
+{
+  "task_id": "T18",
+  "task_name": "Cross-unit integration verification end-to-end",
+  "cycle": 1,
+  "timestamp": "2026-09-30T11:35:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "standard",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Real HTTP boundary: recommendation create/approve/execute + replenishment approve/execute exercised via postJson with Bearer tokens, admin vs outlet 403, no mocked core services — Phase9EndToEndTest lifecycle passes.",
+      "Approval-gated exactly-once: Order count 1 with stable order_id on replay, Promotion count 1 with stable promotion_id on replay, approve replay idempotent_replay true.",
+      "Invalid transitions 422 (execute-before-approve order + replenishment, reject-after-executed) and non-admin 403 covered.",
+      "Audit append-only: RecommendationActionEvent [created,approved,executed] plus single approved/executed counts after replays; OperationalEvent route replenishment-plans/{id} contains [replenishment.approved,replenishment.executed].",
+      "Calibration: ForecastCalibrationService calibrate bias-ratio-v1 fallback true for 2 pairs then false for 3, apply preserves method_version and scaled forecast; Lift: RevenueLiftService lift-mean-v1 insufficient-data null for small sample and zero-control, computed 0.1 for sufficient sample.",
+      "Envelope {status,data} and RBAC rbac:ai_actions:edit / supply_chain:edit preserved; missing generate/list and calibration/lift HTTP routes documented rather than invented."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "No new schema or business mutation path: only StoreRecommendationActionRequest campaign.* nullable rules and canonicalizePayload/canonicalizeCampaign persistence; execution still delegates to OrderCreationService/PromotionService.",
+      "Deferred routes correctly documented: test docblock and merge message state generate/list + calibration/lift HTTP do not exist and factories/services are used — routes/api.php confirms no new endpoints were invented.",
+      "Migration rollback unchanged: Phase9MigrationTest 58 assertions rolling back 8 steps revokes only phase 9 tables, non-phase9 tables intact.",
+      "log.json not hand-edited (no review commit touches execution plan/log beyond permitted snapshot).",
+      "Gates: Phase9EndToEndTest 3 tests / 96 assertions PASS, regression RecommendationActionControllerTest|ExecuteDraftOrderTest|ExecuteDraftCampaignTest|ReplenishmentApproveExecuteTest|Phase9AdapterFallbackTest 40 tests / 232 assertions PASS, Phase9MigrationTest PASS, web jest 79 suites / 696 tests PASS, tsc --noEmit clean."
+    ],
+    "issues": [],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {"current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2},
+  "reviewed_sha": "308e2b2c956288d0e04e37d8a58724881cbb5716",
+  "merge_sha": "a91b5920d941bbadc6473af59dff23198bb1464f",
+  "concerns": [
+    "Two-cycle TDD: cycle 1 f87fb7d credible RED then fix then GREEN; cycle 2 308e2b2 was GREEN-first-run additive — acceptable for verification task where T10/T11/T12 already green but strictly lacks second RED demonstration.",
+    "Payload fingerprint still items-only: same idempotency_key with different campaign would replay without 409 — pre-existing scope deferred to T2/T5 hardening."
+  ]
+}

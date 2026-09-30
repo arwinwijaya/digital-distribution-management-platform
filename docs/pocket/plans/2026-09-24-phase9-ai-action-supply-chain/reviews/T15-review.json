@@ -1,0 +1,44 @@
+{
+  "task_id": "T15",
+  "task_name": "Dashboard eksperimen + revenue lift",
+  "cycle": 1,
+  "timestamp": "2026-09-30T09:00:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "standard",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Missing backend experiment list/lift routes are deferred integration gaps, not T15 failures because T15 is frontend scoped and uses envelope/dummy contracts; T18 must verify real boundary integration.",
+      "No assignment endpoint is required for this page: assignment_summary is embedded in the experiment list payload.",
+      "Insufficient-data never renders zero/perfect lift and includes sample minimum and method version.",
+      "Decimal-safe Rupiah formatting is string-based and covered for large fixed-point values."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "use client page with admin/platform_owner guard, session expiry handling, envelope API handling, and no direct fetch in page.tsx.",
+      "Insufficient-data notice is honest and does not claim lift without adequate samples/method.",
+      "String-based currency grouping preserves decimal precision for large values.",
+      "Accessible sortable table, summary, pagination, density controls, empty/error states, and dummy fallback follow project patterns."
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "MenuDefinition, RbacMatrixSeeder, dummy RBAC, Sidebar, and related tests were touched beyond the strict T15 file list; correct and aligned with parity, but T16 retains ownership of final wiring.",
+        "location": "apps/api/app/Models/MenuDefinition.php:47"
+      },
+      {
+        "severity": "Minor",
+        "description": "Revenue lift is fetched per experiment with Promise.all (limit 15); acceptable now but a batched/embedded backend response would scale better.",
+        "location": "apps/web/src/app/admin/ai-experiments/page.tsx:157"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {"current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2},
+  "reviewed_sha": "fb22af7a6a2522f5311739c389c15bc3a2be2ab"
+}

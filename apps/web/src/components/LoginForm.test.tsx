@@ -61,6 +61,70 @@ describe('LoginForm', () => {
     });
   });
 
+  it('shows a generic inline error for a network failure without persisting auth', async () => {
+    const onLogin = jest.fn();
+    const dispatchSpy = jest.spyOn(window, 'dispatchEvent');
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    render(<LoginForm onLogin={onLogin} />);
+    const email = screen.getByLabelText('Email');
+    const password = screen.getByLabelText('Kata sandi');
+    fireEvent.change(email, { target: { value: 'network@example.com' } });
+    fireEvent.change(password, { target: { value: 'network-secret' } });
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('button', { name: 'Masuk' }));
+    });
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBeTruthy());
+    expect(email).toHaveValue('network@example.com');
+    expect(password).toHaveValue('network-secret');
+    expect(localStorage.getItem('ddp_token')).toBeNull();
+    expect(localStorage.getItem('ddp_role')).toBeNull();
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/login'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email: 'network@example.com', password: 'network-secret' }),
+    });
+  });
+
+  it('shows a generic inline error for a 5xx response without persisting auth', async () => {
+    const onLogin = jest.fn();
+    const dispatchSpy = jest.spyOn(window, 'dispatchEvent');
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
+
+    render(<LoginForm onLogin={onLogin} />);
+    const email = screen.getByLabelText('Email');
+    const password = screen.getByLabelText('Kata sandi');
+    fireEvent.change(email, { target: { value: 'server@example.com' } });
+    fireEvent.change(password, { target: { value: 'server-secret' } });
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('button', { name: 'Masuk' }));
+    });
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Email atau kata sandi salah.'));
+    expect(email).toHaveValue('server@example.com');
+    expect(password).toHaveValue('server-secret');
+    expect(localStorage.getItem('ddp_token')).toBeNull();
+    expect(localStorage.getItem('ddp_role')).toBeNull();
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/login'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email: 'server@example.com', password: 'server-secret' }),
+    });
+  });
+
   it('persists auth state and preserves the login request shape after a successful login', async () => {
     const onLogin = jest.fn();
     const dispatchSpy = jest.spyOn(window, 'dispatchEvent');

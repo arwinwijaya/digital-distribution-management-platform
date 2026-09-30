@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act } from 'react';
 import LoginPage from './page';
 import { apiUrl } from '@/lib/api';
 
@@ -177,5 +178,37 @@ describe('LoginPage outlet-first presentation', () => {
     expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.queryByText(/memuat/i)).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/me'), expect.objectContaining({ headers: expect.any(Object) }));
+  });
+
+  it('submits through the real LoginForm and issues exactly one correct /auth/login request with outlet redirect', async () => {
+    const fetchMock = mockFetchByEndpoint({
+      login: response(true, { data: { token: 'token-outlet', user: { role: 'outlet' } } }),
+    });
+    const dispatchSpy = jest.spyOn(window, 'dispatchEvent');
+
+    render(<LoginPage />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Masuk & pesan ulang' })).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'outlet@ddp.test' } });
+    fireEvent.change(screen.getByLabelText('Kata sandi'), { target: { value: 'secret' } });
+    await act(async () => {
+      fireEvent.submit(screen.getByLabelText('Email').closest('form') as HTMLFormElement);
+    });
+
+    const loginCall = fetchMock.mock.calls.find((call) => String(call[0]) === apiUrl('/auth/login'));
+    expect(loginCall).toBeDefined();
+    const [, options] = loginCall as [string, { method: string; headers: Record<string, string>; body: string }];
+    expect(options.method).toBe('POST');
+    expect(options.headers).toMatchObject({ 'Content-Type': 'application/json', Accept: 'application/json' });
+    expect(JSON.parse(options.body)).toEqual({ email: 'outlet@ddp.test', password: 'secret' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('ddp_token')).toBe('token-outlet');
+    expect(localStorage.getItem('ddp_role')).toBe('outlet');
+    expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    expect(dispatchSpy.mock.calls[0][0]).toMatchObject({ type: 'ddp-auth-change', detail: { token: 'token-outlet', role: 'outlet' } });
+    expect(mockReplace).toHaveBeenCalledWith('/orders');
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 });

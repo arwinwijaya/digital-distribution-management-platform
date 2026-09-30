@@ -440,7 +440,7 @@ class RecommendationActionService
      */
     private function canonicalizePayload(array $payload): array
     {
-        return [
+        $canonical = [
             'type' => $payload['type'],
             'outlet_id' => (int) $payload['outlet_id'],
             'items' => collect($payload['items'])
@@ -452,6 +452,45 @@ class RecommendationActionService
                 ->values()
                 ->all(),
         ];
+
+        // `draft_campaign` carries the promotion definition that execution
+        // replays via PromotionService. Persisting it keeps the stored payload
+        // self-contained so execution is possible from the draft alone.
+        if (isset($payload['campaign']) && is_array($payload['campaign'])) {
+            $canonical['campaign'] = $this->canonicalizeCampaign($payload['campaign']);
+        }
+
+        return $canonical;
+    }
+
+    /**
+     * Canonical campaign definition for storage (stable key order).
+     *
+     * @param  array<string, mixed>  $campaign
+     * @return array<string, mixed>
+     */
+    private function canonicalizeCampaign(array $campaign): array
+    {
+        $keys = [
+            'name',
+            'description',
+            'discount_type',
+            'discount_value',
+            'max_discount',
+            'product_id',
+            'min_order',
+            'start_date',
+            'end_date',
+        ];
+
+        $canonical = [];
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $campaign)) {
+                $canonical[$key] = $campaign[$key];
+            }
+        }
+
+        return $canonical;
     }
 
     /**

@@ -22,6 +22,16 @@ class StoreRecommendationActionRequest extends FormRequest
             'items.*.quantity'  => 'required|integer|min:1',
             'idempotency_key'   => 'required|string|max:128',
             'source_event_id'   => 'nullable|integer|exists:recommendation_events,id',
+            'campaign'          => 'nullable|array',
+            'campaign.name'          => 'nullable|string|max:255',
+            'campaign.description'   => 'nullable|string|max:2000',
+            'campaign.discount_type' => 'nullable|string|in:percentage,fixed',
+            'campaign.discount_value'=> 'nullable|numeric|min:0',
+            'campaign.max_discount'  => 'nullable|numeric|min:0',
+            'campaign.product_id'    => 'nullable|integer|exists:products,id',
+            'campaign.min_order'     => 'nullable|numeric|min:0',
+            'campaign.start_date'    => 'nullable|date',
+            'campaign.end_date'      => 'nullable|date|after_or_equal:campaign.start_date',
         ];
     }
 

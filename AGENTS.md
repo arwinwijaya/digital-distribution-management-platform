@@ -17,10 +17,10 @@ This file is loaded as context for every Pi session in this project. It document
 
 ### How to invoke in practice
 
-- **Serena tools** are exposed as `mcp__serena__<tool>` (e.g., `mcp__serena__find_symbol`, `mcp__serena__replace_symbol_body`, `mcp__serena__get_diagnostics_for_file`).
+- **Serena tools** are exposed as `serena_<tool>` via `pi-mcp-adapter` (e.g., `serena_find_symbol`, `serena_replace_symbol_body`, `serena_get_diagnostics_for_file`). Legacy Pi built-in MCP uses `mcp__serena__<tool>` — both resolve to the same server.
 - **Graphify** is available via:
   - Direct CLI: `graphify query "<question>"`, `graphify path "A" "B"`, `graphify explain "X"`
-  - MCP (when `graphify-mcp` is running): `mcp__graphify__<tool>` — check `/mcp` for live tool list.
+  - MCP (when `graphify-mcp` is running): `graphify_<tool>` (e.g., `graphify_search_nodes`) — check `pi --approve mcp list` or `/mcp` for live tool list.
 
 ### Pocket skill examples with mandatory integrations
 
@@ -41,7 +41,46 @@ This file is loaded as context for every Pi session in this project. It document
 
 /pocketto:pocket-development
   → Each subagent packet MUST include serena tools for edits, graphify for context
+
+/pocketto:pocket-closing <plan_dir>
+  → MUST commit ALL remaining changes (traveling state, plan docs, code) before closing
+  → MUST run `graphify update .` after the commit so the knowledge graph reflects the closed phase
+  → MUST verify the graph refreshed (graph.json / GRAPH_REPORT.md timestamps) before reporting CLOSED
 ```
+
+---
+
+## 🔒 Mandatory Rules for `pocket-closing`
+
+`pocket-closing` is the terminal stage. In this project it is **not done** until both of these happen, in order:
+
+1. **Commit all changes.**
+   Every pending change must be committed before the plan is closed — no dangling work left behind. This includes the code, the traveling Pocket state (`log.json`, `closeout.md`, `execution-plan/`), and any review artifacts.
+
+   ```bash
+   git status --short                 # inspect what is pending
+   git add -A                         # stage everything (excluding gitignored paths)
+   git commit -m "chore(pocket): close <plan-name>"
+   ```
+
+   > If `graphify-out/` or other generated artifacts are gitignored, they stay out of the commit — that is expected.
+
+2. **Refresh the knowledge graph.**
+   After the commit lands, rebuild the graph so the next session (and the next Pocket phase) starts from an accurate picture:
+
+   ```bash
+   graphify update .
+   ```
+
+   Confirm it actually refreshed:
+
+   ```bash
+   stat -c '%y %n' graphify-out/graph.json graphify-out/GRAPH_REPORT.md
+   ```
+
+**Order matters:** commit first, then `graphify update .`. The graph must describe the committed state, not an uncommitted working tree.
+
+**Do not report `CLOSED`** until the commit exists and `graphify update .` has completed successfully. If either step fails, surface the failure instead of closing silently.
 
 ---
 

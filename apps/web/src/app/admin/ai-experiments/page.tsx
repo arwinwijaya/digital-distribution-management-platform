@@ -16,7 +16,6 @@ import {
   TableSummary,
 } from '@/components/ui';
 import { formatDateTime, toggleSort, type ColumnSort } from '@/lib/admin-table';
-import { formatRupiah } from '@/lib/format';
 import { useTableDensity } from '@/hooks/useTableDensity';
 import {
   fetchExperiments,
@@ -71,9 +70,17 @@ function useAdminGuard(): GuardState {
   return { token, ready, accessError, setToken };
 }
 
-/** Temporary cycle-1 formatter seam; cycle 2 hardens large fixed-point values. */
+/** Format fixed-point money without converting the integer part through Number. */
 export function formatRupiahDecimal(value: string | null | undefined): string {
-  return formatRupiah(value);
+  if (value === null || value === undefined || value.trim() === '') return '—';
+  const raw = value.trim().replace(/^\+/, '');
+  const negative = raw.startsWith('-');
+  const unsigned = raw.replace(/^-/, '');
+  const [wholeRaw, fractionRaw = ''] = unsigned.split('.');
+  const whole = wholeRaw.replace(/^0+(?=\d)/, '') || '0';
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const fraction = fractionRaw.padEnd(2, '0').slice(0, 2);
+  return `${negative ? '-' : ''}Rp ${grouped},${fraction}`;
 }
 
 function formatUplift(value: string | null): string {

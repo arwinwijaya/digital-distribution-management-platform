@@ -125,6 +125,30 @@ describe('LoginForm', () => {
     });
   });
 
+  it('disables the submit button and shows Memproses... while suppressing a double submit', async () => {
+    const onLogin = jest.fn();
+    const fetchMock = global.fetch as jest.Mock;
+    let resolveFetch!: (value: unknown) => void;
+    fetchMock.mockReturnValue(new Promise((resolve) => { resolveFetch = resolve; }));
+
+    render(<LoginForm onLogin={onLogin} />);
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pending@example.com' } });
+    fireEvent.change(screen.getByLabelText('Kata sandi'), { target: { value: 'pending-secret' } });
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('button', { name: 'Masuk' }));
+    });
+
+    const loadingButton = screen.getByRole('button', { name: 'Memproses...' });
+    expect(loadingButton).toBeDisabled();
+    fireEvent.click(loadingButton);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFetch({ ok: true, status: 200, json: async () => ({ data: { token: 'token-pending', user: { role: 'outlet' } } }) });
+    });
+    await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1));
+  });
+
   it('persists auth state and preserves the login request shape after a successful login', async () => {
     const onLogin = jest.fn();
     const dispatchSpy = jest.spyOn(window, 'dispatchEvent');

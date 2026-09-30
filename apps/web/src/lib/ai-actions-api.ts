@@ -1,4 +1,4 @@
-import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
+import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { compareRows, paginate } from '@/lib/admin-table';

@@ -158,3 +158,37 @@ describe('admin ai actions inbox — cycle 1: render, actions, envelope error', 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Inbox gagal dimuat'));
   });
 });
+
+describe('admin ai actions inbox — cycle 2: non-admin access guard', () => {
+  let fetchMock: jest.Mock;
+  let originalFetch: typeof fetch | undefined;
+
+  beforeEach(() => {
+    mockGetStoredToken.mockReturnValue('non-admin-token');
+    originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    fetchMock = jest.fn(async (url: unknown) => {
+      const target = String(url);
+      if (target.includes('/auth/me')) return jsonResponse({ status: 'success', data: { role: 'finance', rbac: {} } });
+      return jsonResponse({ status: 'success', data: {} });
+    });
+    (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    if (originalFetch) (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    else delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    jest.clearAllMocks();
+    mockGetStoredToken.mockReturnValue('admin-token');
+  });
+
+  it('blocks non-admin roles (e.g., finance) without fetching the inbox and shows access denied', async () => {
+    const { default: Page } = await import('@/app/admin/ai-actions/page');
+    render(<Page />);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(screen.getByRole('alert').textContent).toMatch(/akses ditolak/i);
+    expect(screen.queryByTestId('table-summary')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('table-pagination')).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/admin/recommendation-actions?'))).toBe(false);
+  });
+});

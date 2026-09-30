@@ -1,0 +1,37 @@
+{
+  "task_id": "T17",
+  "task_name": "Adapter fallback guardrail lintas unit",
+  "cycle": 1,
+  "timestamp": "2026-09-30T11:01:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "standard",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Two TDD commits present: 930e6e4 cycle 1 wired existing adapter seam into HTTP recommendation path and added fallback tests; 0425e69 cycle 2 added deterministic default, invalid-output, mutation guard, and timeout coverage.",
+      "Real HTTP boundary exercised by Phase9AdapterFallbackTest via GET /api/ai/recommendations with auth token; no controller/service mocking used.",
+      "Fake adapters are bound only at the adapter seam through container key recommendation.external; production path defaults to deterministic resolver when no external is bound.",
+      "External exception, invalid output, mutation attempt, and timeout all return 200 success envelope with fallback=true and specific guardrail flags, while Order and Promotion counts remain zero.",
+      "Minimal production delta limited to AIController injection/call site and AppServiceProvider binding; no schema changes or new business mutation paths. log.json not edited."
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "RecommendationModelAdapterResolver is now reachable from the real HTTP recommendation endpoint, closing the test-risk seam gap found at the start of T17.",
+      "Guardrail tests cover deterministic default, provider exception, strict validator rejection, DB mutation rollback, and elapsed-time timeout fallback.",
+      "Primary gate passed: cd apps/api && php artisan test --filter=Phase9AdapterFallbackTest => 5 passed (39 assertions). Related regression gate passed for AITest, RecommendationModelAdapterTest, ExecuteDraftOrderTest, ExecuteDraftCampaignTest, and Phase9AdapterFallbackTest => 33 passed (194 assertions)."
+    ],
+    "issues": [],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {"current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2},
+  "reviewed_sha": "0425e6928d29aab3a7a0f2672453e0a09abf5355",
+  "merge_sha": "cfb12583c4d5542187eb85386d997c5a57e58562",
+  "concerns": [
+    "Low: fallback is overloaded between data-insufficiency deterministic fallback and adapter fallback; tests distinguish adapter fallback via specific flags."
+  ]
+}

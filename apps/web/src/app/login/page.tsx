@@ -61,7 +61,7 @@ function LoginContent() {
         <section data-testid="login-form-panel" className="mx-auto w-full max-w-md">
           <PageHeader title="Masuk" description="Gunakan satu form ini untuk semua peran: outlet, admin, sales, driver, ataupun finance." />
           <LoginForm onLogin={handleLogin} ctaLabel="Masuk & pesan ulang" />
-          <p className="mt-6 text-center text-xs text-gray-500">
+          <p data-testid="login-demo-footer" className="mt-6 text-center text-xs text-gray-500">
             Akun demo outlet: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">siti.nurhaliza@ddp.test</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">password123</code>
           </p>
         </section>

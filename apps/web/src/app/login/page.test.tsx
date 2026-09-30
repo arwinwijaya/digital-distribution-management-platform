@@ -121,4 +121,17 @@ describe('LoginPage outlet-first presentation', () => {
       }
     }
   });
+
+  it('shows demo credentials only as subtle footer help after submit button', async () => {
+    await renderLoginPage();
+
+    const submit = screen.getByRole('button', { name: 'Masuk & pesan ulang' });
+    const demoText = screen.getByText(/akun demo outlet/i);
+
+    expect(submit.compareDocumentPosition(demoText) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(demoText.closest('[data-testid="login-form-panel"]')).not.toBeNull();
+    expect(demoText).toHaveAttribute('data-testid', 'login-demo-footer');
+    expect(demoText).toHaveClass('text-xs');
+    expect(demoText).toHaveClass('text-gray-500');
+  });
 });

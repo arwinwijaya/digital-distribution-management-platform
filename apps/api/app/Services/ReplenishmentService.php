@@ -83,6 +83,28 @@ class ReplenishmentService
                 throw ValidationException::withMessages(['status' => "Cannot execute plan with status '{$plan->status}'. Only approved plans may be executed."]);
             }
 
+            $invalidItems = $plan->items->filter(fn ($item) => $item->data_sufficiency !== 'sufficient' || (float) $item->reorder_quantity <= 0);
+            if ($invalidItems->isNotEmpty()) {
+                $invalidProductIds = $invalidItems->pluck('product_id')->map(fn ($id) => (int) $id)->values()->all();
+                $plan->forceFill([
+                    'status' => 'failed',
+                    'executed_at' => now(),
+                    'execution_result' => [
+                        'logical_key' => $logicalKey,
+                        'payload_hash' => $hash,
+                        'executed_by' => $actor->id,
+                        'error' => 'Insufficient or invalid items for execution.',
+                        'invalid_items' => $invalidProductIds,
+                    ],
+                ])->save();
+                $this->audit($plan, 'replenishment.failed', $actor->id, [
+                    'logical_key' => $logicalKey,
+                    'invalid_items' => $invalidProductIds,
+                ]);
+
+                return ['plan' => $plan->load('items'), 'replay' => false];
+            }
+
             $result = $this->executionResult($plan, $logicalKey, $hash, $actor->id);
             $plan->forceFill(['status' => 'executed', 'executed_at' => now(), 'execution_result' => $result])->save();
             $this->audit($plan, 'replenishment.executed', $actor->id, ['logical_key' => $logicalKey]);

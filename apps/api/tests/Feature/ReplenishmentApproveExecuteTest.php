@@ -264,4 +264,72 @@ class ReplenishmentApproveExecuteTest extends TestCase
         $this->assertSame('success', $events[0]->outcome);
         $this->assertSame('success', $events[1]->outcome);
     }
+
+    /**
+     * RED cycle 2: execute on approved plan with insufficient/invalid items.
+     * Should set status 'failed', write no partial PO metadata, and audit replenishment.failed.
+     */
+    public function test_execute_fails_when_items_are_insufficient_or_invalid(): void
+    {
+        $user = $this->admin();
+        $plan = $this->draftPlanWithItems('approved');
+
+        // Mutate the existing item to be invalid: insufficient data_sufficiency.
+        $plan->items()->first()->update(['data_sufficiency' => 'insufficient', 'reorder_quantity' => 0]);
+
+        $response = $this->withHeader('Authorization', $this->token($user))
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/execute", [
+                'logical_key' => 'test-key-fail',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.status', 'failed');
+
+        $plan->refresh();
+        $this->assertSame('failed', $plan->status);
+        $this->assertNotNull($plan->executed_at);
+        $this->assertNotNull($plan->execution_result);
+
+        // No purchase_orders should exist (no partial PO metadata).
+        $this->assertArrayNotHasKey('purchase_orders', $plan->execution_result);
+        $this->assertArrayHasKey('error', $plan->execution_result);
+        $this->assertArrayHasKey('invalid_items', $plan->execution_result);
+
+        $this->assertDatabaseHas('operational_events', [
+            'actor_id' => $user->id,
+            'action' => 'replenishment.failed',
+            'outcome' => 'success',
+        ]);
+    }
+
+    /**
+     * RED cycle 2: execute on approved plan with zero reorder_quantity.
+     */
+    public function test_execute_fails_when_items_have_zero_reorder_quantity(): void
+    {
+        $user = $this->admin();
+        $plan = $this->draftPlanWithItems('approved');
+
+        $plan->items()->first()->update(['data_sufficiency' => 'sufficient', 'reorder_quantity' => 0]);
+
+        $response = $this->withHeader('Authorization', $this->token($user))
+            ->postJson("/api/admin/replenishment-plans/{$plan->id}/execute", [
+                'logical_key' => 'test-key-zero-qty',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.status', 'failed');
+
+        $plan->refresh();
+        $this->assertSame('failed', $plan->status);
+        $this->assertArrayNotHasKey('purchase_orders', $plan->execution_result);
+
+        $this->assertDatabaseHas('operational_events', [
+            'actor_id' => $user->id,
+            'action' => 'replenishment.failed',
+            'outcome' => 'success',
+        ]);
+    }
 }

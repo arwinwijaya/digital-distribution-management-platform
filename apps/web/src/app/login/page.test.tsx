@@ -150,4 +150,32 @@ describe('LoginPage outlet-first presentation', () => {
     expect(screen.queryByRole('button', { name: 'Masuk & pesan ulang' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Masuk' })).not.toBeInTheDocument();
   });
+
+  it('shows a usable login form when stored token is stale or /auth/me fails', async () => {
+    localStorage.setItem('ddp_token', 'stale-token');
+    localStorage.setItem('ddp_role', 'outlet');
+    mockFetchByEndpoint({
+      me: response(false, {}, 401),
+    });
+
+    render(<LoginPage />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Masuk & pesan ulang' })).toBeInTheDocument());
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.queryByText(/memuat/i)).not.toBeInTheDocument();
+  });
+
+  it('also recovers from a rejected /auth/me without redirect', async () => {
+    localStorage.setItem('ddp_token', 'stale-token');
+    const fetchMock = mockFetchByEndpoint({
+      me: Promise.reject(new Error('Network failure')) as unknown as FetchResponse,
+    });
+
+    render(<LoginPage />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Masuk & pesan ulang' })).toBeInTheDocument());
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.queryByText(/memuat/i)).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/me'), expect.objectContaining({ headers: expect.any(Object) }));
+  });
 });

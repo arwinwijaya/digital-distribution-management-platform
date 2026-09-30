@@ -33,7 +33,7 @@ function LoginContent() {
     fetch(apiUrl('/auth/me'), { headers: authHeaders(stored) })
       .then(async (response) => {
         const body = await response.json();
-        if (!response.ok) return null;
+        if (!response.ok) throw new Error('Stored token is no longer valid.');
         return body?.data?.role as string | null;
       })
       .then((role) => {

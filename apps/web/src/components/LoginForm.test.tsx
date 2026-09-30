@@ -125,6 +125,36 @@ describe('LoginForm', () => {
     });
   });
 
+  it('rejects with an inline role error and no auth persistence when expectedRole mismatches', async () => {
+    const onLogin = jest.fn();
+    const dispatchSpy = jest.spyOn(window, 'dispatchEvent');
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { token: 'token-admin', user: { role: 'admin' } } }),
+    });
+
+    render(<LoginForm expectedRole="outlet" onLogin={onLogin} />);
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'admin@example.com' } });
+    fireEvent.change(screen.getByLabelText('Kata sandi'), { target: { value: 'admin-secret' } });
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('button', { name: 'Masuk' }));
+    });
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('khusus untuk pengguna outlet'));
+    expect(onLogin).not.toHaveBeenCalled();
+    expect(localStorage.getItem('ddp_token')).toBeNull();
+    expect(localStorage.getItem('ddp_role')).toBeNull();
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/login'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email: 'admin@example.com', password: 'admin-secret' }),
+    });
+  });
+
   it('disables the submit button and shows Memproses... while suppressing a double submit', async () => {
     const onLogin = jest.fn();
     const fetchMock = global.fetch as jest.Mock;

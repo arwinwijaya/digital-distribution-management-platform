@@ -2,7 +2,6 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import LoginForm from '@/components/LoginForm';
 import { OutletPerformanceChart, SalesTrendChart, OutletPoint, TrendPoint } from '@/components/Charts';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { loadDashboard } from '@/app/dashboard/api';
@@ -93,7 +92,11 @@ function useDashboardSession(loadForRole: DashboardLoader, onAuthError: (error: 
         setToken(storedToken);
         setRole(currentRole);
         setReady(true);
-        void loadForRole(storedToken, currentRole);
+        // Outlets have no analytics permission; the page redirects them to
+        // /orders, so skip the dashboard request entirely for that role.
+        if (currentRole !== 'outlet') {
+          void loadForRole(storedToken, currentRole);
+        }
       })
       .catch((reason) => {
         if (!active) return;

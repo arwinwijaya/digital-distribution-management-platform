@@ -18,6 +18,7 @@ use App\Http\Controllers\OutletController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\MarketplaceController;
+use App\Http\Controllers\RecommendationActionController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PromotionBroadcastController;

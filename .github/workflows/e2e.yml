@@ -18,6 +18,15 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, json, bcmath, pdo, sqlite3, pdo_sqlite
+          coverage: none
+          tools: composer:v2
 
       - name: Generate .env for docker compose
         run: |
@@ -58,12 +67,13 @@ jobs:
         working-directory: apps/web
         run: npm run test:e2e
 
+      - name: Install Playwright Chromium
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
       - name: Run Playwright UI tests
-        uses: docker://mcr.microsoft.com/playwright:v1.48.0-jammy
-        env:
-          PLAYWRIGHT_CHANNEL: ''
-        with:
-          args: /bin/sh -c "cd /github/workspace/apps/web && npx playwright test --project=chromium"
+        working-directory: apps/web
+        run: npx playwright test --project=chromium
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

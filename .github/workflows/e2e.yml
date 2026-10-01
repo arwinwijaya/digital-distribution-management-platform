@@ -10,29 +10,6 @@ jobs:
   e2e:
     name: End-to-End Tests
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: ddp_test
-          POSTGRES_USER: ddp_user
-          POSTGRES_PASSWORD: ddp_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ddp_user -d ddp_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -42,13 +19,25 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Generate .env for docker compose
+        run: |
+          cp .env.example .env
+          # Generate required secrets
+          APP_KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;")
+          JWT_SECRET=$(openssl rand -hex 32)
+          sed -i "s/^APP_KEY=.*/APP_KEY=$APP_KEY/" .env
+          sed -i "s/^JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/" .env
+          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=secret123/" .env
+          sed -i "s|^NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=http://localhost:8080/api|" .env
+          cat .env
+
       - name: Install API dependencies
         working-directory: apps/api
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Install Web dependencies
         working-directory: apps/web
-        run: npm ci
+        run: npm install
 
       - name: Build Docker images
         run: docker compose build --no-cache
@@ -58,7 +47,6 @@ jobs:
 
       - name: Wait for services ready
         run: |
-          # wait for nginx health
           for i in {1..30}; do
             curl -s http://localhost:8080/api/health && break || sleep 2;
           done
@@ -71,8 +59,11 @@ jobs:
         run: npm run test:e2e
 
       - name: Run Playwright UI tests
-        working-directory: apps/web
-        run: npx playwright test --project=chromium
+        uses: docker://mcr.microsoft.com/playwright:v1.48.0-jammy
+        env:
+          PLAYWRIGHT_CHANNEL: ''
+        with:
+          args: /bin/sh -c "cd /github/workspace/apps/web && npx playwright test --project=chromium"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

@@ -21,7 +21,7 @@ export default defineConfig({
       name: 'chromium',
       use: { 
         browserName: 'chromium',
-        channel: 'chrome',
+        channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
       },
     },
   ],

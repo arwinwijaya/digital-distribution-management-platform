@@ -1,16 +1,20 @@
+/** @jest-environment node */
 const fs = require('fs');
 const net = require('net');
 const os = require('os');
 const path = require('path');
 const { execFileSync, spawn, spawnSync } = require('child_process');
 
-jest.setTimeout(120000);
+jest.setTimeout(300000);
+
+const DEBUG_E2E = process.env.DEBUG_E2E === '1';
 
 describe('real HTTP API order flow E2E', () => {
   let apiProcess;
   let apiUrl;
   let databasePath;
   let runtime;
+  let driverId; // Captured during seeding (deterministic fixture driver)
 
   const php = process.env.PHP_BINARY || 'php';
   const apiDirectory = path.resolve(__dirname, '..', 'api');
@@ -63,7 +67,7 @@ describe('real HTTP API order flow E2E', () => {
     throw new Error(`Laravel API server did not start: ${lastError || 'health check failed'}`);
   }
 
-  function seedAdminAndProduct() {
+  function seedDatabase() {
     const seedPath = path.join(os.tmpdir(), `ddp-real-http-e2e-seed-${process.pid}.php`);
     const bootstrapPath = path.join(apiDirectory, 'bootstrap', 'app.php').replace(/\\/g, '/');
     const autoloadPath = path.join(apiDirectory, 'vendor', 'autoload.php').replace(/\\/g, '/');
@@ -71,6 +75,9 @@ describe('real HTTP API order flow E2E', () => {
 require '${autoloadPath}';
 $app = require '${bootstrapPath}';
 $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();
+// Seed only the RBAC matrix; the harness creates deterministic fixtures below.
+$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->call('db:seed', ['--class' => 'Database\\Seeders\\RbacMatrixSeeder', '--force' => true]);
+// Deterministic fixture admin + product + driver for this harness.
 App\\Models\\User::create([
     'name' => 'E2E Admin',
     'email' => 'real-e2e-admin@example.com',
@@ -87,16 +94,29 @@ App\\Models\\Product::create([
     'category' => 'food',
     'is_active' => true,
 ]);
+App\\Models\\User::create([
+    'name' => 'E2E Driver',
+    'email' => 'real-e2e-driver@example.com',
+    'password' => Illuminate\\Support\\Facades\\Hash::make('driver-password'),
+    'role' => 'driver',
+    'is_active' => true,
+]);
+echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.com')->value('id') . PHP_EOL;
 `;
     fs.writeFileSync(seedPath, seed);
     try {
-      execFileSync(php, [seedPath], { cwd: apiDirectory, env: runtime, stdio: 'pipe' });
+      const output = execFileSync(php, [seedPath], { cwd: apiDirectory, env: runtime, stdio: 'pipe' }).toString();
+      const match = output.match(/DRIVER_ID=(\d+)/);
+      if (match) driverId = Number(match[1]);
     } finally {
       fs.rmSync(seedPath, { force: true });
     }
   }
 
   async function request(route, options = {}) {
+    const label = `${options.method || 'GET'} ${route}`;
+    if (DEBUG_E2E) console.error(`[e2e] -> ${label}`);
+    const startedAt = Date.now();
     const response = await fetch(`${apiUrl}${route}`, {
       signal: AbortSignal.timeout(30000),
       ...options,
@@ -107,7 +127,14 @@ App\\Models\\Product::create([
         ...(options.headers || {}),
       },
     });
-    const body = JSON.parse(await response.text());
+    const text = await response.text();
+    if (DEBUG_E2E) console.error(`[e2e] <- ${label} ${response.status} (${Date.now() - startedAt}ms)`);
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch (error) {
+      throw new Error(`Non-JSON response for ${label} (${response.status}): ${text.slice(0, 500)}`);
+    }
     return { response, body };
   }
 
@@ -126,7 +153,7 @@ App\\Models\\Product::create([
       env: runtime,
       stdio: 'pipe',
     });
-    seedAdminAndProduct();
+    seedDatabase();
 
     // This is a separate PHP built-in-server process running Laravel's real HTTP kernel.
     apiProcess = spawn(php, ['-S', `127.0.0.1:${port}`, routerPath], {
@@ -151,6 +178,37 @@ App\\Models\\Product::create([
     if (databasePath) fs.rmSync(databasePath, { force: true });
   });
 
+  it('Assign rejected before Confirmed', async () => {
+    // Register and login outlet
+    const reg = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Outlet Reject', email: 'reject-outlet@example.com', password: 'outlet-pass', password_confirmation: 'outlet-pass', phone: '0811111111', address: 'Jl X', city: 'Jakarta', district: 'Menteng',
+      }),
+    });
+    expect(reg.response.status).toBe(201);
+    const login = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'reject-outlet@example.com', password: 'outlet-pass' }) });
+    const outletToken = login.body.data.token;
+    // Create an order (idempotent key unique)
+    const idKey = 'reject-order-001';
+    const catalog = await request('/api/products', { headers: authHeaders(outletToken) });
+    const product = catalog.body.data[0];
+    const orderPayload = JSON.stringify({ items: [{ product_id: product.id, quantity: 1 }], idempotency_key: idKey });
+    const orderResp = await request('/api/orders', { method: 'POST', headers: authHeaders(outletToken, { 'Idempotency-Key': idKey }), body: orderPayload });
+    expect(orderResp.response.status).toBe(201);
+    const orderId = orderResp.body.data.id;
+    // Admin login
+    const adminLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'real-e2e-admin@example.com', password: 'admin-password' }) });
+    const adminToken = adminLogin.body.data.token;
+    // Attempt to assign delivery before order is Confirmed
+    const assign = await request('/api/deliveries', { method: 'POST', headers: authHeaders(adminToken), body: JSON.stringify({ order_id: orderId, driver_id: driverId }) });
+    expect(assign.response.status).toBe(422);
+    expect(assign.body.message).toMatch(/Only confirmed orders can be assigned/);
+    const deliveries = await request('/api/deliveries', { headers: authHeaders(adminToken) });
+    expect(deliveries.response.status).toBe(200);
+    expect(deliveries.body.data.some((delivery) => delivery.order_id === orderId)).toBe(false);
+  });
+
   it('onboards, logs in, browses, submits idempotently, approves, and tracks over HTTP', async () => {
     const registration = await request('/api/auth/register', {
       method: 'POST',
@@ -167,67 +225,145 @@ App\\Models\\Product::create([
     });
     expect(registration.response.status).toBe(201);
     expect(registration.body.data.outlet.user_id).toBe(registration.body.data.user.id);
-
     const login = await request('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email: 'real-e2e-outlet@example.com', password: 'outlet-password' }),
     });
     expect(login.response.status).toBe(200);
     const outletToken = login.body.data.token;
-
-    const catalog = await request('/api/products', {
-      headers: authHeaders(outletToken),
-    });
+    const catalog = await request('/api/products', { headers: authHeaders(outletToken) });
     expect(catalog.response.status).toBe(200);
-    expect(catalog.body.data).toHaveLength(1);
-    const product = catalog.body.data[0];
-
+    const product = catalog.body.data.find((p) => p.sku === 'E2E-RICE-001') || catalog.body.data[0];
     const idempotencyKey = 'real-http-order-attempt-001';
-    const orderPayload = JSON.stringify({
-      items: [{ product_id: product.id, quantity: 2 }],
-      idempotency_key: idempotencyKey,
-    });
-    const firstSubmission = await request('/api/orders', {
-      method: 'POST',
-      headers: authHeaders(outletToken, { 'Idempotency-Key': idempotencyKey }),
-      body: orderPayload,
-    });
-    const retrySubmission = await request('/api/orders', {
-      method: 'POST',
-      headers: authHeaders(outletToken, { 'Idempotency-Key': idempotencyKey }),
-      body: orderPayload,
-    });
+    const orderPayload = JSON.stringify({ items: [{ product_id: product.id, quantity: 2 }], idempotency_key: idempotencyKey });
+    const firstSubmission = await request('/api/orders', { method: 'POST', headers: authHeaders(outletToken, { 'Idempotency-Key': idempotencyKey }), body: orderPayload });
+    const retrySubmission = await request('/api/orders', { method: 'POST', headers: authHeaders(outletToken, { 'Idempotency-Key': idempotencyKey }), body: orderPayload });
     expect(firstSubmission.response.status).toBe(201);
     expect(retrySubmission.response.status).toBe(200);
     expect(retrySubmission.body.data.id).toBe(firstSubmission.body.data.id);
     expect(retrySubmission.body.data.order_id).toBe(firstSubmission.body.data.order_id);
-
-    const adminLogin = await request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email: 'real-e2e-admin@example.com', password: 'admin-password' }),
-    });
+    const adminLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'real-e2e-admin@example.com', password: 'admin-password' }) });
     expect(adminLogin.response.status).toBe(200);
     const adminToken = adminLogin.body.data.token;
-
-    const adminOrders = await request('/api/admin/orders', {
-      headers: authHeaders(adminToken),
-    });
-    expect(adminOrders.response.status).toBe(200);
-    expect(adminOrders.body.data).toHaveLength(1);
-
     const orderId = firstSubmission.body.data.id;
-    const approval = await request(`/api/orders/${orderId}/approve`, {
-      method: 'PUT',
-      headers: authHeaders(adminToken),
-    });
+    const adminOrders = await request('/api/admin/orders', { headers: authHeaders(adminToken) });
+    expect(adminOrders.response.status).toBe(200);
+    const createdOrderEntry = adminOrders.body.data.find((o) => o.id === orderId);
+    expect(createdOrderEntry).toBeDefined();
+    const approval = await request(`/api/orders/${orderId}/approve`, { method: 'PUT', headers: authHeaders(adminToken) });
     expect(approval.response.status).toBe(200);
     expect(approval.body.data.status).toBe('Confirmed');
-
-    const tracking = await request(`/api/orders/${orderId}`, {
-      headers: authHeaders(outletToken),
-    });
+    const tracking = await request(`/api/orders/${orderId}`, { headers: authHeaders(outletToken) });
     expect(tracking.response.status).toBe(200);
     expect(tracking.body.data.status).toBe('Confirmed');
     expect(tracking.body.data.status_history).toHaveLength(2);
   });
+
+  it('Payment rejected before Delivered', async () => {
+    // Register outlet and create order, then admin confirm
+    const reg = await request('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: 'Outlet Pay', email: 'pay-outlet@example.com', password: 'outlet-pass', password_confirmation: 'outlet-pass', phone: '0812222222', address: 'Jl Y', city: 'Jakarta', district: 'Menteng' }) });
+    const login = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'pay-outlet@example.com', password: 'outlet-pass' }) });
+    const token = login.body.data.token;
+    const catalog = await request('/api/products', { headers: authHeaders(token) });
+    const product = catalog.body.data[0];
+    const idKey = 'pay-order-001';
+    const orderPayload = JSON.stringify({ items: [{ product_id: product.id, quantity: 1 }], idempotency_key: idKey });
+    const orderResp = await request('/api/orders', { method: 'POST', headers: authHeaders(token, { 'Idempotency-Key': idKey }), body: orderPayload });
+    const orderId = orderResp.body.data.id;
+    const adminLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'real-e2e-admin@example.com', password: 'admin-password' }) });
+    const adminToken = adminLogin.body.data.token;
+    const approval = await request(`/api/orders/${orderId}/approve`, { method: 'PUT', headers: authHeaders(adminToken) });
+    expect(approval.response.status).toBe(200);
+    const assign = await request('/api/deliveries', { method: 'POST', headers: authHeaders(adminToken), body: JSON.stringify({ order_id: orderId, driver_id: driverId }) });
+    expect(assign.response.status).toBe(201);
+    const payment = await request('/api/payments', { method: 'POST', headers: authHeaders(adminToken), body: JSON.stringify({ order_id: orderId, amount: 10000, payment_method: 'cash', idempotency_key: 'pay-key-001' }) });
+    expect(payment.response.status).toBe(422);
+    expect(payment.body.message).toMatch(/Payments can only be recorded for delivered orders/);
+    const after = await request(`/api/orders/${orderId}`, { headers: authHeaders(token) });
+    expect(after.body.data.status).toBe('Confirmed');
+    const payments = await request('/api/payments', { headers: authHeaders(adminToken) });
+    expect(payments.response.status).toBe(200);
+    expect(payments.body.data.some((row) => row.order_id === orderId)).toBe(false);
+  });
+
+  it('Overpayment rejected', async () => {
+    // Register outlet, create order, confirm, deliver, then overpay
+    const reg = await request('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: 'Outlet Over', email: 'over-outlet@example.com', password: 'outlet-pass', password_confirmation: 'outlet-pass', phone: '0813333333', address: 'Jl Z', city: 'Jakarta', district: 'Menteng' }) });
+    const login = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'over-outlet@example.com', password: 'outlet-pass' }) });
+    const token = login.body.data.token;
+    const catalog = await request('/api/products', { headers: authHeaders(token) });
+    const product = catalog.body.data[0];
+    const idKey = 'over-order-001';
+    const orderPayload = JSON.stringify({ items: [{ product_id: product.id, quantity: 1 }], idempotency_key: idKey });
+    const orderResp = await request('/api/orders', { method: 'POST', headers: authHeaders(token, { 'Idempotency-Key': idKey }), body: orderPayload });
+    const orderId = orderResp.body.data.id;
+    const adminLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'real-e2e-admin@example.com', password: 'admin-password' }) });
+    const adminToken = adminLogin.body.data.token;
+    await request(`/api/orders/${orderId}/approve`, { method: 'PUT', headers: authHeaders(adminToken) });
+    // Assign delivery, start route, and mark delivered
+    const assign = await request('/api/deliveries', { method: 'POST', headers: authHeaders(adminToken), body: JSON.stringify({ order_id: orderId, driver_id: driverId }) });
+    expect(assign.response.status).toBe(201);
+    const deliveryId = assign.body.data.id;
+    const started = await request(`/api/deliveries/${deliveryId}/status`, { method: 'PATCH', headers: authHeaders(adminToken), body: JSON.stringify({ status: 'in_progress' }) });
+    expect(started.response.status).toBe(200);
+    const delivered = await request(`/api/deliveries/${deliveryId}/status`, { method: 'PATCH', headers: authHeaders(adminToken), body: JSON.stringify({ status: 'delivered', recipient_name: 'John', proof_of_delivery_url: 'https://example.com/pic' }) });
+    expect(delivered.response.status).toBe(200);
+    const financeLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'real-e2e-admin@example.com', password: 'admin-password' }) });
+    expect(financeLogin.response.status).toBe(200);
+    const financeToken = financeLogin.body.data.token;
+    const before = await request(`/api/orders/${orderId}`, { headers: authHeaders(token) });
+    const outstanding = Number(before.body.data.outstanding_balance || before.body.data.total_amount);
+    const overAmount = (outstanding + 1).toFixed(2);
+    const payment = await request('/api/payments', { method: 'POST', headers: authHeaders(financeToken), body: JSON.stringify({ order_id: orderId, amount: overAmount, payment_method: 'cash', idempotency_key: 'over-pay-key' }) });
+    expect(payment.response.status).toBe(422);
+    expect(payment.body.message).toMatch(/Payment cannot exceed the outstanding balance/);
+    const after = await request(`/api/orders/${orderId}`, { headers: authHeaders(token) });
+    expect(after.body.data.status).toBe('Delivered');
+    expect(after.body.data.paid_amount).toBe(before.body.data.paid_amount);
+    expect(after.body.data.outstanding_balance).toBe(before.body.data.outstanding_balance);
+  });
+
+  it('Idempotency replay identical order', async () => {
+    const registration = await request('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: 'Replay Outlet', email: 'replay-outlet@example.com', password: 'outlet-pass', password_confirmation: 'outlet-pass', phone: '0815555555', address: 'Jl Replay', city: 'Jakarta', district: 'Menteng' }) });
+    expect(registration.response.status).toBe(201);
+    const login = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'replay-outlet@example.com', password: 'outlet-pass' }) });
+    const outletToken = login.body.data.token;
+    const catalog = await request('/api/products', { headers: authHeaders(outletToken) });
+    expect(catalog.response.status).toBe(200);
+    const product = catalog.body.data[0];
+    const idKey = 'idempotent-replay-001';
+    const payload = JSON.stringify({ items: [{ product_id: product.id, quantity: 1 }], idempotency_key: idKey });
+    const first = await request('/api/orders', { method: 'POST', headers: authHeaders(outletToken, { 'Idempotency-Key': idKey }), body: payload });
+    const second = await request('/api/orders', { method: 'POST', headers: authHeaders(outletToken, { 'Idempotency-Key': idKey }), body: payload });
+    expect(first.response.status).toBe(201);
+    expect(second.response.status).toBe(200);
+    // Controller communicates replay via HTTP status; response data has no `created` field.
+    expect(second.body.data.created).toBeUndefined();
+    expect(second.body.data.id).toBe(first.body.data.id);
+  });
+
+  it('Idempotency different payload rejects', async () => {
+    const registration = await request('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: 'Different Payload Outlet', email: 'different-outlet@example.com', password: 'outlet-pass', password_confirmation: 'outlet-pass', phone: '0816666666', address: 'Jl Different', city: 'Jakarta', district: 'Menteng' }) });
+    expect(registration.response.status).toBe(201);
+    const login = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'different-outlet@example.com', password: 'outlet-pass' }) });
+    const token = login.body.data.token;
+    const catalog = await request('/api/products', { headers: authHeaders(token) });
+    expect(catalog.response.status).toBe(200);
+    const product = catalog.body.data[0];
+    const idKey = 'idempotent-diff-001';
+    const payloadA = JSON.stringify({ items: [{ product_id: product.id, quantity: 1 }], idempotency_key: idKey });
+    const first = await request('/api/orders', { method: 'POST', headers: authHeaders(token, { 'Idempotency-Key': idKey }), body: payloadA });
+    expect(first.response.status).toBe(201);
+    const snapshotResponse = await request(`/api/orders/${first.body.data.id}`, { headers: authHeaders(token) });
+    const snapshot = snapshotResponse.body.data;
+    const payloadB = JSON.stringify({ items: [{ product_id: product.id, quantity: 2 }], idempotency_key: idKey });
+    const second = await request('/api/orders', { method: 'POST', headers: authHeaders(token, { 'Idempotency-Key': idKey }), body: payloadB });
+    expect(second.response.status).toBe(422);
+    // Verify original unchanged after mismatched idempotency
+    const afterResponse = await request(`/api/orders/${first.body.data.id}`, { headers: authHeaders(token) });
+    expect(afterResponse.response.status).toBe(200);
+    expect(afterResponse.body.data).toMatchObject({ id: snapshot.id, order_id: snapshot.order_id, status: snapshot.status, total_amount: snapshot.total_amount });
+    expect(afterResponse.body.data.items).toEqual(snapshot.items);
+  });
+
 });

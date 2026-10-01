@@ -7,12 +7,13 @@ use App\Models\Order;
 use App\Services\FinanceAuthorizationService;
 use App\Services\InvoiceService;
 use App\Services\OrderCreationService;
-use App\Services\OrderListBuilder;
 use App\Services\WhatsAppService;
 use App\Http\Requests\CancelOrderRequest;
 use App\Support\ConcurrencyTestBarrier;
+use App\Support\ListQuery;
 use App\Support\OrderFormatter;
 use App\Support\OrderListFilters;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    private const SORT_ALLOWLIST = ['created_at', 'updated_at', 'order_id', 'status', 'total_amount', 'id'];
+
     public function __construct(
         private readonly OrderCreationService $orderCreationService,
         private readonly WhatsAppService $whatsappService,
@@ -122,7 +125,39 @@ class OrderController extends Controller
     /** @param array<string,mixed> $filters */
     private function buildOrderList(Request $request, array $filters): array
     {
-        return app(OrderListBuilder::class)->build($request, $filters);
+        [$limit, $cursor] = $this->listLimitAndCursor($request);
+        [$sort, $direction] = $this->listSorting($request);
+        $query = Order::query()->with(['items.product']);
+        app(OrderListFilters::class)->apply($query, $filters);
+        $meta = array_merge(['limit' => $limit, 'cursor' => $cursor], ListQuery::meta((clone $query)->count()));
+        $raw = $this->fetchOrderPage($query, $sort, $direction, $limit, $cursor);
+
+        return [
+            'orders' => $raw->take($limit)->map(fn (Order $row) => $this->formatOrderResponse($row)),
+            'meta' => array_merge(['has_more' => $raw->count() > $limit], $meta),
+        ];
+    }
+
+    /** @return array{0:int,1:int} */
+    private function listLimitAndCursor(Request $request): array
+    {
+        $limit = min(max((int) $request->query('limit', 100), 1), 100);
+
+        return [$limit, ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit)];
+    }
+
+    /** @return array{0:string,1:string} */
+    private function listSorting(Request $request): array
+    {
+        return ListQuery::resolveSort(
+            self::SORT_ALLOWLIST, ListQuery::scalarString($request, 'sort', ''),
+            ListQuery::scalarString($request, 'order', 'desc'), 'created_at', 'desc',
+        );
+    }
+
+    private function fetchOrderPage(Builder $query, string $sort, string $direction, int $limit, int $cursor): mixed
+    {
+        return $query->orderByRaw(ListQuery::rawOrder($sort, $direction))->limit($limit + 1)->offset($cursor)->get();
     }
 
     /**

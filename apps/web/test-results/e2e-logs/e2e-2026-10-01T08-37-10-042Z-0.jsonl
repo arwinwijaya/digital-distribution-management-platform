@@ -1,0 +1,1 @@
+{"runId":"e2e-2026-10-01T08-37-10-042Z-0","timestamp":"2026-10-01T08:37:13.718Z","role":"admin","step":"admin_approve","action":"browser: approve order","url":"http://localhost:8080/admin/orders","selector":"[data-testid=\"admin-order-approve-502\"]","apiStatus":200,"durationMs":3673,"status":"success","error":null,"attachments":[]}

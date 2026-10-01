@@ -291,14 +291,45 @@ class OrderQueryTest extends TestCase
     }
 
     /**
-     * GWT: Given an outlet (non-admin) user, When GET /admin/orders,
-     * Then the existing admin guard still responds 403 (unchanged).
+     * GWT: Given outlet A token + outlet B exists with orders, When GET /orders?outlet_id=B
+     * (or GET /api/orders / /api/admin/orders), Then only outlet A orders are returned, no 403,
+     * and client outlet_id is silently ignored/overridden.
      */
-    public function test_non_admin_cannot_list_orders(): void
+    public function test_outlet_scoped_order_list_ignores_client_outlet_id(): void
     {
-        $this->withHeaders($this->authHeaders())
-            ->getJson('/api/admin/orders')
-            ->assertStatus(403);
+        // Outlet B
+        $outletBUser = User::factory()->outlet()->create([
+            'email' => 'outletb@ddp.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $outletB = Outlet::factory()->create([
+            'user_id' => $outletBUser->id,
+            'is_active' => true,
+        ]);
+        $orderB = $this->createOrderAt('ORD-OUTLET-B', '2026-09-20 08:00:00', [
+            'outlet_id' => $outletB->id,
+        ]);
+
+        // Outlet A (this->outlet)
+        $orderA = $this->createOrderAt('ORD-OUTLET-A', '2026-09-21 08:00:00', [
+            'outlet_id' => $this->outlet->id,
+        ]);
+
+        // Request with token of outlet A, trying to query outlet_id=B via /orders or /admin/orders
+        $response = $this->withHeaders($this->authHeaders())
+            ->getJson('/orders?outlet_id='.$outletB->id);
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $orderA->id);
+
+        // Also test /admin/orders if aliased/accessible
+        $responseAdmin = $this->withHeaders($this->authHeaders())
+            ->getJson('/admin/orders?outlet_id='.$outletB->id);
+
+        $responseAdmin->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $orderA->id);
     }
 
     /**

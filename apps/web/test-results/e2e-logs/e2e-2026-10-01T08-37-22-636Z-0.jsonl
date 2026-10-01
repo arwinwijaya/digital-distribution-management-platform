@@ -1,0 +1,1 @@
+{"runId":"e2e-2026-10-01T08-37-22-636Z-0","timestamp":"2026-10-01T08:37:27.539Z","role":"finance","step":"payment_completed","action":"browser: record payment","url":"http://localhost:8080/payments","selector":"[data-testid=\"payment-submit\"]","apiStatus":201,"durationMs":4894,"status":"success","error":null,"attachments":[]}

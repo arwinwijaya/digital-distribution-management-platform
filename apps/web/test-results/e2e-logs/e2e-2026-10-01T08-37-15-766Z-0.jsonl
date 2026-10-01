@@ -1,0 +1,1 @@
+{"runId":"e2e-2026-10-01T08-37-15-766Z-0","timestamp":"2026-10-01T08:37:20.474Z","role":"driver","step":"delivery_delivered","action":"browser: complete delivery","url":"http://localhost:8080/delivery","selector":"[data-testid=\"delivery-complete-2\"]","apiStatus":200,"durationMs":4654,"status":"success","error":null,"attachments":[]}

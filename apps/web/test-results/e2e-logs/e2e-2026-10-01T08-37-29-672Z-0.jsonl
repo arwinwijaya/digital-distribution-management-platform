@@ -1,0 +1,1 @@
+{"runId":"e2e-2026-10-01T08-37-29-672Z-0","timestamp":"2026-10-01T08:37:30.624Z","role":"admin","step":"history_verified","action":"api: verify status history","url":"/api/orders/502","selector":"","apiStatus":200,"durationMs":947,"status":"success","error":null,"attachments":[]}

@@ -1,0 +1,1 @@
+{"runId":"e2e-2026-10-01T08-37-14-253Z-0","timestamp":"2026-10-01T08:37:15.682Z","role":"admin","step":"delivery_assigned","action":"api: assign delivery","url":"/api/deliveries","selector":"","apiStatus":201,"durationMs":1425,"status":"success","error":null,"attachments":[]}

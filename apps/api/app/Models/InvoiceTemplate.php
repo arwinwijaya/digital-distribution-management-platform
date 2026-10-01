@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class InvoiceTemplate extends Model
 {
     protected $fillable = [
+        'singleton',
         'logo_path',
         'company_name',
         'address',

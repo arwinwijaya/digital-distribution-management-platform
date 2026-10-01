@@ -17,7 +17,7 @@ class InvoiceTemplateMigrationTest extends TestCase
         $this->assertEqualsCanonicalizing([
             'id', 'logo_path', 'company_name', 'address', 'npwp', 'primary_color',
             'footer_text', 'notes', 'signer_name', 'signer_title', 'show_npwp',
-            'show_outlet_phone', 'created_at', 'updated_at',
+            'show_outlet_phone', 'singleton', 'created_at', 'updated_at',
         ], Schema::getColumnListing('invoice_templates'));
 
         $this->seed(InvoiceTemplateSeeder::class);

@@ -18,6 +18,7 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'product_id',
+        'product_name_snapshot',
         'quantity',
         'unit_price',
         'subtotal',
@@ -31,6 +32,7 @@ class OrderItem extends Model
     protected function casts(): array
     {
         return [
+            'product_name_snapshot' => 'string',
             'quantity' => 'integer',
             'unit_price' => 'decimal:2',
             'subtotal' => 'decimal:2',

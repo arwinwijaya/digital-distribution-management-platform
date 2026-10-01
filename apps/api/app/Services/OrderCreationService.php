@@ -288,6 +288,12 @@ class OrderCreationService
      *
      * @param  array<int, array<string, int|float>>  $items
      */
+    private function populateProductSnapshot(OrderItem $item, Product $product): void
+    {
+        $item->product_name_snapshot = $product->name;
+        $item->save();
+    }
+
     private function persistOrder(
         Outlet $outlet,
         string $requestIdentity,
@@ -311,7 +317,9 @@ class OrderCreationService
         ]);
 
         foreach ($items as $item) {
-            OrderItem::create(array_merge($item, ['order_id' => $order->id]));
+            $orderItem = OrderItem::create(array_merge($item, ['order_id' => $order->id]));
+            $product = Product::findOrFail($item['product_id']);
+            $this->populateProductSnapshot($orderItem, $product);
         }
 
         OrderStatusHistory::create([

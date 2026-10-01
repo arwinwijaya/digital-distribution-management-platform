@@ -113,6 +113,9 @@ class RbacMatrixSeeder extends Seeder
         'supply_chain' => [
             'platform_owner' => 'edit', 'admin' => 'edit',
         ],
+        'invoice_template' => [
+            'admin' => 'edit', 'finance' => 'read',
+        ],
     ];
 
     public function run(): void

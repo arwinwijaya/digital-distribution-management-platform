@@ -46,6 +46,7 @@ class MenuDefinition extends Model
         ['key' => 'ai_actions',              'label' => 'Aksi AI',             'group' => 'analitik',    'sort' => 22],
         ['key' => 'ai_experiments',            'label' => 'Eksperimen AI',       'group' => 'analitik',    'sort' => 23],
         ['key' => 'supply_chain',              'label' => 'Rantai Pasok',        'group' => 'operasional', 'sort' => 24],
+        ['key' => 'invoice_template',          'label' => 'Template Invoice',    'group' => 'admin',       'sort' => 25],
     ];
 
     protected $primaryKey = 'key';

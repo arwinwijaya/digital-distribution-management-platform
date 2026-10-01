@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\InvoiceTemplateController;
 use App\Http\Controllers\AdminOutletController;
 use App\Http\Controllers\AdminProductController;
 use App\Http\Controllers\AIController;
@@ -141,6 +142,10 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/admin/orders/{id}', [OrderController::class, 'show'])->middleware('rbac:admin_orders:read');
     Route::put('/orders/{id}/approve', [OrderController::class, 'approve'])->middleware('rbac:admin_orders:edit');
     Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel'])->middleware('rbac:orders:edit');
+
+    // A single corporate invoice template; finance may read but only admin may edit.
+    Route::get('/admin/invoice-template', [InvoiceTemplateController::class, 'show'])->middleware('rbac:invoice_template:read');
+    Route::post('/admin/invoice-template', [InvoiceTemplateController::class, 'update'])->middleware('rbac:invoice_template:edit');
 
     // Invoice history is available to current admin, finance, and outlet roles;
     // the controller applies the corresponding outlet scope.

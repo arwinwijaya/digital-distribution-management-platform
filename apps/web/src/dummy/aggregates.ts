@@ -1336,12 +1336,17 @@ export function buildDashboardOutlet(
   }
 
   const currentWindow = periodWindow(30, new Date(`${window.end}T12:00:00+07:00`));
-  const shoppingOrders = allOrders.filter((order) => {
-    const date = order.created_at.slice(0, 10);
-    return date >= currentWindow.start && date <= currentWindow.end && order.status !== 'Cancelled' && order.status !== 'Canceled' && order.status !== 'cancelled' && order.status !== 'canceled';
+  const periodStartMs = Date.parse(currentWindow.startInstantUTC);
+  const periodEndMs = Date.parse(currentWindow.endInstantUTC);
+  const periodOrders = allOrders.filter((order) => {
+    const createdAt = Date.parse(order.created_at);
+    return Number.isFinite(createdAt) && createdAt >= periodStartMs && createdAt <= periodEndMs;
   });
+  const shoppingOrders = periodOrders.filter((order) =>
+    !['Cancelled', 'Canceled', 'cancelled', 'canceled'].includes(order.status),
+  );
   const shoppingCents = shoppingOrders.reduce((sum, order) => sum + toCents(order.total_amount), 0);
-  const favoriteInput = allOrders.map((order) => ({
+  const favoriteInput = periodOrders.map((order) => ({
     created_at: order.created_at,
     items: order.items.map((item) => ({
       product_id: item.product_id,

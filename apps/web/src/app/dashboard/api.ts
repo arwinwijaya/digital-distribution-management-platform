@@ -41,7 +41,7 @@ export type DashboardLoadResult =
   | { kind: 'admin'; data: DashboardData }
   | { kind: 'outlet'; data: OutletDashboardData };
 
-// Module-level cache for outlet orders pages — key: `${tokenHash}:${start}:${end}:${cursor}`
+// Module-level cache for outlet orders pages — window-independent because API fetch is unfiltered.
 // Invalidated only on new loadDashboard outlet call (not on credit retry).
 const outletOrdersCache = new Map<string, { envelope: OrdersEnvelope; timestamp: number }>();
 
@@ -159,9 +159,8 @@ export async function loadDashboard(
 
 /**
  * Outlet dashboard composition: paginated orders + credit limit.
- * Pagination: limit=100, cursor offset, cap at 1000 newest.
- * Query shape: start = today-(N-1) @00:00 Jakarta → YYYY-MM-DD, end = today → YYYY-MM-DD
- * Exposed so T5/T6 can integrate after upstream decision on exact window semantics.
+ * Pagination: limit=100, cursor offset, cap at 1000 newest. Orders are fetched without
+ * date filters; period aggregates use the exact UTC instant window client-side.
  */
 export async function fetchOutletDashboard(
   token: string,
@@ -170,8 +169,11 @@ export async function fetchOutletDashboard(
 ): Promise<DashboardLoadResult> {
   const now = new Date();
   const pw = periodWindow(30, now);
-  const startUTC = startDate ?? pw.startUTC;
-  const endUTC = endDate ?? pw.endUTC;
+  // Outlet period bounds are exact instants; never send them to date-only API filters.
+  const startInstantUTC = pw.startInstantUTC;
+  const endInstantUTC = pw.endInstantUTC;
+  void startDate;
+  void endDate;
 
   // Fetch paginated orders up to 1000
   const allOrders: OrdersEnvelope['data'] = [];
@@ -181,7 +183,7 @@ export async function fetchOutletDashboard(
   const hash = tokenHash(token);
 
   while (hasMore && cursor < 1000) {
-    const cacheKey = `${hash}:${startUTC}:${endUTC}:${cursor}:100:created_at:desc`;
+    const cacheKey = `${hash}:${cursor}:100:created_at:desc`;
     let envelope: OrdersEnvelope;
     const cached = outletOrdersCache.get(cacheKey);
     if (cached) {
@@ -192,8 +194,6 @@ export async function fetchOutletDashboard(
         cursor: String(cursor),
         sort: 'created_at',
         order: 'desc',
-        start: startUTC,
-        end: endUTC,
       });
       const response = await fetch(`${apiUrl('/orders')}?${params}`, {
         headers: authHeaders(token),
@@ -277,18 +277,24 @@ export async function fetchOutletDashboard(
   }
 
   const summaryOrders = allOrders.slice(0, 1000);
+  const periodOrders = summaryOrders.filter((order) => {
+    const createdAt = Date.parse(order.created_at);
+    return Number.isFinite(createdAt)
+      && createdAt >= Date.parse(startInstantUTC)
+      && createdAt <= Date.parse(endInstantUTC);
+  });
   const statuses: Record<string, number> = {};
   for (const order of summaryOrders) {
     statuses[order.status] = (statuses[order.status] ?? 0) + 1;
   }
 
   // Shopping aggregates: total excluding Cancelled/Canceled, count unique orders
-  const shoppingOrders = summaryOrders.filter(
+  const shoppingOrders = periodOrders.filter(
     (o) => !['Cancelled', 'Canceled', 'cancelled', 'canceled'].includes(o.status),
   );
   const shoppingCents = shoppingOrders.reduce((sum, order) => sum + toCents(order.total_amount), 0);
 
-  const favoriteInput = summaryOrders.map((order) => ({
+  const favoriteInput = periodOrders.map((order) => ({
     created_at: order.created_at,
     items: order.items.map((item) => ({
       product_id: item.product_id,

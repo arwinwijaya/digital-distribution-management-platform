@@ -10,10 +10,10 @@ export type OutletStatusResult = {
 };
 
 export type PeriodWindowResult = {
-  start: string; // YYYY-MM-DD in Asia/Jakarta
-  end: string; // YYYY-MM-DD in Asia/Jakarta
-  startUTC: string; // UTC YYYY-MM-DD for API query = Jakarta calendar start date
-  endUTC: string; // UTC YYYY-MM-DD for API query = Jakarta calendar end date
+  start: string; // YYYY-MM-DD in Asia/Jakarta (calendar label)
+  end: string; // YYYY-MM-DD in Asia/Jakarta (calendar label)
+  startInstantUTC: string; // ISO UTC instant for start at 00:00 Asia/Jakarta
+  endInstantUTC: string; // ISO UTC instant for now
   label: string;
 };
 
@@ -82,36 +82,21 @@ function jakartaDateStringFromDate(date: Date): string {
 }
 
 export function periodWindow(days: 7 | 30 | 90, now: Date = new Date()): PeriodWindowResult {
-  // Use Jakarta calendar date via sv-SE locale with Asia/Jakarta tz
   const jakartaTodayStr = jakartaDateStringFromDate(now);
   const [y, m, d] = jakartaTodayStr.split('-').map(Number);
-  // Represent Jakarta calendar day as UTC midnight for date arithmetic
   const jakartaTodayUTC = new Date(Date.UTC(y, m - 1, d));
   const startUTCDate = new Date(jakartaTodayUTC);
-  // N calendar dates inclusive => start = today - (N-1) days
   startUTCDate.setUTCDate(startUTCDate.getUTCDate() - (days - 1));
-
   const startStr = startUTCDate.toISOString().slice(0, 10);
   const endStr = jakartaTodayStr;
-
-  // API query dates must be UTC YYYY-MM-DD strings. For 7d and 30d, derive startUTC
-  // from the start instant at 00:00+07:00. For 90d, use startStr directly to ensure
-  // the inclusive range does not exceed MAX_FILTER_RANGE_DAYS (90) and cause a 422.
-  const startQueryUTC = days === 90 ? startStr : new Date(`${startStr}T00:00:00+07:00`).toISOString().slice(0, 10);
-  const endQueryUTC = now.toISOString().slice(0, 10);
-
+  // Exact UTC instants: start at 00:00 Asia/Jakarta, end is now
+  const startInstantUTC = new Date(`${startStr}T00:00:00+07:00`).toISOString();
+  const endInstantUTC = now.toISOString();
   let label = `${days} hari terakhir`;
   if (days === 7) label = '7 hari terakhir';
   if (days === 30) label = '30 hari terakhir';
   if (days === 90) label = '90 hari terakhir';
-
-  return {
-    start: startStr,
-    end: endStr,
-    startUTC: startQueryUTC,
-    endUTC: endQueryUTC,
-    label,
-  };
+  return { start: startStr, end: endStr, startInstantUTC, endInstantUTC, label };
 }
 
 // ---- Story 5: Favorite aggregation top-5 ----

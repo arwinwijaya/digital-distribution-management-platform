@@ -26,45 +26,29 @@ describe('Outlet Helpers (T2)', () => {
   });
 
   describe('periodWindow', () => {
-    it('computes 7 calendar dates inclusive in Asia/Jakarta timezone and asserts startUTC/endUTC', () => {
+    it.each([
+      [7, '2026-05-07', '2026-05-06T17:00:00.000Z'],
+      [30, '2026-04-14', '2026-04-13T17:00:00.000Z'],
+      [90, '2026-02-13', '2026-02-12T17:00:00.000Z'],
+    ] as const)('computes %i full Jakarta calendar dates as exact UTC instants', (days, start, instant) => {
       const now = new Date('2026-05-13T23:55:00+07:00');
-      const w = periodWindow(7, now);
-      expect(w.start).toBe('2026-05-07');
-      expect(w.end).toBe('2026-05-13');
-      expect(w.startUTC).toBe('2026-05-06');
-      expect(w.endUTC).toBe('2026-05-13');
-      expect(w.label).toBe('7 hari terakhir');
+      const w = periodWindow(days, now);
+      expect(w).toEqual({
+        start, end: '2026-05-13',
+        startInstantUTC: instant,
+        endInstantUTC: '2026-05-13T16:55:00.000Z',
+        label: `${days} hari terakhir`,
+      });
     });
 
-    it('computes 90 calendar dates inclusive (start = today - 89) and asserts startUTC/endUTC', () => {
-      const now = new Date('2026-05-13T23:55:00+07:00');
-      const w = periodWindow(90, now);
-      expect(w.start).toBe('2026-02-13');
-      expect(w.end).toBe('2026-05-13');
-      expect(w.startUTC).toBe('2026-02-13');
-      expect(w.endUTC).toBe('2026-05-13');
-      expect(w.label).toBe('90 hari terakhir');
-    });
-
-    // TODO: Add timezone boundary test — verify startUTC/endUTC round-trip matches
-    // backend inclusive range for edge cases (e.g., now at UTC midnight, DST transitions).
-
-    it('excludes orders at 23:59 Jakarta on the day before window start and includes at 00:00 on start day', () => {
-      const now = new Date('2026-05-13T23:55:00+07:00');
-      const w = periodWindow(7, now);
-
-      const isInWindow = (createdAt: string) => {
-        const dateObj = new Date(createdAt);
-        const jakartaDateStr = dateObj.toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' });
-        return jakartaDateStr >= w.start && jakartaDateStr <= w.end;
-      };
-
-      // 2026-05-06T16:59:59Z is 2026-05-06 23:59:59 Jakarta (day before start) -> excluded
-      expect(isInWindow('2026-05-06T16:59:59Z')).toBe(false);
-      // 2026-05-06T17:00:00Z is 2026-05-07 00:00:00 Jakarta (start day) -> included
-      expect(isInWindow('2026-05-06T17:00:00Z')).toBe(true);
-      // 2026-05-13T10:00:00Z is 2026-05-13 17:00 Jakarta (same day, before now) -> included
-      expect(isInWindow('2026-05-13T10:00:00Z')).toBe(true);
+    it('excludes 23:59 previous-day, includes 00:00 start, and excludes instants after now', () => {
+      const w = periodWindow(7, new Date('2026-05-13T23:55:00+07:00'));
+      const inWindow = (createdAt: string) =>
+        createdAt >= w.startInstantUTC && createdAt <= w.endInstantUTC;
+      expect(inWindow('2026-05-06T16:59:59.000Z')).toBe(false);
+      expect(inWindow('2026-05-06T17:00:00.000Z')).toBe(true);
+      expect(inWindow('2026-05-13T16:55:00.000Z')).toBe(true);
+      expect(inWindow('2026-05-13T16:55:00.001Z')).toBe(false);
     });
   });
 

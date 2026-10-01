@@ -67,13 +67,10 @@ jobs:
         working-directory: apps/web
         run: npm run test:e2e
 
-      - name: Install Playwright Chromium
-        working-directory: apps/web
-        run: npx playwright install --with-deps chromium
-
       - name: Run Playwright UI tests
-        working-directory: apps/web
-        run: npx playwright test --project=chromium
+        uses: docker://mcr.microsoft.com/playwright:v1.48.0-jammy
+        with:
+          args: /bin/sh -c "cd /github/workspace/apps/web && npm ci && npx playwright test --project=chromium"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

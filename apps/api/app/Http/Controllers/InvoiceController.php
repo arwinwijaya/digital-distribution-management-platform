@@ -17,6 +17,39 @@ class InvoiceController extends Controller
         private readonly FinanceAuthorizationService $authorization,
     ) {}
 
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $isAdmin = $this->authorization->isAdmin($user);
+        $isFinance = $this->authorization->isFinance($user);
+        $isOutlet = $this->authorization->hasCurrentRole($user, 'outlet');
+
+        if (! $isAdmin && ! $isFinance && ! $isOutlet) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+        }
+
+        // Find the header first; do not load sensitive relations until ownership is verified.
+        $invoice = Invoice::query()->findOrFail($id);
+
+        if (! $isAdmin && ! $isFinance) {
+            $outlet = $user->outlet;
+            if (! $outlet) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'The authenticated user is not associated with an outlet.',
+                ], 403);
+            }
+            if ($invoice->outlet_id !== $outlet->id) {
+                return response()->json(['status' => 'error', 'message' => 'Forbidden.'], 403);
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $this->invoiceService->getDetail($invoice),
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();

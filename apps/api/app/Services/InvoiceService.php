@@ -130,4 +130,89 @@ class InvoiceService
             'updated_at' => $invoice->updated_at,
         ];
     }
+
+    /** @return array<string, mixed> */
+    public function getDetail(Invoice $invoice): array
+    {
+        $invoice->loadMissing([
+            'order.items.product',
+            'outlet',
+        ]);
+
+        // Load all payments for the order without filtering by status, ordered newest first
+        $payments = $invoice->order
+            ? $invoice->order->payments()->orderByDesc('created_at')->orderByDesc('id')->get()
+            : collect();
+
+        $lineItems = $invoice->order
+            ? $invoice->order->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'order_id' => $item->order_id,
+                    'product_id' => $item->product_id,
+                    // Frozen snapshot with fallback to live product name per spec
+                    'product_name' => $item->product_name_snapshot ?? $item->product?->name ?? null,
+                    'product_name_snapshot' => $item->product_name_snapshot,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'subtotal' => $item->subtotal,
+                ];
+            })->values()->all()
+            : [];
+
+        $paymentsData = $payments->map(function ($payment) {
+            return [
+                'id' => $payment->id,
+                'order_id' => $payment->order_id,
+                'outlet_id' => $payment->outlet_id,
+                'amount' => $payment->amount,
+                'payment_method' => $payment->payment_method,
+                'status' => $payment->status,
+                'created_at' => $payment->created_at,
+                'updated_at' => $payment->updated_at,
+            ];
+        })->values()->all();
+
+        $outletData = $invoice->outlet ? [
+            'id' => $invoice->outlet->id,
+            'name' => $invoice->outlet->name,
+            'phone' => $invoice->outlet->phone,
+            'address' => $invoice->outlet->address,
+            'city' => $invoice->outlet->city,
+        ] : null;
+
+        return [
+            'id' => $invoice->id,
+            'order_id' => $invoice->order_id,
+            'outlet_id' => $invoice->outlet_id,
+            'invoice_number' => $invoice->invoice_number,
+            'issue_date' => $invoice->issue_date?->toDateString(),
+            'due_date' => $invoice->due_date?->toDateString(),
+            'total_amount' => $invoice->total_amount,
+            'paid_amount' => $invoice->paid_amount,
+            'balance_amount' => $invoice->balance_amount,
+            'status' => $invoice->status,
+            'is_overdue' => $this->isOverdue($invoice),
+            'overdue' => $this->isOverdue($invoice),
+            'created_at' => $invoice->created_at,
+            'updated_at' => $invoice->updated_at,
+            'outlet' => $outletData,
+            'line_items' => $lineItems,
+            'items' => $lineItems,
+            'payments' => $paymentsData,
+            'payment_history' => $paymentsData,
+        ];
+    }
+
+    private function isOverdue(Invoice $invoice): bool
+    {
+        if ($invoice->due_date === null) {
+            return false;
+        }
+        $balance = (float) $invoice->balance_amount;
+        if ($balance <= 0) {
+            return false;
+        }
+        return $invoice->due_date->isPast() && $invoice->due_date->toDateString() < Carbon::today()->toDateString();
+    }
 }

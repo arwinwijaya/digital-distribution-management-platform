@@ -41,6 +41,15 @@ export type DashboardLoadResult =
   | { kind: 'admin'; data: DashboardData }
   | { kind: 'outlet'; data: OutletDashboardData };
 
+export type DashboardOutletError = Error & {
+  status?: number;
+  inline?: boolean;
+  ordersError?: Error;
+  creditError?: Error;
+  /** Complete outlet data when only credit failed; credit-only payload when only orders failed. */
+  partialData?: Partial<OutletDashboardData> & { credit?: OutletDashboardData['credit'] };
+};
+
 // Module-level cache for outlet orders pages — window-independent because API fetch is unfiltered.
 // Invalidated only on new loadDashboard outlet call (not on credit retry).
 const outletOrdersCache = new Map<string, { envelope: OrdersEnvelope; timestamp: number }>();
@@ -142,6 +151,7 @@ export async function loadDashboard(
   startDate?: string,
   endDate?: string,
   outletPeriod: 7 | 30 | 90 = 30,
+  retainedCredit?: OutletDashboardData['credit'],
 ): Promise<DashboardLoadResult> {
   const { isDummy, dummyEntities } = useDummyStore.getState();
   const dummy = dummyEntities as FullDummy | null;
@@ -173,7 +183,7 @@ export async function loadDashboard(
     const dummyValue: DashboardLoadResult | null =
       isDummy && dummy ? { kind: 'outlet' as const, data: dummy.dashboardOutlet } : null;
     return withDummyRead(isDummy, dummyValue as DashboardLoadResult, async () =>
-      fetchOutletDashboard(token, startDate, endDate, outletPeriod),
+      fetchOutletDashboard(token, startDate, endDate, outletPeriod, retainedCredit),
     );
   }
 
@@ -206,6 +216,7 @@ export async function fetchOutletDashboard(
   startDate?: string,
   endDate?: string,
   periodDays: 7 | 30 | 90 = 30,
+  retainedCredit?: OutletDashboardData['credit'],
 ): Promise<DashboardLoadResult> {
   const now = new Date();
   const pw = periodWindow(periodDays, now);
@@ -215,69 +226,74 @@ export async function fetchOutletDashboard(
   void startDate;
   void endDate;
 
-  // Fetch paginated orders up to 1000
+  // Fetch paginated orders up to 1000 - independent try/catch for orders/credit isolation
   const allOrders: OrdersEnvelope['data'] = [];
   let cursor = 0;
   let hasMore = true;
   let totalFromMeta = 0;
   const hash = tokenHash(token);
+  let ordersError: Error | undefined;
 
-  while (hasMore && cursor < 1000) {
-    const cacheKey = `${hash}:${cursor}:100:created_at:desc`;
-    let envelope: OrdersEnvelope;
-    const cached = outletOrdersCache.get(cacheKey);
-    if (cached) {
-      envelope = cached.envelope;
-    } else {
-      const params = new URLSearchParams({
-        limit: '100',
-        cursor: String(cursor),
-        sort: 'created_at',
-        order: 'desc',
-      });
-      const response = await fetch(`${apiUrl('/orders')}?${params}`, {
-        headers: authHeaders(token),
-      });
-      const body: OrdersEnvelope & { message?: string } = await response.json();
-      if (!response.ok) {
-        // 403 without outlet relation → inline payload, not retryable
-        if (response.status === 403 && body.message?.includes('not associated with an outlet')) {
-          const err = new Error(body.message) as Error & { status?: number; inline?: boolean };
-          err.status = 403;
-          err.inline = true;
-          throw err;
+  try {
+    while (hasMore && cursor < 1000) {
+      const cacheKey = `${hash}:${cursor}:100:created_at:desc`;
+      let envelope: OrdersEnvelope;
+      const cached = outletOrdersCache.get(cacheKey);
+      if (cached) {
+        envelope = cached.envelope;
+      } else {
+        const params = new URLSearchParams({
+          limit: '100',
+          cursor: String(cursor),
+          sort: 'created_at',
+          order: 'desc',
+        });
+        const response = await fetch(`${apiUrl('/orders')}?${params}`, {
+          headers: authHeaders(token),
+        });
+        const body: OrdersEnvelope & { message?: string } = await response.json();
+        if (!response.ok) {
+          // 403 without outlet relation → inline payload, not retryable
+          if (response.status === 403 && body.message?.includes('not associated with an outlet')) {
+            const err = new Error(body.message) as Error & { status?: number; inline?: boolean };
+            err.status = 403;
+            err.inline = true;
+            throw err;
+          }
+          if (response.status === 401) {
+            const err = new Error(body.message || 'Unauthorized') as Error & { status?: number };
+            err.status = 401;
+            throw err;
+          }
+          throw new Error(body.message || 'Daftar pesanan tidak dapat dimuat.');
         }
-        if (response.status === 401) {
-          const err = new Error(body.message || 'Unauthorized') as Error & { status?: number };
-          err.status = 401;
-          throw err;
+        // Backend envelope: {status, data, meta}
+        envelope = {
+          status: body.status,
+          data: (body as unknown as { data: OrdersEnvelope['data'] }).data ?? [],
+          meta: (body as unknown as { meta: OrdersEnvelope['meta'] }).meta ?? {
+            has_more: false,
+            total: 0,
+            limit: 100,
+            cursor,
+          },
+        };
+        // Normalize if body is already the envelope with status/data/meta
+        if (Array.isArray((body as unknown as { data: unknown }).data) && (body as unknown as { meta: unknown }).meta) {
+          envelope = body as unknown as OrdersEnvelope;
         }
-        throw new Error(body.message || 'Daftar pesanan tidak dapat dimuat.');
+        outletOrdersCache.set(cacheKey, { envelope, timestamp: Date.now() });
       }
-      // Backend envelope: {status, data, meta}
-      envelope = {
-        status: body.status,
-        data: (body as unknown as { data: OrdersEnvelope['data'] }).data ?? [],
-        meta: (body as unknown as { meta: OrdersEnvelope['meta'] }).meta ?? {
-          has_more: false,
-          total: 0,
-          limit: 100,
-          cursor,
-        },
-      };
-      // Normalize if body is already the envelope with status/data/meta
-      if (Array.isArray((body as unknown as { data: unknown }).data) && (body as unknown as { meta: unknown }).meta) {
-        envelope = body as unknown as OrdersEnvelope;
-      }
-      outletOrdersCache.set(cacheKey, { envelope, timestamp: Date.now() });
+
+      allOrders.push(...envelope.data);
+      totalFromMeta = envelope.meta?.total ?? totalFromMeta;
+      hasMore = envelope.meta?.has_more === true && envelope.data.length > 0;
+      cursor += envelope.data.length;
+      if (!hasMore || cursor >= 1000 || allOrders.length >= 1000) break;
+      if (envelope.data.length === 0) break;
     }
-
-    allOrders.push(...envelope.data);
-    totalFromMeta = envelope.meta?.total ?? totalFromMeta;
-    hasMore = envelope.meta?.has_more === true && envelope.data.length > 0;
-    cursor += envelope.data.length;
-    if (!hasMore || cursor >= 1000 || allOrders.length >= 1000) break;
-    if (envelope.data.length === 0) break;
+  } catch (e) {
+    ordersError = e instanceof Error ? e : new Error('Daftar pesanan tidak dapat dimuat.');
   }
 
   // Build summary/recent/favorites from orders (window-independent, cached)
@@ -340,15 +356,25 @@ export async function fetchOutletDashboard(
   };
 
   // Fetch credit-limit — NOT cached with orders; retry isolates to this fetch only
-  let creditData: OutletDashboardData['credit'];
-  try {
-    creditData = await fetchOutletCredit(token);
-  } catch (e) {
-    const err = e as Error & { status?: number; inline?: boolean; partialData?: OutletDashboardData };
-    if (err.status === 401) throw err;
-    // Attach partial data so page can render what succeeded (including inline 403 credit).
-    err.partialData = partialData;
-    throw err;
+  let creditData: OutletDashboardData['credit'] | undefined = retainedCredit;
+  let creditError: Error | undefined;
+  // A missing outlet relation cannot load either endpoint; retain the inline 403 behavior.
+  if (!retainedCredit && !(ordersError && (ordersError as DashboardOutletError).inline)) {
+    try {
+      creditData = await fetchOutletCredit(token);
+    } catch (e) {
+      creditError = e instanceof Error ? e : new Error('Kredit tidak dapat dimuat.');
+    }
+  }
+
+  if (ordersError || creditError) {
+    const compositeErr = new Error(ordersError?.message ?? creditError!.message) as DashboardOutletError;
+    compositeErr.ordersError = ordersError;
+    compositeErr.creditError = creditError;
+    compositeErr.partialData = ordersError
+      ? creditData ? { credit: creditData } : undefined
+      : partialData;
+    throw compositeErr;
   }
 
   return {
@@ -365,10 +391,74 @@ export async function fetchOutletDashboard(
         count: shoppingOrders.length,
         period_label: pw.label,
       },
-      credit: creditData,
+      credit: creditData!,
       favorites,
     },
   };
+}
+
+/**
+ * Recompute shopping & favorites from cached orders for a given period.
+ * Used by retryShopping/retryFavorites to avoid network round-trip.
+ */
+export function loadOutletCachedSections(
+  token: string,
+  periodDays: 7 | 30 | 90,
+): Pick<OutletDashboardData, 'shopping' | 'favorites'> | null {
+  const hash = tokenHash(token);
+  // Aggregate all cached pages for this token
+  const allOrders: OrdersEnvelope['data'] = [];
+  for (const [key, value] of Array.from(outletOrdersCache.entries())) {
+    if (key.startsWith(hash + ':')) {
+      allOrders.push(...value.envelope.data);
+    }
+  }
+  // Empty but successfully fetched pages are valid cached orders.
+  if (!outletOrdersCache.has(`${hash}:0:100:created_at:desc`)) return null;
+
+  const now = new Date();
+  const pw = periodWindow(periodDays, now);
+  const startInstantUTC = pw.startInstantUTC;
+  const endInstantUTC = pw.endInstantUTC;
+
+  const summaryOrders = allOrders.slice(0, 1000);
+  const favorites = topFavorites(summaryOrders.map((order) => ({
+    created_at: order.created_at,
+    items: order.items.map((item) => ({
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: item.quantity,
+    })),
+  })), 5).map((item) => ({
+    product_id: item.product_id,
+    display_name: item.displayName,
+    total_qty: item.totalQty,
+  }));
+  const periodOrders = summaryOrders.filter((order) => {
+    const createdAt = Date.parse(order.created_at);
+    return Number.isFinite(createdAt)
+      && createdAt >= Date.parse(startInstantUTC)
+      && createdAt <= Date.parse(endInstantUTC);
+  });
+  const shoppingOrders = periodOrders.filter(
+    (o) => !['Cancelled', 'Canceled', 'cancelled', 'canceled'].includes(o.status),
+  );
+  const shoppingCents = shoppingOrders.reduce((sum, order) => sum + toCents(order.total_amount), 0);
+  const shopping: OutletDashboardData['shopping'] = {
+    total: moneyValue(shoppingCents / 100),
+    count: shoppingOrders.length,
+    period_label: pw.label,
+  };
+
+  return { shopping, favorites };
+}
+
+/** Force an orders retry to refetch pages while leaving credit unchanged. */
+export function invalidateOutletOrdersCache(token: string): void {
+  const prefix = `${tokenHash(token)}:`;
+  for (const key of Array.from(outletOrdersCache.keys())) {
+    if (key.startsWith(prefix)) outletOrdersCache.delete(key);
+  }
 }
 
 /** Exposed for tests: clear outlet cache between test cases. */

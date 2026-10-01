@@ -1,0 +1,84 @@
+name: E2E Workflow
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ddp_test
+          POSTGRES_USER: ddp_user
+          POSTGRES_PASSWORD: ddp_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ddp_user -d ddp_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Web dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Build Docker images
+        run: docker compose build --no-cache
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for services ready
+        run: |
+          # wait for nginx health
+          for i in {1..30}; do
+            curl -s http://localhost:8080/api/health && break || sleep 2;
+          done
+
+      - name: Seed database
+        run: bash scripts/e2e-seed.sh
+
+      - name: Run API e2e tests (Jest)
+        working-directory: apps/web
+        run: npm run test:e2e
+
+      - name: Run Playwright UI tests
+        working-directory: apps/web
+        run: npx playwright test --project=chromium
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            apps/web/test-results/**
+            apps/web/playwright-report/**
+          retention-days: 30

@@ -10,6 +10,7 @@
     "test": "jest",
     "test:e2e": "jest order-flow.test.js --runInBand",
     "test:e2e:seed": "bash ../../scripts/e2e-seed.sh",
+    "test:e2e:purge": "bash ../../scripts/purge-e2e-artifacts.sh",
     "test:watch": "jest --watch"
   },
   "dependencies": {

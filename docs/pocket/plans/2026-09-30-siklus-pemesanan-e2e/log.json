@@ -48,7 +48,7 @@
     {
       "order": 2,
       "file": "execution-plan/phase-2.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T4",
@@ -80,7 +80,7 @@
           "status": "DONE",
           "depends": "T5, T6, T7",
           "file": "execution-plan/tasks/T8-ci-workflow-wiring-for-e2e.md",
-          "done_sha": "712e4f0"
+          "done_sha": "081dd2f"
         }
       ]
     }

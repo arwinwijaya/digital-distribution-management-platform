@@ -52,8 +52,12 @@ function useDashboardData(group: Group): DashboardState & { loadForRole: Dashboa
       if (result.kind === 'finance') {
         setFinanceMetrics(result.data);
         setDashboard(null);
-      } else {
+      } else if (result.kind === 'admin') {
         setDashboard(result.data);
+        setFinanceMetrics(null);
+      } else {
+        // outlet: T5 will render <OutletDashboard />; keep state consistent
+        setDashboard(null);
         setFinanceMetrics(null);
       }
     } catch (reason) {

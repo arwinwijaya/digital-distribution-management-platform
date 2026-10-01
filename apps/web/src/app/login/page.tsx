@@ -7,7 +7,7 @@ import { getStoredToken, apiUrl, authHeaders } from '@/lib/api';
 import { PageHeader } from '@/components/ui';
 
 function roleDestination(role: string, fallback: string) {
-  if (role === 'outlet') return '/orders';
+  if (role === 'outlet') return '/dashboard';
   if (role === 'driver') return '/delivery';
   if (role === 'sales') return '/sales/orders';
   // Supplier has no analytics access, so the dashboard would 403 — send it to

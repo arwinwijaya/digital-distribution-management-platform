@@ -146,7 +146,7 @@ describe('LoginPage outlet-first presentation', () => {
     await import('./page');
     render(<LoginPage />);
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/orders'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/dashboard'));
     expect(fetchMock).toHaveBeenCalledWith(apiUrl('/auth/me'), expect.objectContaining({ headers: expect.any(Object) }));
     expect(screen.queryByRole('button', { name: 'Masuk & pesan ulang' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Masuk' })).not.toBeInTheDocument();
@@ -213,12 +213,12 @@ describe('LoginPage outlet-first presentation', () => {
     expect(localStorage.getItem('ddp_role')).toBe('outlet');
     expect(dispatchSpy).toHaveBeenCalledTimes(1);
     expect(dispatchSpy.mock.calls[0][0]).toMatchObject({ type: 'ddp-auth-change', detail: { token: 'token-outlet', role: 'outlet' } });
-    expect(mockReplace).toHaveBeenCalledWith('/orders');
+    expect(mockReplace).toHaveBeenCalledWith('/dashboard');
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 
   it.each([
-    ['outlet', '/orders'],
+    ['outlet', '/dashboard'],
     ['admin', '/dashboard'],
     ['finance', '/dashboard'],
     ['platform_owner', '/dashboard'],

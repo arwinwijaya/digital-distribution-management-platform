@@ -15,7 +15,7 @@ class OrderListFilters
         'limit', 'cursor', 'sort', 'order', 'outlet_id', 'status', 'start', 'end',
     ];
 
-    private const CANONICAL_STATUSES = ['New', 'Confirmed', 'Delivered', 'Partially Paid'];
+    private const CANONICAL_STATUSES = ['New', 'Confirmed', 'Delivered', 'Partially Paid', 'Paid', 'Cancelled', 'Canceled'];
 
     private const MAX_FILTER_RANGE_DAYS = 90;
 
@@ -44,7 +44,12 @@ class OrderListFilters
         }
 
         if (isset($filters['statuses'])) {
-            $query->whereIn('status', $filters['statuses']);
+            $statuses = $filters['statuses'];
+            // Match both persisted spellings for the normalized cancelled status.
+            if (in_array('Cancelled', $statuses, true) && ! in_array('Canceled', $statuses, true)) {
+                $statuses[] = 'Canceled';
+            }
+            $query->whereIn('status', $statuses);
         }
 
         if (isset($filters['start'])) {
@@ -94,7 +99,7 @@ class OrderListFilters
 
         $statuses = $this->parseStatuses(ListQuery::scalarString($request, 'status', ''));
         if ($statuses === null) {
-            $errors['status'] = 'Status must be one of: New,Confirmed,Delivered,Partially Paid';
+            $errors['status'] = 'Status must be one of: New,Confirmed,Delivered,Partially Paid,Paid,Cancelled,Canceled';
             return;
         }
 
@@ -152,13 +157,15 @@ class OrderListFilters
         if (in_array('', $parts, true)) {
             return null;
         }
+        $mapped = [];
         foreach ($parts as $part) {
             if (! in_array($part, self::CANONICAL_STATUSES, true)) {
                 return null;
             }
+            $mapped[] = $part === 'Canceled' ? 'Cancelled' : $part;
         }
 
-        return array_values(array_unique($parts));
+        return array_values(array_unique($mapped));
     }
 
     private function parseDate(string $value): string|bool

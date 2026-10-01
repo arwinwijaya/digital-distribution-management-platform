@@ -60,8 +60,8 @@ class OrderController extends Controller
     }
 
     /**
-     * List orders for administrators. Admins are not required to have an
-     * outlet; outlet users remain scoped to their own outlet in show().
+     * List orders for administrators or the authenticated outlet. Admins are
+     * not required to have an outlet; outlet lists use the token's outlet.
      *
      * Pagination: limit (default 100, max 100), cursor (offset).
      * Default order: created_at DESC (nulls last) + id DESC tiebreak.
@@ -72,6 +72,12 @@ class OrderController extends Controller
         $guard = $this->indexGuard($request);
         if ($guard instanceof JsonResponse) {
             return $guard;
+        }
+
+        // For outlet users, silently override any client-supplied outlet_id from the token
+        // before validation so that tampering with outlet_id does not trigger 422 or IDOR leaks.
+        if ($request->user()->isOutlet()) {
+            $request->query->set('outlet_id', (string) $request->user()->outlet->id);
         }
 
         // Validate the additive filter contract BEFORE any query construction
@@ -96,8 +102,20 @@ class OrderController extends Controller
 
     private function indexGuard(Request $request): ?JsonResponse
     {
-        if ($request->user()->isAdmin()) {
+        $user = $request->user();
+        if ($user->isAdmin()) {
             return null;
+        }
+
+        if ($user->isOutlet()) {
+            if ($user->outlet) {
+                return null;
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'The authenticated user is not associated with an outlet.',
+            ], 403);
         }
 
         return response()->json([

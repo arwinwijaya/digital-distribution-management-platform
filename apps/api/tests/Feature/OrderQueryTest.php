@@ -196,7 +196,7 @@ class OrderQueryTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('status', 'error')
             ->assertJsonPath('message', 'Validation failed')
-            ->assertJsonPath('errors.status', 'Status must be one of: New,Confirmed,Delivered,Partially Paid')
+            ->assertJsonPath('errors.status', 'Status must be one of: New,Confirmed,Delivered,Partially Paid,Paid,Cancelled,Canceled')
             ->assertJsonMissingPath('data');
 
         $this->withHeaders($headers)->getJson('/api/admin/orders?start=2026-09-31')
@@ -291,9 +291,39 @@ class OrderQueryTest extends TestCase
     }
 
     /**
-     * GWT: Given outlet A token + outlet B exists with orders, When GET /orders?outlet_id=B
-     * (or GET /api/orders / /api/admin/orders), Then only outlet A orders are returned, no 403,
-     * and client outlet_id is silently ignored/overridden.
+     * GWT: Given an outlet (non-admin) user, When GET /api/admin/orders,
+     * Then the admin alias RBAC guard still responds 403 (unchanged).
+     */
+    public function test_non_admin_cannot_list_orders(): void
+    {
+        $this->withHeaders($this->authHeaders())
+            ->getJson('/api/admin/orders')
+            ->assertStatus(403);
+    }
+
+    /**
+     * GWT: Given a non-outlet non-admin user, When GET /api/orders,
+     * Then the controller guard still responds 403.
+     */
+    public function test_non_outlet_non_admin_cannot_list_orders(): void
+    {
+        $user = User::factory()->supplier()->create([
+            'email' => 'supplier-list@ddp.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $login = $this->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$login->json('data.token'))
+            ->getJson('/api/orders')
+            ->assertStatus(403);
+    }
+
+    /**
+     * GWT: Given outlet A token + outlet B exists with orders, When GET /api/orders?outlet_id=B,
+     * Then only outlet A orders are returned, no 403, and client outlet_id is silently overridden.
      */
     public function test_outlet_scoped_order_list_ignores_client_outlet_id(): void
     {
@@ -315,21 +345,80 @@ class OrderQueryTest extends TestCase
             'outlet_id' => $this->outlet->id,
         ]);
 
-        // Request with token of outlet A, trying to query outlet_id=B via /orders or /admin/orders
+        // Request with outlet A token via /api/orders (outlet has orders:read), trying to inject outlet_id=B.
         $response = $this->withHeaders($this->authHeaders())
-            ->getJson('/orders?outlet_id='.$outletB->id);
+            ->getJson('/api/orders?outlet_id='.$outletB->id);
 
         $response->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.id', $orderA->id);
 
-        // Also test /admin/orders if aliased/accessible
-        $responseAdmin = $this->withHeaders($this->authHeaders())
-            ->getJson('/admin/orders?outlet_id='.$outletB->id);
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertNotContains($orderB->id, $ids);
 
-        $responseAdmin->assertOk()
+        // Even malformed outlet_id values are ignored, not rejected with 422.
+        $this->withHeaders($this->authHeaders())
+            ->getJson('/api/orders?outlet_id[]=999')
+            ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.id', $orderA->id);
+    }
+
+    /**
+     * GWT: Given outlet A with Paid/Cancelled orders, When GET /api/orders?status=Paid,Cancelled
+     * or status=Canceled, Then 200 and both stored spellings match the normalized
+     * filter; response statuses retain their persisted spelling.
+     */
+    public function test_order_status_allowlist_includes_paid_and_cancelled(): void
+    {
+        $paid = $this->createOrderAt('ORD-PAID', '2026-09-22 08:00:00', ['status' => 'Paid']);
+        $cancelled = $this->createOrderAt('ORD-CANCELLED', '2026-09-21 08:00:00', ['status' => 'Cancelled']);
+        $canceledVariant = $this->createOrderAt('ORD-CANCELED', '2026-09-20 08:00:00', ['status' => 'Canceled']);
+        $this->createOrderAt('ORD-NEW', '2026-09-19 08:00:00', ['status' => 'New']);
+
+        $this->withHeaders($this->authHeaders())
+            ->getJson('/api/orders?status=Paid,Cancelled&outlet_id='.$this->outlet->id)
+            ->assertOk()
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.id', $paid->id)
+            ->assertJsonPath('data.1.id', $cancelled->id)
+            ->assertJsonPath('data.2.id', $canceledVariant->id);
+
+        $this->withHeaders($this->authHeaders())
+            ->getJson('/api/orders?status=Canceled')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.id', $cancelled->id)
+            ->assertJsonPath('data.0.status', 'Cancelled')
+            ->assertJsonPath('data.1.id', $canceledVariant->id)
+            ->assertJsonPath('data.1.status', 'Canceled');
+    }
+
+    /**
+     * GWT: Given user with outlet role but no outlet relation, When GET /orders,
+     * Then 403 with JSON {status:"error", message:"The authenticated user is not associated with an outlet."}
+     */
+    public function test_outlet_without_outlet_returns_403(): void
+    {
+        $user = User::factory()->outlet()->create([
+            'email' => 'lonely-outlet@ddp.com',
+            'password' => Hash::make('password123'),
+        ]);
+
+        $login = $this->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+        $headers = ['Authorization' => 'Bearer '.$login->json('data.token')];
+
+        $this->withHeaders($headers)
+            ->getJson('/api/orders')
+            ->assertStatus(403)
+            ->assertExactJson([
+                'status' => 'error',
+                'message' => 'The authenticated user is not associated with an outlet.',
+            ]);
     }
 
     /**

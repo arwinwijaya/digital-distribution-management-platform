@@ -70,7 +70,7 @@ jobs:
       - name: Run Playwright UI tests
         uses: docker://mcr.microsoft.com/playwright:v1.48.0-jammy
         with:
-          args: /bin/sh -c "cd /github/workspace/apps/web && npm ci && npx playwright test --project=chromium"
+          args: /bin/sh -c "cd /github/workspace/apps/web && npm install && npx playwright test --project=chromium"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

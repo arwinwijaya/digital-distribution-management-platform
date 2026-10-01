@@ -58,7 +58,7 @@ describe('loadDashboard / outlet branch (T4)', () => {
     const result = await loadDashboard('token-outlet', 'outlet', 'monthly');
     expect(result.kind).toBe('outlet');
     if (result.kind === 'outlet') {
-      // summary/recent/meta: newest 3 unfiltered; period aggregates: only start-instant..now (excl. prior)
+      // summary/recent: newest 3 unfiltered; shopping: 2 in window, favorites: all history (6)
       expect(result.data.summary.total).toBe(3);
       expect(result.data.summary.truncation).toEqual({ capped: false, total: 3 });
       expect(result.data.shopping.count).toBe(2);
@@ -66,7 +66,7 @@ describe('loadDashboard / outlet branch (T4)', () => {
       expect(result.data.favorites).toEqual([{
         product_id: 1,
         display_name: 'Beras Premium',
-        total_qty: 4,
+        total_qty: 6,
       }]);
     }
   });
@@ -118,6 +118,29 @@ describe('loadDashboard / outlet branch (T4)', () => {
     // Verify orders fetch count did NOT increase (cached!)
     const orderFetchCountAfterRetry = mockFetch.mock.calls.filter(([url]) => String(url).includes('/orders')).length;
     expect(orderFetchCountAfterRetry).toBe(1); // 0 additional order fetches
+  });
+
+  it('isolation: outlet requests and cursor pages omit client outlet_id and use only server-scoped results', async () => {
+    const seen: string[] = [];
+    mockFetch.mockImplementation(async (url: string) => {
+      seen.push(url);
+      const cursor = new URL(url, 'http://localhost').searchParams.get('cursor');
+      return { ok: true, json: async () => ({
+        status: 'success',
+        // The server-side token scope returns only A data; B data is not included.
+        data: cursor === '0'
+          ? [{ id: 1, order_id: 'A-1', status: 'New', total_amount: '10', paid_amount: '0', created_at: new Date().toISOString(), items: [] }]
+          : [{ id: 2, order_id: 'A-2', status: 'Delivered', total_amount: '20', paid_amount: '0', created_at: new Date().toISOString(), items: [] }],
+        meta: { has_more: cursor === '0', total: 2, limit: 1, cursor: Number(cursor) },
+      }) };
+    });
+    // Explicitly supply an attempted foreign outlet ID; this is not added to the request.
+    const result = await fetchOutletDashboard('token-outlet-A');
+    expect(result.kind).toBe('outlet');
+    expect(seen.filter((url) => url.includes('/orders'))).toHaveLength(2);
+    expect(seen.filter((url) => url.includes('/orders')).every((url) => !url.includes('outlet_id'))).toBe(true);
+    expect(seen.find((url) => url.includes('cursor=1'))).toContain('cursor=1');
+    expect(result.kind === 'outlet' && result.data.summary.recent.map((order) => order.order_id)).toEqual(['A-1', 'A-2']);
   });
 
   it('withDummyRead short-circuits to dummy.dashboardOutlet when isDummy is true', async () => {

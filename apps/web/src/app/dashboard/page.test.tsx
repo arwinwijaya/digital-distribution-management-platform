@@ -80,6 +80,6 @@ describe('DashboardPage role routing', () => {
 
     expect(await findByTestId('outlet-dashboard')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalledWith('/orders');
-    expect(mockedLoadDashboard).toHaveBeenCalledWith('outlet-token', 'outlet', 'daily', undefined, undefined);
+    expect(mockedLoadDashboard).toHaveBeenCalledWith('outlet-token', 'outlet', 'daily', undefined, undefined, 30);
   });
 });

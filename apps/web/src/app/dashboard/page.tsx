@@ -1,10 +1,10 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { OutletPerformanceChart, SalesTrendChart, OutletPoint, TrendPoint } from '@/components/Charts';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
-import { loadDashboard } from '@/app/dashboard/api';
+import { loadDashboard, fetchOutletCredit } from '@/app/dashboard/api';
 import OutletDashboard from './OutletDashboard';
 import type { OutletDashboardData } from '@/dummy';
 import { useDummyRefresh } from '@/dummy/guards';
@@ -22,15 +22,33 @@ type FinanceMetrics = {
   reminders: { success: number; failure: number; sent: number; failed: number };
 };
 
+type DashboardError = Error & { status?: number; inline?: boolean; partialData?: OutletDashboardData };
+
+// Outlet-specific error state for per-section retry isolation
+// outletErrors holds partial data (summary/shopping/favorites/truncation) when orders succeeded but credit failed
+type OutletErrors = {
+  ordersError: DashboardError | null;
+  creditError: DashboardError | null;
+  shoppingError: DashboardError | null;
+  favoritesError: DashboardError | null;
+  partialData: OutletDashboardData | null;
+};
+
 type DashboardState = {
   dashboard: DashboardData | null;
   outletData: OutletDashboardData | null;
+  setOutletData: React.Dispatch<React.SetStateAction<OutletDashboardData | null>>;
   financeMetrics: FinanceMetrics | null;
   loading: boolean;
-  error: string | null;
-  setError: (error: string | null) => void;
+  error: DashboardError | null;
+  setError: (error: DashboardError | null) => void;
+  // Outlet-specific fields
+  outletErrors: OutletErrors;
+  setOutletErrors: React.Dispatch<React.SetStateAction<OutletErrors>>;
+  outletPeriod: 7 | 30 | 90;
+  setOutletPeriod: (period: 7 | 30 | 90) => void;
 };
-type DashboardLoader = (token: string, role: string, startDate?: string, endDate?: string) => Promise<void>;
+type DashboardLoader = (token: string, role: string, startDate?: string, endDate?: string, outletPeriodArg?: 7 | 30 | 90) => Promise<void>;
 
 function jakartaDateString(offsetDays: number): string {
   const shifted = new Date();
@@ -46,13 +64,24 @@ function useDashboardData(group: Group): DashboardState & { loadForRole: Dashboa
   const [outletData, setOutletData] = useState<OutletDashboardData | null>(null);
   const [financeMetrics, setFinanceMetrics] = useState<FinanceMetrics | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<DashboardError | null>(null);
+  const [outletErrors, setOutletErrors] = useState<OutletErrors>({
+    ordersError: null,
+    creditError: null,
+    shoppingError: null,
+    favoritesError: null,
+    partialData: null,
+  });
+  const [outletPeriod, setOutletPeriod] = useState<7 | 30 | 90>(30);
+  const outletPeriodRef = useRef<7 | 30 | 90>(30);
+  outletPeriodRef.current = outletPeriod;
 
-  const loadForRole = useCallback(async (authToken: string, currentRole: string, startDate?: string, endDate?: string) => {
+  const loadForRole = useCallback(async (authToken: string, currentRole: string, startDate?: string, endDate?: string, outletPeriodArg?: 7 | 30 | 90) => {
+    const period = outletPeriodArg ?? outletPeriodRef.current;
     setLoading(true);
     setError(null);
     try {
-      const result = await loadDashboard(authToken, currentRole, group, startDate, endDate);
+      const result = await loadDashboard(authToken, currentRole, group, startDate, endDate, period);
       if (result.kind === 'finance') {
         setFinanceMetrics(result.data);
         setDashboard(null);
@@ -64,18 +93,46 @@ function useDashboardData(group: Group): DashboardState & { loadForRole: Dashboa
         setDashboard(null);
         setFinanceMetrics(null);
         setOutletData(result.data);
+        // Full success: clear all outlet errors
+        setOutletErrors({ ordersError: null, creditError: null, shoppingError: null, favoritesError: null, partialData: null });
       }
     } catch (reason) {
+      const err = reason instanceof Error ? reason : new Error('Data dasbor tidak dapat dimuat.');
+      const partial = (err as DashboardError).partialData;
       setDashboard(null);
       setFinanceMetrics(null);
       setOutletData(null);
-      setError(reason instanceof Error ? reason.message : 'Data dasbor tidak dapat dimuat.');
+      setError(err);
+      if (currentRole === 'outlet') {
+        if (partial) {
+          // Orders succeeded, credit failed: render partial data with credit error
+          setOutletData(partial);
+          setOutletErrors({
+            ordersError: null,
+            creditError: err,
+            shoppingError: null,
+            favoritesError: null,
+            partialData: partial,
+          });
+          console.warn('Outlet dashboard credit unavailable');
+        } else {
+          // Orders also failed
+          setOutletErrors({
+            ordersError: err,
+            creditError: err,
+            shoppingError: err,
+            favoritesError: err,
+            partialData: null,
+          });
+          console.warn('Outlet dashboard orders unavailable');
+        }
+      }
     } finally {
       setLoading(false);
     }
   }, [group]);
 
-  return { dashboard, outletData, financeMetrics, loading, error, setError, loadForRole };
+  return { dashboard, outletData, setOutletData, financeMetrics, loading, error, setError, loadForRole, outletErrors, setOutletErrors, outletPeriod, setOutletPeriod };
 }
 
 function useDashboardSession(loadForRole: DashboardLoader, onAuthError: (error: string | null) => void) {
@@ -192,11 +249,18 @@ export default function DashboardPage() {
   const [endDate, setEndDate] = useState(() => jakartaDateString(0));
   const [group, setGroup] = useState<Group>('daily');
   const data = useDashboardData(group);
-  const session = useDashboardSession(data.loadForRole, data.setError);
+  const handleAuthError = useCallback((err: string | null) => {
+    data.setError(err ? new Error(err) : null);
+  }, [data.setError]);
+  const session = useDashboardSession(data.loadForRole, handleAuthError);
+
+  // Use ref for outletPeriod so dummy refresh can read current period without deps
+  const outletPeriodRef = useRef(data.outletPeriod);
+  outletPeriodRef.current = data.outletPeriod;
 
   useDummyRefresh(() => {
     if (session.token && session.role) {
-      void data.loadForRole(session.token, session.role, startDate, endDate);
+      void data.loadForRole(session.token, session.role, startDate, endDate, outletPeriodRef.current);
     }
   });
 
@@ -212,18 +276,66 @@ export default function DashboardPage() {
     return <p className="text-sm text-gray-500">Memuat...</p>;
   }
   if (session.role === 'outlet') {
-    const retryOutlet = () => { if (session.token && session.role) void data.loadForRole(session.token, session.role); };
-    if (data.error) {
-      const error = Object.assign(new Error(data.error), { status: (data.error as unknown as { status?: number }).status, inline: (data.error as unknown as { inline?: boolean }).inline });
-      return <OutletDashboard data={data.outletData} ordersError={error} onRetryOrders={retryOutlet} />;
+    const handlePeriod = (days: 7 | 30 | 90) => {
+      data.setOutletPeriod(days);
+      if (session.token && session.role) void data.loadForRole(session.token, session.role, undefined, undefined, days);
+    };
+
+    const handleRetryOrders = () => {
+      if (session.token && session.role) void data.loadForRole(session.token, session.role, undefined, undefined, data.outletPeriod);
+    };
+
+    const handleRetryCredit = async () => {
+      if (!session.token) return;
+      try {
+        const credit = await fetchOutletCredit(session.token);
+        data.setOutletData((prev) => prev ? { ...prev, credit } : null);
+        data.setOutletErrors((prev) => ({ ...prev, creditError: null }));
+      } catch (reason) {
+        const err = reason instanceof Error ? reason : new Error('Kredit tidak dapat dimuat.');
+        data.setOutletErrors((prev) => ({ ...prev, creditError: err }));
+        console.warn('Outlet dashboard credit unavailable');
+      }
+    };
+
+    const retryShopping = handleRetryOrders;
+    const retryFavorites = handleRetryOrders;
+
+    if (data.error && !data.outletData) {
+      // Full load failure (orders failed)
+      const err = data.error;
+      return <OutletDashboard
+        data={null}
+        ordersError={err}
+        creditError={err}
+        shoppingError={err}
+        favoritesError={err}
+        onRetryOrders={handleRetryOrders}
+        onRetryShopping={retryShopping}
+        onRetryCredit={handleRetryCredit}
+        onRetryFavorites={retryFavorites}
+        onPeriodChange={handlePeriod}
+      />;
     }
-    return <OutletDashboard data={data.outletData} onRetryOrders={retryOutlet} onRetryShopping={retryOutlet} onRetryCredit={retryOutlet} onRetryFavorites={retryOutlet} />;
+
+    return <OutletDashboard
+      data={data.outletData}
+      ordersError={data.outletErrors.ordersError}
+      creditError={data.outletErrors.creditError}
+      shoppingError={data.outletErrors.shoppingError}
+      favoritesError={data.outletErrors.favoritesError}
+      onRetryOrders={handleRetryOrders}
+      onRetryShopping={retryShopping}
+      onRetryCredit={handleRetryCredit}
+      onRetryFavorites={retryFavorites}
+      onPeriodChange={handlePeriod}
+    />;
   }
 
   return <div className="mx-auto max-w-6xl">
     <PageHeader title={session.role === 'finance' ? 'Dasbor keuangan' : 'Dasbor eksekutif'} description={session.role === 'finance' ? 'Pantau invoice, piutang, pembayaran, dan pengingat.' : 'Ringkasan performa penjualan, pembayaran, produk, dan outlet.'} />
     <DashboardFilters startDate={startDate} endDate={endDate} group={group} role={session.role} loading={data.loading} onStartDateChange={setStartDate} onEndDateChange={setEndDate} onGroupChange={setGroup} onSubmit={(event) => { event.preventDefault(); if (session.token && session.role) void data.loadForRole(session.token, session.role, startDate || jakartaDateString(-29), endDate || jakartaDateString(0)); }} />
-    {data.error && <p role="alert" className="mb-6 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{data.error}</p>}
+    {data.error && <p role="alert" className="mb-6 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{data.error.message}</p>}
     <DashboardDataView role={session.role ?? ''} dashboard={data.dashboard} financeMetrics={data.financeMetrics} loading={data.loading} />
   </div>;
 }

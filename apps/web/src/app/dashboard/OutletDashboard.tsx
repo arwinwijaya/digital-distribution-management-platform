@@ -81,9 +81,7 @@ function OrdersSummary({ summary }: { summary: OutletDashboardData['summary'] })
 }
 
 function Shopping({ data, period, onPeriodChange }: { data: OutletDashboardData; period: 7 | 30 | 90; onPeriodChange?: Props['onPeriodChange'] }) {
-  const current = period === 30 || data.shopping.period_label === periodWindow(period).label;
-  const count = current ? safeNumber(data.shopping.count) : 0;
-  const total = current ? data.shopping.total : '0';
+  // Data is fetched/recomputed for the selected window by the page; do not zero it locally.
   return <div data-testid="outlet-shopping-summary"><Card className="p-5">
     <h2 className="mb-3 text-base font-semibold">Ringkasan belanja</h2>
     <label htmlFor="outlet-period" className="mr-2">Periode belanja</label>
@@ -91,8 +89,8 @@ function Shopping({ data, period, onPeriodChange }: { data: OutletDashboardData;
       {[7, 30, 90].map((days) => <option key={days} value={days}>{days} hari terakhir</option>)}
     </select>
     <p className="mt-3">{periodWindow(period).label}</p>
-    {count === 0 ? <p>{data.summary.total === 0 ? 'Belum ada pesanan' : 'Tidak ada transaksi pada periode ini'}</p> : <>
-      <p>Total belanja: {rupiah(total)}</p><p>Jumlah transaksi: {count.toLocaleString('id-ID')}</p>
+    {safeNumber(data.shopping.count) === 0 ? <p>{data.summary.total === 0 ? 'Belum ada pesanan' : 'Tidak ada transaksi pada periode ini'}</p> : <>
+      <p>Total belanja: {rupiah(data.shopping.total)}</p><p>Jumlah transaksi: {safeNumber(data.shopping.count).toLocaleString('id-ID')}</p>
     </>}
   </Card></div>;
 }

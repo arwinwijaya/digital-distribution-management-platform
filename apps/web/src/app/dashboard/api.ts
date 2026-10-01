@@ -60,6 +60,44 @@ interface CreditLimitResponse {
   available_credit: number | null;
 }
 
+/**
+ * Fetch credit limit for the outlet. Separated for per-section retry isolation.
+ * Does NOT use the orders cache; called independently on credit retry.
+ */
+export async function fetchOutletCredit(
+  token: string,
+): Promise<OutletDashboardData['credit']> {
+  const creditResponse = await fetch(apiUrl('/credit-limit'), {
+    headers: authHeaders(token),
+  });
+  const creditBody: { status: string; data: CreditLimitResponse; message?: string } =
+    await creditResponse.json();
+  if (!creditResponse.ok) {
+    if (creditResponse.status === 403 && creditBody.message?.includes('not associated')) {
+      const err = new Error(creditBody.message) as Error & { status?: number; inline?: boolean };
+      err.status = 403;
+      err.inline = true;
+      throw err;
+    }
+    if (creditResponse.status === 401) {
+      const err = new Error(creditBody.message || 'Unauthorized') as Error & { status?: number };
+      err.status = 401;
+      throw err;
+    }
+    const err = new Error(creditBody.message || 'Kredit tidak dapat dimuat.') as Error & { status?: number };
+    err.status = creditResponse.status;
+    throw err;
+  }
+  const credit = creditBody.data;
+  const cl = credit.credit_limit;
+  return {
+    credit_limit: cl === null ? null : moneyValue(cl),
+    outstanding_balance: moneyValue(Number(credit.outstanding_balance)),
+    available_credit: credit.available_credit === null ? null : moneyValue(credit.available_credit),
+    hidden: cl === null,
+  };
+}
+
 interface OrdersEnvelope {
   status: string;
   data: Array<{
@@ -103,6 +141,7 @@ export async function loadDashboard(
   group: Group,
   startDate?: string,
   endDate?: string,
+  outletPeriod: 7 | 30 | 90 = 30,
 ): Promise<DashboardLoadResult> {
   const { isDummy, dummyEntities } = useDummyStore.getState();
   const dummy = dummyEntities as FullDummy | null;
@@ -134,7 +173,7 @@ export async function loadDashboard(
     const dummyValue: DashboardLoadResult | null =
       isDummy && dummy ? { kind: 'outlet' as const, data: dummy.dashboardOutlet } : null;
     return withDummyRead(isDummy, dummyValue as DashboardLoadResult, async () =>
-      fetchOutletDashboard(token, startDate, endDate),
+      fetchOutletDashboard(token, startDate, endDate, outletPeriod),
     );
   }
 
@@ -166,9 +205,10 @@ export async function fetchOutletDashboard(
   token: string,
   startDate?: string,
   endDate?: string,
+  periodDays: 7 | 30 | 90 = 30,
 ): Promise<DashboardLoadResult> {
   const now = new Date();
-  const pw = periodWindow(30, now);
+  const pw = periodWindow(periodDays, now);
   // Outlet period bounds are exact instants; never send them to date-only API filters.
   const startInstantUTC = pw.startInstantUTC;
   const endInstantUTC = pw.endInstantUTC;
@@ -240,61 +280,21 @@ export async function fetchOutletDashboard(
     if (envelope.data.length === 0) break;
   }
 
-  // Fetch credit-limit — NOT cached with orders; retry isolates to this fetch only
-  let creditData: OutletDashboardData['credit'];
-  try {
-    const creditResponse = await fetch(apiUrl('/credit-limit'), {
-      headers: authHeaders(token),
-    });
-    const creditBody: { status: string; data: CreditLimitResponse; message?: string } =
-      await creditResponse.json();
-    if (!creditResponse.ok) {
-      if (creditResponse.status === 403 && creditBody.message?.includes('not associated')) {
-        const err = new Error(creditBody.message) as Error & { status?: number; inline?: boolean };
-        err.status = 403;
-        err.inline = true;
-        throw err;
-      }
-      throw new Error(creditBody.message || 'Kredit tidak dapat dimuat.');
-    }
-    const credit = creditBody.data;
-    const cl = credit.credit_limit;
-    creditData = {
-      credit_limit: cl === null ? null : moneyValue(cl),
-      outstanding_balance: moneyValue(Number(credit.outstanding_balance)),
-      available_credit: credit.available_credit === null ? null : moneyValue(credit.available_credit),
-      hidden: cl === null,
-    };
-  } catch (e) {
-    const err = e as Error & { status?: number; inline?: boolean };
-    if (err.status === 403 && err.inline) {
-      // Propagate inline 403 for credit as well — UI will show without retry
-      throw err;
-    }
-    if (err.status === 401) throw err;
-    // For 5xx or network, propagate as retryable error — UI per-section retry
-    throw new Error(err.message || 'Kredit tidak dapat dimuat.');
-  }
-
+  // Build summary/recent/favorites from orders (window-independent, cached)
   const summaryOrders = allOrders.slice(0, 1000);
-  const periodOrders = summaryOrders.filter((order) => {
-    const createdAt = Date.parse(order.created_at);
-    return Number.isFinite(createdAt)
-      && createdAt >= Date.parse(startInstantUTC)
-      && createdAt <= Date.parse(endInstantUTC);
-  });
   const statuses: Record<string, number> = {};
   for (const order of summaryOrders) {
     statuses[order.status] = (statuses[order.status] ?? 0) + 1;
   }
-
-  // Shopping aggregates: total excluding Cancelled/Canceled, count unique orders
-  const shoppingOrders = periodOrders.filter(
-    (o) => !['Cancelled', 'Canceled', 'cancelled', 'canceled'].includes(o.status),
-  );
-  const shoppingCents = shoppingOrders.reduce((sum, order) => sum + toCents(order.total_amount), 0);
-
-  const favoriteInput = periodOrders.map((order) => ({
+  const recent = summaryOrders.slice(0, 10).map((order) => ({
+    id: order.id,
+    order_id: order.order_id,
+    status: order.status,
+    status_label: toOutletStatus(order.status).label,
+    total_amount: moneyValue(Number(order.total_amount)),
+    created_at: order.created_at,
+  }));
+  const favoriteInput = summaryOrders.map((order) => ({
     created_at: order.created_at,
     items: order.items.map((item) => ({
       product_id: item.product_id,
@@ -307,17 +307,49 @@ export async function fetchOutletDashboard(
     display_name: item.displayName,
     total_qty: item.totalQty,
   }));
-
-  const recent = summaryOrders.slice(0, 10).map((order) => ({
-    id: order.id,
-    order_id: order.order_id,
-    status: order.status,
-    status_label: toOutletStatus(order.status).label,
-    total_amount: moneyValue(Number(order.total_amount)),
-    created_at: order.created_at,
-  }));
-
   const capped = totalFromMeta > 1000 || allOrders.length >= 1000;
+
+  // Shopping aggregates for the selected period — computed before credit so partialData retains valid shopping.
+  const periodOrders = summaryOrders.filter((order) => {
+    const createdAt = Date.parse(order.created_at);
+    return Number.isFinite(createdAt)
+      && createdAt >= Date.parse(startInstantUTC)
+      && createdAt <= Date.parse(endInstantUTC);
+  });
+  const shoppingOrders = periodOrders.filter(
+    (o) => !['Cancelled', 'Canceled', 'cancelled', 'canceled'].includes(o.status),
+  );
+  const shoppingCents = shoppingOrders.reduce((sum, order) => sum + toCents(order.total_amount), 0);
+  const shopping: OutletDashboardData['shopping'] = {
+    total: moneyValue(shoppingCents / 100),
+    count: shoppingOrders.length,
+    period_label: pw.label,
+  };
+
+  // Build partial data object to attach to credit error if credit fetch fails
+  const partialData: OutletDashboardData = {
+    summary: {
+      total: summaryOrders.length,
+      statuses,
+      recent,
+      truncation: { capped, total: totalFromMeta || summaryOrders.length },
+    },
+    shopping,
+    credit: { credit_limit: null, outstanding_balance: '0', available_credit: null, hidden: true },
+    favorites,
+  };
+
+  // Fetch credit-limit — NOT cached with orders; retry isolates to this fetch only
+  let creditData: OutletDashboardData['credit'];
+  try {
+    creditData = await fetchOutletCredit(token);
+  } catch (e) {
+    const err = e as Error & { status?: number; inline?: boolean; partialData?: OutletDashboardData };
+    if (err.status === 401) throw err;
+    // Attach partial data so page can render what succeeded (including inline 403 credit).
+    err.partialData = partialData;
+    throw err;
+  }
 
   return {
     kind: 'outlet',

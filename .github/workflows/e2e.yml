@@ -31,14 +31,13 @@ jobs:
       - name: Generate .env for docker compose
         run: |
           cp .env.example .env
-          # Generate required secrets
+          # Generate required secrets without printing them to CI logs.
           APP_KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;")
           JWT_SECRET=$(openssl rand -hex 32)
           sed -i "s/^APP_KEY=.*/APP_KEY=$APP_KEY/" .env
           sed -i "s/^JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/" .env
           sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=secret123/" .env
           sed -i "s|^NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=http://localhost:8080/api|" .env
-          cat .env
 
       - name: Install API dependencies
         working-directory: apps/api
@@ -56,9 +55,15 @@ jobs:
 
       - name: Wait for services ready
         run: |
-          for i in {1..30}; do
-            curl -s http://localhost:8080/api/health && break || sleep 2;
+          for i in {1..60}; do
+            if curl --fail --silent http://localhost:8080/api/health; then
+              exit 0
+            fi
+            sleep 5
           done
+          docker compose ps
+          docker compose logs --tail=100 api nginx
+          exit 1
 
       - name: Seed database
         run: bash scripts/e2e-seed.sh
@@ -73,10 +78,12 @@ jobs:
           args: /bin/sh -c "cd /github/workspace/apps/web && npm install && npx playwright test --project=chromium"
 
       - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-test-results
           path: |
             apps/web/test-results/**
             apps/web/playwright-report/**
+          if-no-files-found: warn
           retention-days: 30

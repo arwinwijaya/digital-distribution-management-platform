@@ -91,9 +91,9 @@ function LoginFields({ email, password, loading, onEmailChange, onPasswordChange
   ctaLabel?: string;
 }) {
   return <form onSubmit={onSubmit} className="space-y-4">
-    <Input label="Email" required type="email" value={email} onChange={(event) => onEmailChange(event.target.value)} placeholder="nama@perusahaan.com" />
-    <Input label="Kata sandi" required type="password" value={password} onChange={(event) => onPasswordChange(event.target.value)} placeholder="Masukkan kata sandi" />
-    <Button type="submit" disabled={loading} className="w-full">{loading ? 'Memproses...' : ctaLabel}</Button>
+    <Input label="Email" required type="email" value={email} onChange={(event) => onEmailChange(event.target.value)} placeholder="nama@perusahaan.com" data-testid="login-email" />
+    <Input label="Kata sandi" required type="password" value={password} onChange={(event) => onPasswordChange(event.target.value)} placeholder="Masukkan kata sandi" data-testid="login-password" />
+    <Button type="submit" disabled={loading} className="w-full" data-testid="login-submit">{loading ? 'Memproses...' : ctaLabel}</Button>
   </form>;
 }
 
@@ -102,7 +102,7 @@ export default function LoginForm(props: LoginFormProps) {
   const { ctaLabel = 'Masuk' } = props;
   return <Card className="max-w-md p-6">
     <LoginHeader />
-    {form.error && <p role="alert" className="mb-4 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{form.error}</p>}
+    {form.error && <p role="alert" className="mb-4 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700" data-testid="login-error">{form.error}</p>}
     <LoginFields email={form.email} password={form.password} loading={form.loading} onEmailChange={form.setEmail} onPasswordChange={form.setPassword} onSubmit={form.submit} ctaLabel={ctaLabel} />
   </Card>;
 }

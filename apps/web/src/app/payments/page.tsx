@@ -115,9 +115,9 @@ function PaymentEntry({ orderId, amount, loading, setOrderId, setAmount, onSubmi
   return <Card className="mb-6 p-5">
     <h2 className="mb-4 text-base font-semibold text-gray-900">Catat pembayaran</h2>
     <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-      <Input required type="number" min="1" label="ID pesanan" value={orderId} onChange={(event) => setOrderId(event.target.value)} placeholder="Contoh: 1024" />
-      <Input required type="number" min="0.01" step="0.01" label="Jumlah pembayaran" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" />
-      <Button type="submit" disabled={loading}>Simpan pembayaran</Button>
+      <Input required type="number" min="1" label="ID pesanan" value={orderId} onChange={(event) => setOrderId(event.target.value)} placeholder="Contoh: 1024" data-testid="payment-order-id" />
+      <Input required type="number" min="0.01" step="0.01" label="Jumlah pembayaran" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" data-testid="payment-amount" />
+      <Button type="submit" disabled={loading} data-testid="payment-submit">Simpan pembayaran</Button>
     </form>
   </Card>;
 }
@@ -198,7 +198,7 @@ export default function PaymentsPage() {
     <PageHeader title="Pembayaran" description="Catat pembayaran dan pantau status invoice." />
     <PaymentSummary summary={data.summary} paymentTotal={data.paymentMeta.total} invoiceTotal={data.invoiceMeta.total} />
     <PaymentEntry orderId={orderId} amount={amount} loading={data.loading} setOrderId={setOrderId} setAmount={setAmount} onSubmit={submit} />
-    {message && <p className="mb-5 rounded-lg border border-success-200 bg-success-50 p-3 text-sm text-success-700">{message}</p>}
+    {message && <p className="mb-5 rounded-lg border border-success-200 bg-success-50 p-3 text-sm text-success-700" data-testid="payment-success">{message}</p>}
     {data.error && <p role="alert" className="mb-5 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-700">{data.error}</p>}
     <PaymentHistory data={data} token={session.token} role={session.role} />
   </div>;

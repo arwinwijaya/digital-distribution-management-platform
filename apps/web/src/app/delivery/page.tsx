@@ -193,7 +193,7 @@ export default function DeliveryPage() {
                       </button>
                       <div className="flex items-center gap-3">
                         <StatusBadge status={delivery.status} />
-                        {delivery.status === 'assigned' && <Button size="sm" onClick={() => updateStatus(delivery, 'in_progress')}>Mulai antar</Button>}
+                        {delivery.status === 'assigned' && <Button size="sm" onClick={() => updateStatus(delivery, 'in_progress')} data-testid={`delivery-start-${delivery.id}`}>Mulai antar</Button>}
                       </div>
                     </div>
 
@@ -208,9 +208,9 @@ export default function DeliveryPage() {
                           </Button>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                          <Input label="Nama penerima" value={details.recipient} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, recipient: event.target.value } })} placeholder="Nama penerima" />
-                          <Input label="URL bukti pengiriman" type="url" value={details.url} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, url: event.target.value } })} placeholder="https://..." />
-                          <Button disabled={completing === delivery.id} onClick={() => updateStatus(delivery, 'delivered')}>{completing === delivery.id ? 'Menyimpan...' : 'Tandai terkirim'}</Button>
+                          <Input label="Nama penerima" value={details.recipient} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, recipient: event.target.value } })} placeholder="Nama penerima" data-testid={`delivery-recipient-${delivery.id}`} />
+                          <Input label="URL bukti pengiriman" type="url" value={details.url} onChange={(event) => setProof({ ...proof, [delivery.id]: { ...details, url: event.target.value } })} placeholder="https://..." data-testid={`delivery-proof-url-${delivery.id}`} />
+                          <Button disabled={completing === delivery.id} onClick={() => updateStatus(delivery, 'delivered')} data-testid={`delivery-complete-${delivery.id}`}>{completing === delivery.id ? 'Menyimpan...' : 'Tandai terkirim'}</Button>
                         </div>
                         <p className="text-xs text-gray-500">Gunakan tombol kamera untuk menangkap foto + tanda tangan, atau isi URL bukti secara manual.</p>
                       </div>

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { OutletPerformanceChart, SalesTrendChart, OutletPoint, TrendPoint } from '@/components/Charts';
 import { apiUrl, authHeaders, getStoredToken } from '@/lib/api';
 import { loadDashboard } from '@/app/dashboard/api';
+import OutletDashboard from './OutletDashboard';
+import type { OutletDashboardData } from '@/dummy';
 import { useDummyRefresh } from '@/dummy/guards';
 import { Button, Card, Input, PageHeader, Select, StatCard } from '@/components/ui';
 
@@ -22,6 +24,7 @@ type FinanceMetrics = {
 
 type DashboardState = {
   dashboard: DashboardData | null;
+  outletData: OutletDashboardData | null;
   financeMetrics: FinanceMetrics | null;
   loading: boolean;
   error: string | null;
@@ -40,6 +43,7 @@ function integer(value: unknown): string { return safeNumber(value).toLocaleStri
 
 function useDashboardData(group: Group): DashboardState & { loadForRole: DashboardLoader } {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [outletData, setOutletData] = useState<OutletDashboardData | null>(null);
   const [financeMetrics, setFinanceMetrics] = useState<FinanceMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,21 +59,23 @@ function useDashboardData(group: Group): DashboardState & { loadForRole: Dashboa
       } else if (result.kind === 'admin') {
         setDashboard(result.data);
         setFinanceMetrics(null);
+        setOutletData(null);
       } else {
-        // outlet: T5 will render <OutletDashboard />; keep state consistent
         setDashboard(null);
         setFinanceMetrics(null);
+        setOutletData(result.data);
       }
     } catch (reason) {
       setDashboard(null);
       setFinanceMetrics(null);
+      setOutletData(null);
       setError(reason instanceof Error ? reason.message : 'Data dasbor tidak dapat dimuat.');
     } finally {
       setLoading(false);
     }
   }, [group]);
 
-  return { dashboard, financeMetrics, loading, error, setError, loadForRole };
+  return { dashboard, outletData, financeMetrics, loading, error, setError, loadForRole };
 }
 
 function useDashboardSession(loadForRole: DashboardLoader, onAuthError: (error: string | null) => void) {
@@ -96,11 +102,7 @@ function useDashboardSession(loadForRole: DashboardLoader, onAuthError: (error: 
         setToken(storedToken);
         setRole(currentRole);
         setReady(true);
-        // Outlets have no analytics permission; the page redirects them to
-        // /orders, so skip the dashboard request entirely for that role.
-        if (currentRole !== 'outlet') {
-          void loadForRole(storedToken, currentRole);
-        }
+        void loadForRole(storedToken, currentRole);
       })
       .catch((reason) => {
         if (!active) return;
@@ -204,13 +206,18 @@ export default function DashboardPage() {
       router.replace('/login?redirect=%2Fdashboard');
       return;
     }
-    if (session.role === 'outlet') {
-      router.replace('/orders');
-    }
   }, [router, session.ready, session.role, session.token]);
 
-  if (!session.ready || !session.token || session.role === 'outlet') {
+  if (!session.ready || !session.token) {
     return <p className="text-sm text-gray-500">Memuat...</p>;
+  }
+  if (session.role === 'outlet') {
+    const retryOutlet = () => { if (session.token && session.role) void data.loadForRole(session.token, session.role); };
+    if (data.error) {
+      const error = Object.assign(new Error(data.error), { status: (data.error as unknown as { status?: number }).status, inline: (data.error as unknown as { inline?: boolean }).inline });
+      return <OutletDashboard data={data.outletData} ordersError={error} onRetryOrders={retryOutlet} />;
+    }
+    return <OutletDashboard data={data.outletData} onRetryOrders={retryOutlet} onRetryShopping={retryOutlet} onRetryCredit={retryOutlet} onRetryFavorites={retryOutlet} />;
   }
 
   return <div className="mx-auto max-w-6xl">

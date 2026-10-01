@@ -67,12 +67,19 @@ describe('DashboardPage role routing', () => {
     expect(mockedLoadDashboard).not.toHaveBeenCalled();
   });
 
-  it('redirects outlets to orders without requesting analytics data', async () => {
+  it('renders the outlet dashboard without redirecting to orders', async () => {
     mockedGetStoredToken.mockReturnValue('outlet-token');
+    mockedLoadDashboard.mockResolvedValue({ kind: 'outlet', data: {
+      summary: { total: 0, statuses: {}, recent: [], truncation: { capped: false, total: 0 } },
+      shopping: { total: '0', count: 0, period_label: '30 hari terakhir' },
+      credit: { credit_limit: null, outstanding_balance: '0', available_credit: null, hidden: true },
+      favorites: [],
+    } });
 
-    render(<DashboardPage />);
+    const { findByTestId } = render(<DashboardPage />);
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/orders'));
-    expect(mockedLoadDashboard).not.toHaveBeenCalled();
+    expect(await findByTestId('outlet-dashboard')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalledWith('/orders');
+    expect(mockedLoadDashboard).toHaveBeenCalledWith('outlet-token', 'outlet', 'daily', undefined, undefined);
   });
 });

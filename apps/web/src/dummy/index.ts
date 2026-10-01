@@ -63,8 +63,8 @@ export type {
   DummyDelivery,
 } from './factory-transactions';
 
-export { buildAggregates } from './aggregates';
-export type { Aggregates } from './aggregates';
+export { buildAggregates, buildDashboardOutlet } from './aggregates';
+export type { Aggregates, OutletDashboardData } from './aggregates';
 
 export { buildPhase9Dummy } from './phase9';
 export type { Phase9DummyEntities } from './phase9';

@@ -15,6 +15,7 @@ import type {
 } from './factory-transactions';
 import type { DateWindow } from './dates';
 import { daysBetween } from './dates';
+import { toOutletStatus, periodWindow, topFavorites } from '@/app/dashboard/outlet-helpers';
 
 // ─── Imported existing interfaces ────────────────────────────────────────────
 
@@ -209,6 +210,41 @@ interface OperationsData {
   issues: OperationIssue[];
 }
 
+export interface OutletDashboardData {
+  summary: {
+    total: number;
+    statuses: Record<string, number>;
+    recent: Array<{
+      id: number;
+      order_id: string;
+      status: string;
+      status_label: string;
+      total_amount: string;
+      created_at: string;
+    }>;
+    truncation: {
+      capped: boolean;
+      total: number;
+    };
+  };
+  shopping: {
+    total: string;
+    count: number;
+    period_label: string;
+  };
+  credit: {
+    credit_limit: string | null;
+    outstanding_balance: string;
+    available_credit: string | null;
+    hidden: boolean;
+  };
+  favorites: Array<{
+    product_id: number;
+    display_name: string;
+    total_qty: number;
+  }>;
+}
+
 export interface Aggregates {
   analytics: AnalyticsData;
   analyticsInsight: AnalyticsInsightData;
@@ -224,6 +260,7 @@ export interface Aggregates {
   measurement: MeasurementData;
   dashboardAdmin: AdminDashboardData;
   dashboardFinance: FinanceMetrics;
+  dashboardOutlet: OutletDashboardData;
   operations: OperationsData;
 }
 
@@ -1279,6 +1316,73 @@ function buildAnalyticsInsight(
   };
 }
 
+// ─── Dashboard (outlet) ──────────────────────────────────────────────────────
+
+export function buildDashboardOutlet(
+  master: MasterData,
+  tx: Transactions,
+  window: DateWindow,
+  creditLimit: number | null = 10_000_000,
+): OutletDashboardData {
+  const canonicalOutlet = master.outlets[0];
+  const outletId = canonicalOutlet ? pickOutletNumericId(canonicalOutlet) : 1;
+  const allOrders = tx.orders
+    .filter((order) => order.outlet_id === outletId)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const recent = allOrders.slice(0, 10);
+  const statuses: Record<string, number> = {};
+  for (const order of allOrders.slice(0, 1000)) {
+    statuses[order.status] = (statuses[order.status] ?? 0) + 1;
+  }
+
+  const currentWindow = periodWindow(30, new Date(`${window.end}T12:00:00+07:00`));
+  const shoppingOrders = allOrders.filter((order) => {
+    const date = order.created_at.slice(0, 10);
+    return date >= currentWindow.start && date <= currentWindow.end && order.status !== 'Cancelled' && order.status !== 'Canceled' && order.status !== 'cancelled' && order.status !== 'canceled';
+  });
+  const shoppingCents = shoppingOrders.reduce((sum, order) => sum + toCents(order.total_amount), 0);
+  const favoriteInput = allOrders.map((order) => ({
+    created_at: order.created_at,
+    items: order.items.map((item) => ({
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: item.quantity,
+    })),
+  }));
+  const outstanding = allOrders.reduce((sum, order) => {
+    if (['Cancelled', 'Canceled', 'cancelled', 'canceled'].includes(order.status)) return sum;
+    return sum + Math.max(0, toCents(order.total_amount) - toCents(order.paid_amount));
+  }, 0);
+
+  return {
+    summary: {
+      total: Math.min(allOrders.length, 1000),
+      statuses,
+      recent: recent.map((order) => ({
+        id: order.id,
+        order_id: order.order_id,
+        status: order.status,
+        status_label: toOutletStatus(order.status).label,
+        total_amount: money(Number(order.total_amount)),
+        created_at: order.created_at,
+      })),
+      truncation: { capped: allOrders.length > 1000, total: allOrders.length },
+    },
+    shopping: { total: fromCents(shoppingCents), count: shoppingOrders.length, period_label: currentWindow.label },
+    credit: {
+      credit_limit: creditLimit === null ? null : money(creditLimit),
+      outstanding_balance: fromCents(outstanding),
+      available_credit: creditLimit === null ? null : fromCents(Math.max(0, creditLimit * 100 - outstanding)),
+      hidden: creditLimit === null,
+    },
+    favorites: topFavorites(favoriteInput, 5).map((item) => ({
+      product_id: item.product_id,
+      display_name: item.displayName,
+      total_qty: item.totalQty,
+    })),
+  };
+}
+
 // ─── Main aggregate builder ──────────────────────────────────────────────────
 
 /**
@@ -1305,6 +1409,7 @@ export function buildAggregates(
     measurement: buildMeasurement(master, tx, window),
     dashboardAdmin: buildDashboardAdmin(master, tx, window),
     dashboardFinance: buildDashboardFinance(master, tx),
+    dashboardOutlet: buildDashboardOutlet(master, tx, window),
     operations: buildOperations(master, tx, window),
   };
 }

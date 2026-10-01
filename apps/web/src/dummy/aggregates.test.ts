@@ -12,7 +12,7 @@ import { dummyWindow } from '@/dummy/dates';
 import { DUMMY_SEED } from '@/dummy/seed';
 import { buildMasterData } from '@/dummy/factory';
 import { buildTransactions } from '@/dummy/factory-transactions';
-import { buildAggregates, buildGeographic } from '@/dummy/aggregates';
+import { buildAggregates, buildGeographic, buildDashboardOutlet } from '@/dummy/aggregates';
 import type { MasterData } from '@/dummy/factory';
 import type { Transactions } from '@/dummy/factory-transactions';
 import { computeFilteredCounts } from '@/lib/geographic-filters';
@@ -121,6 +121,105 @@ describe('buildAggregates', () => {
 
     it('issues list is non-empty', () => {
       expect(agg.operations.issues.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('dashboardOutlet (T3)', () => {
+    const window = dummyWindow(TODAY);
+    const rng = createSeededRng(DUMMY_SEED);
+    const master = buildMasterData(rng, window);
+    const tx = buildTransactions(master, window);
+    const outlet = buildDashboardOutlet(master, tx, window);
+
+    it('exists and has the expected shape', () => {
+      expect(outlet).toBeDefined();
+      expect(outlet.summary).toBeDefined();
+      expect(outlet.shopping).toBeDefined();
+      expect(outlet.credit).toBeDefined();
+      expect(outlet.favorites).toBeDefined();
+    });
+
+    it('summary: counts per status sum to total, recent 10 newest-first, truncation present', () => {
+      const { total, statuses, recent, truncation } = outlet.summary;
+      expect(total).toBeGreaterThan(0);
+      const statusSum = Object.values(statuses).reduce((a, b) => a + b, 0);
+      expect(statusSum).toBe(total);
+      expect(recent.length).toBeLessThanOrEqual(10);
+      for (let i = 1; i < recent.length; i++) {
+        expect(recent[i - 1].created_at >= recent[i].created_at).toBe(true);
+      }
+      expect(truncation).toHaveProperty('capped');
+      expect(truncation).toHaveProperty('total');
+    });
+
+    it('credit: fields present and formatted, credit_limit uses default when not in master', () => {
+      const { credit_limit, outstanding_balance, available_credit, hidden } = outlet.credit;
+      expect(typeof credit_limit).toBe('string');
+      expect(typeof outstanding_balance).toBe('string');
+      expect(typeof available_credit).toBe('string');
+      expect(typeof hidden).toBe('boolean');
+      expect(credit_limit).toMatch(/^\d+\.\d{2}$/);
+      expect(outstanding_balance).toMatch(/^\d+\.\d{2}$/);
+      expect(available_credit).toMatch(/^\d+\.\d{2}$/);
+      expect(hidden).toBe(false);
+    });
+
+    it('favorites: top-k matches helper topFavorites contract', () => {
+      expect(outlet.favorites.length).toBeLessThanOrEqual(5);
+      if (outlet.favorites.length > 1) {
+        expect(outlet.favorites[0].total_qty).toBeGreaterThanOrEqual(outlet.favorites[1].total_qty);
+      }
+      for (const fav of outlet.favorites) {
+        expect(fav).toHaveProperty('product_id');
+        expect(fav).toHaveProperty('display_name');
+        expect(fav).toHaveProperty('total_qty');
+        expect(typeof fav.product_id).toBe('number');
+        expect(typeof fav.display_name).toBe('string');
+        expect(typeof fav.total_qty).toBe('number');
+      }
+    });
+
+    it('shopping: total is formatted string, count matches non-cancelled orders, period_label present', () => {
+      expect(outlet.shopping.total).toMatch(/^\d+\.\d{2}$/);
+      expect(typeof outlet.shopping.count).toBe('number');
+      expect(typeof outlet.shopping.period_label).toBe('string');
+    });
+  });
+
+  describe('dashboardOutlet empty state', () => {
+    it('zero orders yields empty arrays (not zeros-as-error)', () => {
+      const emptyMaster = {
+        territories: [],
+        outlets: [{ id: 'dummy-001', name: 'Empty Outlet', territoryId: 'jakarta', city: 'Jakarta', lat: -6.2, lon: 106.8 }],
+        products: [],
+        suppliers: [],
+        driverProfiles: [],
+      } as unknown as MasterData;
+      const emptyTx = { orders: [], payments: [], invoices: [], deliveries: [], visits: [] } as unknown as Transactions;
+      const window = dummyWindow(TODAY);
+      const result = buildDashboardOutlet(emptyMaster, emptyTx, window, null);
+      expect(result.summary.total).toBe(0);
+      expect(result.summary.statuses).toEqual({});
+      expect(result.summary.recent).toEqual([]);
+      expect(result.summary.truncation).toEqual({ capped: false, total: 0 });
+      expect(result.shopping.count).toBe(0);
+      expect(result.shopping.total).toBe('0.00');
+      expect(result.credit.credit_limit).toBeNull();
+      expect(result.credit.outstanding_balance).toBe('0.00');
+      expect(result.credit.available_credit).toBeNull();
+      expect(result.credit.hidden).toBe(true);
+      expect(result.favorites).toEqual([]);
+    });
+
+    it('credit_limit null triggers hidden branch', () => {
+      const window = dummyWindow(TODAY);
+      const rng = createSeededRng(DUMMY_SEED);
+      const master = buildMasterData(rng, window);
+      const tx = buildTransactions(master, window);
+      const result = buildDashboardOutlet(master, tx, window, null);
+      expect(result.credit.credit_limit).toBeNull();
+      expect(result.credit.available_credit).toBeNull();
+      expect(result.credit.hidden).toBe(true);
     });
   });
 

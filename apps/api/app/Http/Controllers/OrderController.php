@@ -7,10 +7,10 @@ use App\Models\Order;
 use App\Services\FinanceAuthorizationService;
 use App\Services\InvoiceService;
 use App\Services\OrderCreationService;
+use App\Services\OrderListBuilder;
 use App\Services\WhatsAppService;
 use App\Http\Requests\CancelOrderRequest;
 use App\Support\ConcurrencyTestBarrier;
-use App\Support\ListQuery;
 use App\Support\OrderFormatter;
 use App\Support\OrderListFilters;
 use Illuminate\Database\QueryException;
@@ -20,11 +20,6 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    /**
-     * Sortable columns allowlist (invalid values silently fall back to default).
-     */
-    private const SORT_ALLOWLIST = ['created_at', 'updated_at', 'order_id', 'status', 'total_amount', 'id'];
-
     public function __construct(
         private readonly OrderCreationService $orderCreationService,
         private readonly WhatsAppService $whatsappService,
@@ -124,53 +119,10 @@ class OrderController extends Controller
         ], 403);
     }
 
-    /**
-     * Build the paginated order list payload. Additive filters narrow the
-     * builder; absent filters leave the query unchanged so existing
-     * default behaviour is preserved byte-for-byte.
-     *
-     * @param  array<string,mixed>  $filters
-     * @return array{orders: mixed, meta: array<string,mixed>}
-     */
+    /** @param array<string,mixed> $filters */
     private function buildOrderList(Request $request, array $filters): array
     {
-        $limit = min(max((int) $request->query('limit', 100), 1), 100);
-        $cursor = ListQuery::offset((int) ListQuery::scalarString($request, 'cursor', '0'), $limit);
-
-        // Sort allowlist with silent fallback to created_at DESC for invalid
-        // input. Reads are scalar-safe: array params fall back to the default
-        // instead of raising an "Array to string conversion" 500.
-        [$sortColumn, $sortOrder] = ListQuery::resolveSort(
-            self::SORT_ALLOWLIST,
-            ListQuery::scalarString($request, 'sort', ''),
-            ListQuery::scalarString($request, 'order', 'desc'),
-            'created_at',
-            'desc',
-        );
-
-        $query = Order::query()->with(['items.product']);
-        app(OrderListFilters::class)->apply($query, $filters);
-
-        $meta = array_merge(
-            ['limit' => $limit, 'cursor' => $cursor],
-            // Aggregate total from the SAME filtered builder (before
-            // limit/offset/order) — never count the paginated rows.
-            ListQuery::meta((clone $query)->count()),
-        );
-
-        // limit+1 technique: fetch one extra row to derive `has_more`.
-        $raw = $query
-            ->orderByRaw(ListQuery::rawOrder($sortColumn, $sortOrder))
-            ->limit($limit + 1)
-            ->offset($cursor)
-            ->get();
-        $hasMore = $raw->count() > $limit;
-        $orders = $raw->take($limit)->map(fn (Order $row) => $this->formatOrderResponse($row));
-
-        return [
-            'orders' => $orders,
-            'meta' => array_merge(['has_more' => $hasMore], $meta),
-        ];
+        return app(OrderListBuilder::class)->build($request, $filters);
     }
 
     /**

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Models\InvoiceTemplate;
 use App\Services\FinanceAuthorizationService;
 use App\Services\InvoiceService;
+use App\Services\PdfGeneratorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -15,9 +18,40 @@ class InvoiceController extends Controller
     public function __construct(
         private readonly InvoiceService $invoiceService,
         private readonly FinanceAuthorizationService $authorization,
+        private readonly PdfGeneratorService $pdfGenerator,
     ) {}
 
     public function show(Request $request, int $id): JsonResponse
+    {
+        $invoice = $this->authorizedInvoice($request, $id);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $this->invoiceService->getDetail($invoice),
+        ]);
+    }
+
+    /**
+     * Stream the invoice as a server-side PDF. Reuses the detail service so the
+     * PDF and JSON never diverge, and applies the exact same authorization and
+     * outlet-ownership rules as `show`.
+     */
+    public function pdf(Request $request, int $id): Response
+    {
+        $invoice = $this->authorizedInvoice($request, $id);
+
+        $detail = $this->invoiceService->getDetail($invoice);
+        $template = InvoiceTemplate::query()->orderBy('id')->firstOrFail();
+
+        return $this->pdfGenerator->stream($invoice, $detail, $template);
+    }
+
+    /**
+     * Resolve the invoice and enforce RBAC + outlet ownership identically for
+     * the detail and PDF endpoints. Aborts 403/404 via exceptions so both
+     * surfaces share one contract.
+     */
+    private function authorizedInvoice(Request $request, int $id): Invoice
     {
         $user = $request->user();
         $isAdmin = $this->authorization->isAdmin($user);
@@ -25,7 +59,7 @@ class InvoiceController extends Controller
         $isOutlet = $this->authorization->hasCurrentRole($user, 'outlet');
 
         if (! $isAdmin && ! $isFinance && ! $isOutlet) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+            abort(403, 'Unauthorized.');
         }
 
         // Find the header first; do not load sensitive relations until ownership is verified.
@@ -34,20 +68,14 @@ class InvoiceController extends Controller
         if (! $isAdmin && ! $isFinance) {
             $outlet = $user->outlet;
             if (! $outlet) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'The authenticated user is not associated with an outlet.',
-                ], 403);
+                abort(403, 'The authenticated user is not associated with an outlet.');
             }
             if ($invoice->outlet_id !== $outlet->id) {
-                return response()->json(['status' => 'error', 'message' => 'Forbidden.'], 403);
+                abort(403, 'Forbidden.');
             }
         }
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $this->invoiceService->getDetail($invoice),
-        ]);
+        return $invoice;
     }
 
     public function index(Request $request): JsonResponse

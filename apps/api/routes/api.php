@@ -150,6 +150,7 @@ Route::middleware('auth:api')->group(function () {
     // Invoice history is available to current admin, finance, and outlet roles;
     // the controller applies the corresponding outlet scope.
     Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('rbac:invoices:read');
+    Route::get('/invoices/{id}/pdf', [InvoiceController::class, 'pdf'])->middleware('rbac:invoices:read');
     Route::get('/invoices/{id}', [InvoiceController::class, 'show'])->middleware('rbac:invoices:read');
 
     // Sales visit planning routes (controller scopes sales users to their own visits).

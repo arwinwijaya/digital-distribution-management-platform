@@ -1,0 +1,37 @@
+{
+  "task_id": "T4",
+  "task_name": "Data layer — dashboard/api.ts outlet branch + login redirect",
+  "cycle": 1,
+  "timestamp": "2026-10-02T08:30:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": []
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Outlet role branch in loadDashboard fetches paginated /orders + /credit-limit and composes summary, recent, shopping, credit, favorites, truncation from API envelope",
+      "1000 cap uses limit=100 cursor offset has_more loop, note uses meta.total, not fetched length",
+      "Cache keyed by token hash, cursor, limit, sort; credit retry isolated and does not invalidate orders cache",
+      "Dummy withDummyRead path returns dashboardOutlet without network",
+      "401 auth and inline 403 no-outlet differentiated from 5xx retryable; 200 [] vs hidden credit modeled distinctly",
+      "Outlet login roleDestination resolves /dashboard, existing /orders route untouched",
+      "All 20 api and login tests pass"
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "T4 original diff includes page.tsx guard and login/page.test.tsx changes outside packet allowlist, though these provide related auth coverage",
+        "location": "apps/web/src/app/dashboard/page.tsx"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": { "current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2 },
+  "reviewed_sha": "f61ba208d72ab8fa2519313235735c8275ea09b4"
+}

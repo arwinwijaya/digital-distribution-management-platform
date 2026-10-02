@@ -1,0 +1,40 @@
+{
+  "task_id": "T1",
+  "task_name": "Backend — outlet-scoped OrderController index + OrderListFilters allowlist",
+  "cycle": 1,
+  "timestamp": "2026-10-02T01:52:25+07:00",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": []
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Silent override of outlet_id from token implemented correctly — no 403 leak, no IDOR exposure",
+      "Allowlist expanded to 7 values with Canceled→Cancelled normalization in parseStatuses",
+      "Pagination contract preserved: limit default 100 max 100, cursor offset, has_more via limit+1, meta.total from filtered builder",
+      "422 validation on unknown query keys, invalid outlet_id, invalid status (outside 7), start>end, range >90 days all working",
+      "Admin behavior byte-for-byte unchanged including 422 validation and pagination meta shape",
+      "All 15 OrderQueryTest tests pass covering IDOR, allowlist, outlet-without-relation 403, and admin regression"
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Unrelated invoice template files modified in same commit (T1 done_sha includes invoice CRUD work from concurrent plan)",
+        "location": "apps/api/app/Http/Controllers/Admin/InvoiceTemplateController.php"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "507ecf032bf00dfd73074a5dd4fef8aa36340c45"
+}

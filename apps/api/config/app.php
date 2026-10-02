@@ -75,6 +75,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Dummy Mode Toggle
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, invoice detail and PDF endpoints return deterministic
+    | pre-seeded payloads instead of live data. This is used for offline
+    | development, E2E testing, and contract parity verification.
+    | Toggle at runtime via `config(['app.dummy_mode' => true])` in tests.
+    |
+    */
+
+    'dummy_mode' => (bool) env('DUMMY_MODE', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Maintenance Mode Driver
     |--------------------------------------------------------------------------
     */

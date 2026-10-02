@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use App\Models\InvoiceTemplate;
+use App\Services\DummyModeService;
 use App\Services\FinanceAuthorizationService;
 use App\Services\InvoiceService;
 use App\Services\PdfGeneratorService;
@@ -19,15 +20,23 @@ class InvoiceController extends Controller
         private readonly InvoiceService $invoiceService,
         private readonly FinanceAuthorizationService $authorization,
         private readonly PdfGeneratorService $pdfGenerator,
+        private readonly DummyModeService $dummyMode,
     ) {}
 
     public function show(Request $request, int $id): JsonResponse
     {
         $invoice = $this->authorizedInvoice($request, $id);
 
+        // Dummy mode: serve the deterministic pre-seeded payload so offline
+        // and E2E runs never touch the live query path. Falls back to the real
+        // service when no dummy payload has been seeded.
+        $detail = $this->dummyMode->enabled()
+            ? ($this->dummyMode->detail() ?? $this->invoiceService->getDetail($invoice))
+            : $this->invoiceService->getDetail($invoice);
+
         return response()->json([
             'status' => 'success',
-            'data' => $this->invoiceService->getDetail($invoice),
+            'data' => $detail,
         ]);
     }
 

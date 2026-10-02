@@ -33,6 +33,91 @@ export type InvoicesListResult = {
   meta: InvoicePageMeta;
 };
 
+export interface InvoiceTemplate {
+  id: number;
+  logo_path: string | null;
+  company_name: string;
+  address: string;
+  npwp: string;
+  primary_color: string;
+  footer_text: string | null;
+  notes: string | null;
+  signer_name: string | null;
+  signer_title: string | null;
+  show_npwp: boolean;
+  show_outlet_phone: boolean;
+}
+
+export interface InvoiceTemplateInput {
+  company_name?: string;
+  address?: string;
+  npwp?: string;
+  primary_color?: string;
+  footer_text?: string | null;
+  notes?: string | null;
+  signer_name?: string | null;
+  signer_title?: string | null;
+  show_npwp?: boolean;
+  show_outlet_phone?: boolean;
+}
+
+const TEMPLATE_MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+function parseError(data: unknown, fallback: string): string {
+  if (data && typeof data === 'object' && data !== null && 'message' in data) {
+    const v = (data as { message?: unknown }).message;
+    if (typeof v === 'string') return v;
+  }
+  return fallback;
+}
+
+export function assertInvoiceLogoSize(file: File): void {
+  if (file.size > TEMPLATE_MAX_LOGO_BYTES) {
+    throw new Error('Ukuran logo maksimal 2 MB.');
+  }
+}
+
+/**
+ * GET /admin/invoice-template — loads the current corporate template.
+ * Dummy mode is unsupported here (structured admin form is a live path).
+ */
+export async function getAdminInvoiceTemplate(token: string): Promise<InvoiceTemplate> {
+  const response = await fetch(apiUrl('/admin/invoice-template'), {
+    method: 'GET',
+    headers: authHeaders(token),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(parseError(data, 'Template tidak dapat dimuat.'));
+  return (data.data ?? data) as InvoiceTemplate;
+}
+
+/**
+ * POST /admin/invoice-template — multipart FormData: JSON fields + logo file.
+ */
+export async function updateAdminInvoiceTemplate(
+  token: string,
+  payload: InvoiceTemplateInput,
+  logo?: File | null,
+): Promise<InvoiceTemplate> {
+  if (logo) assertInvoiceLogoSize(logo);
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined) continue;
+    if (value === null) formData.append(key, '');
+    else if (typeof value === 'boolean') formData.append(key, value ? 'true' : 'false');
+    else formData.append(key, String(value));
+  }
+  if (logo) formData.append('logo', logo);
+  const response = await fetch(apiUrl('/admin/invoice-template'), {
+    method: 'POST',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(parseError(data, 'Template tidak dapat disimpan.'));
+  return (data.data ?? data) as InvoiceTemplate;
+}
+
 const PAGE_SIZE = 15;
 
 /**

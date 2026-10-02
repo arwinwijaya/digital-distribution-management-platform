@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use App\Models\InvoiceTemplate;
+use App\Services\DummyModeService;
 use App\Services\FinanceAuthorizationService;
 use App\Services\InvoiceService;
 use App\Services\PdfGeneratorService;
@@ -19,15 +20,23 @@ class InvoiceController extends Controller
         private readonly InvoiceService $invoiceService,
         private readonly FinanceAuthorizationService $authorization,
         private readonly PdfGeneratorService $pdfGenerator,
+        private readonly DummyModeService $dummyMode,
     ) {}
 
     public function show(Request $request, int $id): JsonResponse
     {
         $invoice = $this->authorizedInvoice($request, $id);
 
+        // Dummy mode: serve the deterministic pre-seeded payload so offline
+        // and E2E runs never touch the live query path. Falls back to the real
+        // service when no dummy payload has been seeded.
+        $detail = $this->dummyMode->enabled()
+            ? ($this->dummyMode->detail() ?? $this->invoiceService->getDetail($invoice))
+            : $this->invoiceService->getDetail($invoice);
+
         return response()->json([
             'status' => 'success',
-            'data' => $this->invoiceService->getDetail($invoice),
+            'data' => $detail,
         ]);
     }
 
@@ -35,10 +44,17 @@ class InvoiceController extends Controller
      * Stream the invoice as a server-side PDF. Reuses the detail service so the
      * PDF and JSON never diverge, and applies the exact same authorization and
      * outlet-ownership rules as `show`.
+     *
+     * In dummy mode the pre-generated static blob is returned as-is — Dompdf is
+     * never invoked, keeping the request zero-network and deterministic.
      */
     public function pdf(Request $request, int $id): Response
     {
         $invoice = $this->authorizedInvoice($request, $id);
+
+        if ($this->dummyMode->enabled()) {
+            return $this->dummyMode->pdfResponse($invoice);
+        }
 
         $detail = $this->invoiceService->getDetail($invoice);
         $template = InvoiceTemplate::query()->orderBy('id')->firstOrFail();

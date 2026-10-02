@@ -25,19 +25,24 @@ class PdfGeneratorService
      */
     public function stream(Invoice $invoice, array $detail, InvoiceTemplate $template): Response
     {
+        $content = $this->generate($invoice, $detail, $template);
+
+        return response($content, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$this->filename($invoice).'"',
+            'Content-Length' => strlen($content),
+        ]);
+    }
+
+    /**
+     * Render the invoice PDF and return the raw bytes. Split out from stream()
+     * so dummy-mode seeding can pre-generate the static blob once without
+     * duplicating the view/option wiring.
+     */
+    public function generate(Invoice $invoice, array $detail, InvoiceTemplate $template): string
+    {
         $isCancelled = $invoice->status === Invoice::CANCELLED;
         $isOverdue = $this->isOverdue($invoice);
-
-        $datePart = $invoice->issue_date instanceof Carbon
-            ? $invoice->issue_date->format('Ymd')
-            : Carbon::parse($invoice->issue_date)->format('Ymd');
-
-        // Fallback when issue_date is null
-        if (empty($datePart) || $datePart === '19700101') {
-            $datePart = Carbon::today()->format('Ymd');
-        }
-
-        $filename = 'INV-'.$datePart.'-'.$invoice->id.'.pdf';
 
         $pdf = Pdf::loadView('invoices.pdf', [
             'invoice' => $invoice,
@@ -53,16 +58,27 @@ class PdfGeneratorService
         $pdf->setOption('isHtml5ParserEnabled', true);
         $pdf->setPaper('a4', 'portrait');
 
-        // Use output + manual response to guarantee headers exactly as spec.
         // `compress: 0` keeps the content stream uncompressed so template text
         // (company name, colors, NPWP, watermark) is byte-searchable in tests.
-        $content = $pdf->output(['compress' => 0]);
+        return $pdf->output(['compress' => 0]);
+    }
 
-        return response($content, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$filename.'"',
-            'Content-Length' => strlen($content),
-        ]);
+    /**
+     * Canonical download filename shared by real and dummy modes so the two
+     * surfaces can never drift: INV-YYYYMMDD-{id}.pdf.
+     */
+    public function filename(Invoice $invoice): string
+    {
+        $datePart = $invoice->issue_date instanceof Carbon
+            ? $invoice->issue_date->format('Ymd')
+            : Carbon::parse($invoice->issue_date)->format('Ymd');
+
+        // Fallback when issue_date is null.
+        if (empty($datePart) || $datePart === '19700101') {
+            $datePart = Carbon::today()->format('Ymd');
+        }
+
+        return 'INV-'.$datePart.'-'.$invoice->id.'.pdf';
     }
 
     /**
@@ -124,6 +140,7 @@ class PdfGeneratorService
             return false;
         }
         $dueDate = $invoice->due_date instanceof Carbon ? $invoice->due_date : Carbon::parse($invoice->due_date);
+
         return $dueDate->isPast() && $dueDate->toDateString() < Carbon::today()->toDateString();
     }
 }

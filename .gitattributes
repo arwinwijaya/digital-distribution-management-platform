@@ -1,1 +1,11 @@
+# Force LF for files that are consumed inside Linux containers / build tooling.
+# Windows clones default to core.autocrlf=true, which would otherwise check these
+# out as CRLF and break the shebang line (`/bin/sh^M: not found`) or nginx config.
+*.sh          text eol=lf
+*.conf        text eol=lf
+Dockerfile    text eol=lf
+*.Dockerfile  text eol=lf
+docker-compose*.yml text eol=lf
+
+# Graphify generated graph uses a custom merge driver.
 graphify-out/graph.json merge=graphify

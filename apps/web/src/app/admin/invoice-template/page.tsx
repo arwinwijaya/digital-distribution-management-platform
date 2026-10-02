@@ -7,6 +7,7 @@ import { Button, Card, Input, PageHeader, Textarea } from '@/components/ui';
 import {
   assertInvoiceLogoSize,
   getAdminInvoiceTemplate,
+  templateLogoUrl,
   updateAdminInvoiceTemplate,
   type InvoiceTemplate,
 } from '@/app/invoices/api';
@@ -218,7 +219,7 @@ export default function AdminInvoiceTemplatePage() {
                 <p className="mt-1 text-xs text-gray-500">Format JPG/PNG/SVG, maksimal 2 MB.</p>
                 {logoPreview && (
                   <img
-                    src={logoPreview}
+                    src={templateLogoUrl(logoPreview) ?? undefined}
                     alt="Pratinjau logo"
                     className="mt-3 max-h-28 rounded-lg border border-gray-200 object-contain"
                   />

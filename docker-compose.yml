@@ -64,6 +64,7 @@ services:
       APP_DEBUG: "false"
       LOG_LEVEL: warning
       RUN_MIGRATIONS: "1"
+      RUN_SEED: "1"
       WAIT_FOR_DB: "1"
       WARM_CACHES: "1"
       TELESCOPE_ENABLED: "false"
@@ -86,6 +87,10 @@ services:
         condition: service_healthy
     expose:
       - "9000"
+    volumes:
+      # Persist template logos (storage/app/public) + dompdf font cache + logs
+      # across rebuilds so PDF rendering never loses the uploaded logo.
+      - api_storage:/var/www/html/storage
 
   # Queue worker (Redis driver).
   queue-worker:
@@ -112,6 +117,8 @@ services:
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
     command: ["php", "artisan", "queue:work", "redis", "--sleep=3", "--tries=3", "--max-time=3600", "--verbose"]
+    volumes:
+      - api_storage:/var/www/html/storage
     depends_on:
       api:
         condition: service_started
@@ -142,6 +149,8 @@ services:
       REDIS_PORT: "6379"
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
+    volumes:
+      - api_storage:/var/www/html/storage
     command: ["php", "artisan", "schedule:work", "--verbose"]
     depends_on:
       api:
@@ -175,6 +184,9 @@ services:
       - "${APP_PORT:-8080}:80"
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # Read-only view of the API's storage volume so uploaded template logos
+      # under storage/app/public can be served at /storage/*.
+      - api_storage:/var/www/html/storage:ro
     depends_on:
       web:
         condition: service_started
@@ -192,3 +204,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  api_storage:

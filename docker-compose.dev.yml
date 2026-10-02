@@ -22,7 +22,7 @@ services:
       WARM_CACHES: "0"
       SESSION_SECURE_COOKIE: "false"
       TELESCOPE_ENABLED: "true"
-    volumes:
+    volumes: !override
       - ./apps/api:/var/www/html
     ports:
       - "8000:8000"

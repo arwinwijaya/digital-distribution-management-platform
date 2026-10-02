@@ -17,7 +17,6 @@ class InvoiceTemplateSeeder extends Seeder
         InvoiceTemplate::updateOrCreate(
             ['company_name' => 'PT Digital Distribusi Nusantara'],
             [
-                'logo_path' => null,
                 'address' => 'Jl. Jend. Sudirman Kav. 52-53, Jakarta Pusat 12190',
                 'npwp' => '01.234.567.8-901.000',
                 'primary_color' => '#0F172A', // Navy/Slate (slate-900)

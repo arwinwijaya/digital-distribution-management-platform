@@ -130,6 +130,19 @@ export function assertInvoiceLogoSize(file: File): void {
 }
 
 /**
+ * Map `logo_path` (e.g. `logos/abc.png` stored on the `public` disk) to
+ * the public URL nginx serves at `/storage/<path>`. Blob/object URLs are
+ * left as-is (local file preview before save).
+ */
+export function templateLogoUrl(logoPath: string | null): string | null {
+  if (!logoPath) return null;
+  if (logoPath.startsWith('blob:') || logoPath.startsWith('data:') || logoPath.startsWith('/') || logoPath.startsWith('http')) {
+    return logoPath;
+  }
+  return `/storage/${logoPath}`;
+}
+
+/**
  * GET /admin/invoice-template — loads the current corporate template.
  * Dummy mode is unsupported here (structured admin form is a live path).
  */

@@ -13,6 +13,19 @@ set -eu
 
 echo "[entrypoint] starting: $*"
 
+# ── 0. Storage dirs (api_storage volume is empty on first boot) ─────────────
+# Must run BEFORE migrations/cache warm-up: config:cache + view:cache write into
+# storage/framework, and a fresh named volume would otherwise be missing them.
+mkdir -p \
+  storage/fonts \
+  storage/logs \
+  storage/app/public/logos \
+  storage/framework/cache/data \
+  storage/framework/sessions \
+  storage/framework/views
+chown -R www-data:www-data storage 2>/dev/null || true
+chmod -R 775 storage 2>/dev/null || true
+
 # ── 1. Wait for the database ────────────────────────────────────────────────
 if [ "${WAIT_FOR_DB:-1}" = "1" ]; then
   attempt=0
@@ -45,6 +58,14 @@ if [ "${RUN_MIGRATIONS:-0}" = "1" ]; then
   php artisan migrate --force --no-interaction
 fi
 
+# ── 2b. Optional seed (fresh volumes after `down -v`: schema exists, data gone)
+# Only the primary `api` service sets RUN_SEED=1. Idempotent: all seeders use
+# firstOrCreate, so re-running on a populated DB adds nothing.
+if [ "${RUN_SEED:-0}" = "1" ]; then
+  echo "[entrypoint] seeding database"
+  php artisan db:seed --force --no-interaction
+fi
+
 # ── 3. Cache warm-up ────────────────────────────────────────────────────────
 # config/event/route caches are mandatory and must succeed. view:cache is
 # best-effort: a headless API may legitimately have no resources/views directory.
@@ -55,5 +76,10 @@ if [ "${WARM_CACHES:-1}" = "1" ]; then
   php artisan view:cache || echo "[entrypoint] view:cache skipped (no views)"
 fi
 
-# ── 4. Hand off ─────────────────────────────────────────────────────────────
+# ── 4. public/storage symlink so `public` disk files (template logos) resolve ─
+if [ ! -e public/storage ]; then
+  php artisan storage:link || echo "[entrypoint] storage:link skipped"
+fi
+
+# ── 5. Hand off ─────────────────────────────────────────────────────────────
 exec "$@"

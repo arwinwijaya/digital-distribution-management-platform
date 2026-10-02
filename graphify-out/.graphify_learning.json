@@ -1,5 +1,86 @@
 {
-  "generated_at": "2026-09-10T02:54:59.918886+00:00",
-  "nodes": {},
+  "generated_at": "2026-10-02T06:20:59.911597+00:00",
+  "nodes": {
+    "apps_api_app_http_controllers_deliverycontroller": {
+      "code_fingerprint": "e3fcb62ba195895a33170c8cce26b32d014a5da7d023c1230d36ce811f29492d",
+      "label": "DeliveryController.php",
+      "last": "2026-09-10T02:55:25.244214+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-10T02:55:25.244214+00:00",
+          "outcome": "useful",
+          "q": "Map the architecture for operational readiness planning across order approval, payment transactions, finance role authorization, delivery proof, WhatsApp scheduling, and analytics dashboard"
+        }
+      ],
+      "score": 0.599531691,
+      "source_file": "apps/api/app/Http/Controllers/DeliveryController.php",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_api_app_http_controllers_ordercontroller": {
+      "code_fingerprint": "3511a73d96aca26e0a908d2312d48653be3e86f1f822f637c56292bb7f5562d6",
+      "label": "OrderController.php",
+      "last": "2026-09-10T02:55:25.244214+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-10T02:55:25.244214+00:00",
+          "outcome": "useful",
+          "q": "Map the architecture for operational readiness planning across order approval, payment transactions, finance role authorization, delivery proof, WhatsApp scheduling, and analytics dashboard"
+        }
+      ],
+      "score": 0.599531691,
+      "source_file": "apps/api/app/Http/Controllers/OrderController.php",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_api_app_services_analyticsservice": {
+      "code_fingerprint": "f7c5511c1592cae9f6886d411ede69683adc6fde4e3106f2b082bf6b0724cf48",
+      "label": "AnalyticsService.php",
+      "last": "2026-09-10T02:55:25.244214+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-10T02:55:25.244214+00:00",
+          "outcome": "useful",
+          "q": "Map the architecture for operational readiness planning across order approval, payment transactions, finance role authorization, delivery proof, WhatsApp scheduling, and analytics dashboard"
+        }
+      ],
+      "score": 0.599531691,
+      "source_file": "apps/api/app/Services/AnalyticsService.php",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_api_app_services_paymentservice": {
+      "code_fingerprint": "ab205694c2b0d284ccfb960760cc927bf24c3b3e13b8513b1a3618ce6e781c22",
+      "label": "PaymentService.php",
+      "last": "2026-09-10T02:55:25.244214+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-10T02:55:25.244214+00:00",
+          "outcome": "useful",
+          "q": "Map the architecture for operational readiness planning across order approval, payment transactions, finance role authorization, delivery proof, WhatsApp scheduling, and analytics dashboard"
+        }
+      ],
+      "score": 0.599531691,
+      "source_file": "apps/api/app/Services/PaymentService.php",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_api_app_services_whatsappoutboundservice": {
+      "code_fingerprint": "a523b2a74cbcdc1c7adf7b080b75faad38008c22f9c3b3fdbd4cdf9ad96280bd",
+      "label": "WhatsAppOutboundService.php",
+      "last": "2026-09-10T02:55:25.244214+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-10T02:55:25.244214+00:00",
+          "outcome": "useful",
+          "q": "Map the architecture for operational readiness planning across order approval, payment transactions, finance role authorization, delivery proof, WhatsApp scheduling, and analytics dashboard"
+        }
+      ],
+      "score": 0.599531691,
+      "source_file": "apps/api/app/Services/WhatsAppOutboundService.php",
+      "status": "tentative",
+      "uses": 1
+    }
+  },
   "version": 1
 }

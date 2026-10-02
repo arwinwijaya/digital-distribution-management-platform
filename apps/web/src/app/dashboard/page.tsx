@@ -54,7 +54,7 @@ type DashboardState = {
   outletPeriod: 7 | 30 | 90;
   setOutletPeriod: (period: 7 | 30 | 90) => void;
 };
-type DashboardLoader = (token: string, role: string, startDate?: string, endDate?: string, outletPeriodArg?: 7 | 30 | 90) => Promise<void>;
+type DashboardLoader = (token: string, role: string, startDate?: string, endDate?: string, outletPeriodArg?: 7 | 30 | 90, retainedCredit?: OutletDashboardData['credit']) => Promise<void>;
 function jakartaDateString(offsetDays: number): string {
   const shifted = new Date();
   shifted.setDate(shifted.getDate() + offsetDays);
@@ -66,12 +66,6 @@ function integer(value: unknown): string { return safeNumber(value).toLocaleStri
 
 function useDashboardData(group: Group): DashboardState & {
   loadForRole: DashboardLoader;
-  loadForRoleWithRetainedCredit: (
-    token: string,
-    role: string,
-    outletPeriod: 7 | 30 | 90,
-    retainedCredit: OutletDashboardData['credit'],
-  ) => Promise<void>;
 } {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [outletData, setOutletData] = useState<OutletDashboardData | null>(null);
@@ -89,12 +83,12 @@ function useDashboardData(group: Group): DashboardState & {
   const outletPeriodRef = useRef<7 | 30 | 90>(30);
   outletPeriodRef.current = outletPeriod;
 
-  const loadForRole = useCallback(async (authToken: string, currentRole: string, startDate?: string, endDate?: string, outletPeriodArg?: 7 | 30 | 90) => {
+  const loadForRole = useCallback(async (authToken: string, currentRole: string, startDate?: string, endDate?: string, outletPeriodArg?: 7 | 30 | 90, retainedCredit?: OutletDashboardData['credit']) => {
     const period = outletPeriodArg ?? outletPeriodRef.current;
     setLoading(true);
     setError(null);
     try {
-      const result = await loadDashboard(authToken, currentRole, group, startDate, endDate, period);
+      const result = await loadDashboard(authToken, currentRole, group, startDate, endDate, period, retainedCredit);
       if (result.kind === 'finance') {
         setFinanceMetrics(result.data);
         setDashboard(null);
@@ -135,48 +129,7 @@ function useDashboardData(group: Group): DashboardState & {
     }
   }, [group]);
 
-  const loadForRoleWithRetainedCredit = useCallback(async (
-    authToken: string,
-    currentRole: string,
-    outletPeriodArg: 7 | 30 | 90,
-    retainedCredit: OutletDashboardData['credit'],
-  ) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await loadDashboard(authToken, currentRole, group, undefined, undefined, outletPeriodArg, retainedCredit);
-      if (result.kind === 'outlet') {
-        setDashboard(null);
-        setFinanceMetrics(null);
-        setOutletData(result.data);
-        setOutletErrors({ ordersError: null, creditError: null, shoppingError: null, favoritesError: null, partialData: null });
-      }
-    } catch (reason) {
-      const err = reason instanceof Error ? reason : new Error('Data dasbor tidak dapat dimuat.');
-      const partial = (err as DashboardError).partialData;
-      setDashboard(null);
-      setFinanceMetrics(null);
-      setError(err.message);
-      if (currentRole === 'outlet') {
-        const composite = err as DashboardError;
-        const ordersError = composite.ordersError ?? (!partial ? err : null);
-        const creditError = composite.creditError ?? (!composite.ordersError && partial ? err : null);
-        setOutletErrors({
-          ordersError,
-          creditError,
-          shoppingError: ordersError,
-          favoritesError: ordersError,
-          partialData: partial ?? null,
-        });
-        if (partial) setOutletData(partial as OutletDashboardData);
-        console.warn(ordersError ? 'Outlet dashboard orders unavailable' : 'Outlet dashboard credit unavailable');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [group]);
-
-  return { dashboard, outletData, setOutletData, financeMetrics, loading, error, setError, loadForRole, loadForRoleWithRetainedCredit, outletErrors, setOutletErrors, outletPeriod, setOutletPeriod };
+  return { dashboard, outletData, setOutletData, financeMetrics, loading, error, setError, loadForRole, outletErrors, setOutletErrors, outletPeriod, setOutletPeriod };
 }
 
 function useDashboardSession(loadForRole: DashboardLoader, onAuthError: (error: string | null) => void) {
@@ -328,11 +281,7 @@ export default function DashboardPage() {
     const handleRetryOrders = () => {
       if (!session.token || !session.role) return;
       invalidateOutletOrdersCache(session.token);
-      if (data.outletData) {
-        void data.loadForRoleWithRetainedCredit(session.token, session.role, data.outletPeriod, data.outletData.credit);
-      } else {
-        void data.loadForRole(session.token, session.role, undefined, undefined, data.outletPeriod);
-      }
+      void data.loadForRole(session.token, session.role, undefined, undefined, data.outletPeriod, data.outletData?.credit);
     };
 
     const handleRetryCredit = async () => {

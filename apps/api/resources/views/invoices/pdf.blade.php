@@ -8,13 +8,14 @@
             margin: 2cm 1.5cm 2.5cm 1.5cm;
         }
         body {
-            font-family: 'DejaVu Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 11px;
             line-height: 1.4;
             color: #1f2937;
+            position: relative;
         }
         .watermark {
-            position: fixed;
+            position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-45deg);
@@ -24,10 +25,9 @@
             z-index: 9999;
             pointer-events: none;
             white-space: nowrap;
-            font-family: 'DejaVu Sans', sans-serif;
         }
         .badge-overdue {
-            position: fixed;
+            position: absolute;
             top: 1.5cm;
             right: 1.5cm;
             background: #ef4444;

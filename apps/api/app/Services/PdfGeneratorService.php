@@ -40,13 +40,15 @@ class PdfGeneratorService
             'isOverdue' => $isOverdue,
         ]);
 
-        // Dompdf options: disable remote fetching for performance / limit image impact
+        // Dompdf options: disable remote fetching for performance / limit image impact.
         $pdf->setOption('isRemoteEnabled', false);
         $pdf->setOption('isHtml5ParserEnabled', true);
         $pdf->setPaper('a4', 'portrait');
 
-        // Use output + manual response to guarantee headers exactly as spec
-        $content = $pdf->output();
+        // Use output + manual response to guarantee headers exactly as spec.
+        // `compress: 0` keeps the content stream uncompressed so template text
+        // (company name, colors, NPWP, watermark) is byte-searchable in tests.
+        $content = $pdf->output(['compress' => 0]);
 
         return response($content, 200, [
             'Content-Type' => 'application/pdf',

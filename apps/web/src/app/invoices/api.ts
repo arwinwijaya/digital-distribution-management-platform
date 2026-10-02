@@ -61,6 +61,58 @@ export interface InvoiceTemplateInput {
   show_outlet_phone?: boolean;
 }
 
+export interface InvoiceLineItem {
+  id: number;
+  order_id: number;
+  product_id: number;
+  product_name: string | null;
+  product_name_snapshot: string | null;
+  quantity: number;
+  unit_price: string | number;
+  subtotal: string | number;
+}
+
+export interface InvoicePayment {
+  id: number;
+  order_id: number;
+  outlet_id: number;
+  amount: string | number;
+  payment_method: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceOutlet {
+  id: number;
+  name: string;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+}
+
+export interface InvoiceDetail {
+  id: number;
+  order_id: number;
+  outlet_id: number;
+  invoice_number: string;
+  issue_date: string | null;
+  due_date: string | null;
+  total_amount: string | number;
+  paid_amount: string | number;
+  balance_amount: string | number;
+  status: string;
+  is_overdue: boolean;
+  overdue: boolean;
+  created_at: string;
+  updated_at: string;
+  outlet: InvoiceOutlet | null;
+  line_items: InvoiceLineItem[];
+  items: InvoiceLineItem[];
+  payments: InvoicePayment[];
+  payment_history: InvoicePayment[];
+}
+
 const TEMPLATE_MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
 function parseError(data: unknown, fallback: string): string {
@@ -193,4 +245,139 @@ export async function loadInvoices(
       };
     },
   );
+}
+
+/**
+ * Dummy parity for the invoice detail: same JSON shape the backend `GET
+ * /invoices/{id}` returns, derived from the T6 transaction factory (never
+ * hardcoded). Frozen product name is read from the order item's `product_name`
+ * snapshot; payments are returned newest first. Zero network.
+ */
+function buildDummyInvoiceDetail(dummy: FullDummy, id: number): InvoiceDetail | null {
+  const invoice = dummy.invoices.find((inv) => inv.id === id);
+  if (!invoice) return null;
+
+  const order = dummy.orders.find((ord) => ord.id === invoice.order_id) ?? null;
+  const outlet = order ? dummy.outlets.find((o) => o.id === order.outlet_code) ?? null : null;
+
+  const lineItems: InvoiceLineItem[] = (order?.items ?? []).map((item) => ({
+    id: item.id,
+    order_id: invoice.order_id,
+    product_id: item.product_id,
+    product_name: item.product_name,
+    product_name_snapshot: item.product_name,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    subtotal: item.subtotal,
+  }));
+
+  const payments: InvoicePayment[] = dummy.payments
+    .filter((payment) => payment.order_id === invoice.order_id)
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : b.id - a.id))
+    .map((payment) => ({
+      id: payment.id,
+      order_id: payment.order_id,
+      outlet_id: invoice.order_id,
+      amount: payment.amount,
+      payment_method: payment.payment_method,
+      status: payment.status,
+      created_at: payment.created_at,
+      updated_at: payment.created_at,
+    }));
+
+  const balance = Number(invoice.balance_amount);
+  const overdue = Boolean(invoice.due_date) && balance > 0 && invoice.due_date < new Date().toISOString().slice(0, 10);
+
+  return {
+    id: invoice.id,
+    order_id: invoice.order_id,
+    outlet_id: order?.outlet_id ?? 0,
+    invoice_number: invoice.invoice_number,
+    issue_date: invoice.issue_date,
+    due_date: invoice.due_date,
+    total_amount: invoice.total_amount,
+    paid_amount: invoice.paid_amount,
+    balance_amount: invoice.balance_amount,
+    status: invoice.status,
+    is_overdue: overdue,
+    overdue,
+    created_at: `${invoice.issue_date}T00:00:00+07:00`,
+    updated_at: `${invoice.issue_date}T00:00:00+07:00`,
+    outlet: outlet
+      ? { id: Number(outlet.id.replace('dummy-', '')) || 0, name: outlet.name, phone: null, address: null, city: outlet.city }
+      : null,
+    line_items: lineItems,
+    items: lineItems,
+    payments,
+    payment_history: payments,
+  };
+}
+
+/**
+ * Load a single invoice's full detail for a token.
+ * While dummy mode is ON, returns detail derived from the T6 factory (zero network).
+ */
+export async function getInvoiceDetail(token: string, id: number): Promise<InvoiceDetail> {
+  const { isDummy, dummyEntities } = useDummyStore.getState();
+  const dummy = dummyEntities as FullDummy | null;
+
+  const dummyValue = isDummy && dummy ? buildDummyInvoiceDetail(dummy, id) : null;
+
+  return withDummyRead(
+    isDummy,
+    dummyValue as InvoiceDetail,
+    async () => {
+      const response = await fetch(apiUrl(`/invoices/${id}`), {
+        headers: authHeaders(token),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Detail invoice tidak dapat dimuat.');
+      return (body.data ?? body) as InvoiceDetail;
+    },
+  );
+}
+
+/**
+ * Build the canonical PDF filename: `INV-YYYYMMDD-{id}.pdf` using the invoice's
+ * issue date (falling back to today when absent), mirroring the backend
+ * `PdfGeneratorService` naming contract.
+ */
+export function invoicePdfFilename(invoice: Pick<InvoiceDetail, 'id' | 'issue_date'>): string {
+  const raw = invoice.issue_date ?? '';
+  const date = /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10).replace(/-/g, '') : new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  return `INV-${date}-${invoice.id}.pdf`;
+}
+
+/**
+ * GET /invoices/{id}/pdf — fetch the server-rendered PDF as a blob and trigger
+ * a browser download named `INV-YYYYMMDD-{id}.pdf`. No client-side PDF libs.
+ */
+export async function downloadInvoicePdf(
+  token: string,
+  invoice: Pick<InvoiceDetail, 'id' | 'issue_date'>,
+): Promise<void> {
+  const filename = invoicePdfFilename(invoice);
+  const response = await fetch(apiUrl(`/invoices/${invoice.id}/pdf`), {
+    headers: authHeaders(token),
+  });
+  if (!response.ok) {
+    let message = 'PDF invoice tidak dapat diunduh.';
+    try {
+      const body = await response.json();
+      message = parseError(body, message);
+    } catch {
+      // Non-JSON error body — keep the default message.
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
 }

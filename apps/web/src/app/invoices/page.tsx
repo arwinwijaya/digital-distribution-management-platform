@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import LoginForm from '@/components/LoginForm';
 import { getStoredToken } from '@/lib/api';
 import { loadInvoices } from '@/app/invoices/api';
@@ -74,7 +75,7 @@ function InvoiceSummary({ invoices, total }: { invoices: Invoice[]; total: numbe
 }
 
 const invoiceColumns = [
-  { key: 'number', header: 'Nomor invoice', render: (invoice: Invoice) => <span className="font-medium">{invoice.invoice_number}</span> },
+  { key: 'number', header: 'Nomor invoice', render: (invoice: Invoice) => <Link href={`/invoices/${invoice.id}`} className="font-medium text-primary-700 hover:underline">{invoice.invoice_number}</Link> },
   { key: 'order', header: 'Pesanan', render: (invoice: Invoice) => <span>#{invoice.order_id}</span> },
   { key: 'issue', header: 'Terbit', render: (invoice: Invoice) => date(invoice.issue_date) },
   { key: 'due', header: 'Jatuh tempo', render: (invoice: Invoice) => date(invoice.due_date) },

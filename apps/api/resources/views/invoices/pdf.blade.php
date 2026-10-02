@@ -229,8 +229,8 @@
 
     <div class="header">
         <div class="company-info">
-            @if ($template->logo_path)
-                <img src="{{ asset('storage/'.$template->logo_path) }}" alt="Logo" class="logo">
+            @if (!empty($logoDataUri))
+                <img src="{{ $logoDataUri }}" alt="Logo" class="logo">
             @endif
             <div class="company-name">{{ $template->company_name }}</div>
             <div class="company-address">{{ $template->address }}</div>

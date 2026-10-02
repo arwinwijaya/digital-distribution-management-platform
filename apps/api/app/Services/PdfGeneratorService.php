@@ -7,9 +7,16 @@ use App\Models\InvoiceTemplate;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class PdfGeneratorService
 {
+    /**
+     * Hard cap on an inlined logo file (bytes). Anything larger is skipped so a
+     * pathological upload can never blow past the 5s PDF budget.
+     */
+    public const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
     /**
      * Generate and stream the invoice PDF with correct headers and filename.
      *
@@ -38,6 +45,7 @@ class PdfGeneratorService
             'template' => $template,
             'isCancelled' => $isCancelled,
             'isOverdue' => $isOverdue,
+            'logoDataUri' => $this->resolveLogoDataUri($template),
         ]);
 
         // Dompdf options: disable remote fetching for performance / limit image impact.
@@ -71,7 +79,39 @@ class PdfGeneratorService
             'template' => $template,
             'isCancelled' => $isCancelled,
             'isOverdue' => $isOverdue,
+            'logoDataUri' => $this->resolveLogoDataUri($template),
         ])->render();
+    }
+
+    /**
+     * Resolve the template logo into an inline base64 data URI so Dompdf never
+     * performs a network round-trip. Oversized or missing files are skipped
+     * (returns null) to bound rendering cost.
+     */
+    private function resolveLogoDataUri(InvoiceTemplate $template): ?string
+    {
+        $path = $template->logo_path;
+        if (empty($path)) {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+        if (! $disk->exists($path)) {
+            return null;
+        }
+
+        try {
+            if ($disk->size($path) > self::MAX_LOGO_BYTES) {
+                return null;
+            }
+            $contents = $disk->get($path);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $mime = $disk->mimeType($path) ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode($contents);
     }
 
     private function isOverdue(Invoice $invoice): bool

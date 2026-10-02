@@ -49,10 +49,10 @@ COPY docker/api/fpm-pool.conf /usr/local/etc/php-fpm.d/zz-clear-env.conf
 COPY docker/api/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh \
-    && composer dump-autoload --optimize --classmap-authoritative --no-dev \
     && mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 775 storage bootstrap/cache \
+    && composer dump-autoload --optimize --classmap-authoritative --no-dev
 
 EXPOSE 9000
 

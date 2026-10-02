@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Invoice;
+use App\Models\InvoiceTemplate;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Outlet;
@@ -11,6 +12,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Services\DummyModeService;
 use App\Services\InvoiceService;
+use App\Services\PdfGeneratorService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -21,21 +23,25 @@ use Illuminate\Support\Facades\Hash;
  *
  * Seeds one overdue, partially-paid invoice (`INV-DUMMY-0001`) with two line
  * items (frozen `product_name_snapshot`) and three payments covering every
- * status, then pre-generates the invoice detail payload so dummy-mode requests
- * never touch the live query path.
+ * status, then pre-generates the invoice detail payload and the PDF blob so
+ * dummy-mode requests never touch the live rendering path.
  *
- * Re-running the seeder is safe: rows are looked up by their stable natural
- * keys and the cached payload is rewritten.
+ * The payload/PDF are cached under the DummyModeService keys. Re-running the
+ * seeder is safe: the invoice is looked up by number and the cache is rewritten.
  */
 class DummySeeder extends Seeder
 {
     public const INVOICE_NUMBER = 'INV-DUMMY-0001';
 
     private const OUTLET_EMAIL = 'dummy.outlet@ddp.test';
+
     private const DEFAULT_PASSWORD = 'password123';
 
     public function run(): void
     {
+        // The PDF view renders template branding; ensure the default row exists.
+        $this->call(InvoiceTemplateSeeder::class);
+
         $outletUser = User::firstOrCreate(
             ['email' => self::OUTLET_EMAIL],
             [
@@ -142,9 +148,13 @@ class DummySeeder extends Seeder
 
         $invoice->refresh();
 
-        // Pre-generate the deterministic payload exactly once.
+        // Pre-generate the deterministic payload + static PDF blob exactly once.
         $detail = app(InvoiceService::class)->getDetail($invoice);
         Cache::forever(DummyModeService::DETAIL_CACHE_KEY, $detail);
+
+        $template = InvoiceTemplate::query()->orderBy('id')->firstOrFail();
+        $blob = app(PdfGeneratorService::class)->generate($invoice, $detail, $template);
+        Cache::forever(DummyModeService::PDF_CACHE_KEY, $blob);
     }
 
     /**

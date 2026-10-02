@@ -44,10 +44,17 @@ class InvoiceController extends Controller
      * Stream the invoice as a server-side PDF. Reuses the detail service so the
      * PDF and JSON never diverge, and applies the exact same authorization and
      * outlet-ownership rules as `show`.
+     *
+     * In dummy mode the pre-generated static blob is returned as-is — Dompdf is
+     * never invoked, keeping the request zero-network and deterministic.
      */
     public function pdf(Request $request, int $id): Response
     {
         $invoice = $this->authorizedInvoice($request, $id);
+
+        if ($this->dummyMode->enabled()) {
+            return $this->dummyMode->pdfResponse($invoice);
+        }
 
         $detail = $this->invoiceService->getDetail($invoice);
         $template = InvoiceTemplate::query()->orderBy('id')->firstOrFail();

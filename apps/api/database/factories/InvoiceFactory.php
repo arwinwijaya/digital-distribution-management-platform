@@ -3,11 +3,12 @@
 namespace Database\Factories;
 
 use App\Models\Invoice;
+use Database\Seeders\DummySeeder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Invoice>
+ * @extends Factory<Invoice>
  */
 class InvoiceFactory extends Factory
 {
@@ -76,7 +77,7 @@ class InvoiceFactory extends Factory
     public function dummy(): static
     {
         return $this->state(fn () => [
-            'invoice_number' => \Database\Seeders\DummySeeder::INVOICE_NUMBER,
+            'invoice_number' => DummySeeder::INVOICE_NUMBER,
         ])->overdue()->partiallyPaid(30000);
     }
 }

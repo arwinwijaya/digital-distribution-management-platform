@@ -5,7 +5,11 @@ namespace Tests\Feature;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
+use Database\Seeders\DummySeeder;
+use Database\Seeders\InvoiceTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -14,12 +18,13 @@ class DummyInvoiceParityTest extends TestCase
     use RefreshDatabase;
 
     protected User $adminUser;
+
     protected string $adminToken;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(\Database\Seeders\InvoiceTemplateSeeder::class);
+        $this->seed(InvoiceTemplateSeeder::class);
 
         $this->adminUser = User::factory()->admin()->create([
             'email' => 'dummy-parity-admin@example.test',
@@ -35,7 +40,7 @@ class DummyInvoiceParityTest extends TestCase
     public function test_dummy_detail_shape_equals_real_mode(): void
     {
         // Seed deterministic dummy data
-        $this->seed(\Database\Seeders\DummySeeder::class);
+        $this->seed(DummySeeder::class);
         $dummyInvoice = Invoice::where('invoice_number', 'INV-DUMMY-0001')->firstOrFail();
 
         // Enable dummy mode
@@ -84,6 +89,39 @@ class DummyInvoiceParityTest extends TestCase
         $this->assertArrayHasKey('is_overdue', $dummyData);
     }
 
+    /**
+     * RED: dummy mode PDF should return static blob with correct headers.
+     * Expected RED before implementation: dummy PDF hits real Dompdf or returns JSON.
+     */
+    public function test_dummy_pdf_returns_static_blob_with_correct_headers(): void
+    {
+        $this->seed(DummySeeder::class);
+        $dummyInvoice = Invoice::where('invoice_number', 'INV-DUMMY-0001')->firstOrFail();
+
+        config(['app.dummy_mode' => true]);
+
+        $response = $this->withToken($this->adminToken)
+            ->get("/api/invoices/{$dummyInvoice->id}/pdf");
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+
+        // Filename pattern: INV-YYYYMMDD-{id}.pdf
+        $datePart = $dummyInvoice->issue_date instanceof Carbon
+            ? $dummyInvoice->issue_date->format('Ymd')
+            : Carbon::parse($dummyInvoice->issue_date)->format('Ymd');
+        $expectedFilename = "INV-{$datePart}-{$dummyInvoice->id}.pdf";
+        $response->assertHeader('content-disposition', "inline; filename=\"{$expectedFilename}\"");
+
+        // Response bytes should equal the pre-generated static blob
+        $staticBlob = Cache::get('dummy.invoice.pdf');
+        $this->assertNotNull($staticBlob, 'Static PDF blob should be cached by DummySeeder');
+        $this->assertEquals($staticBlob, $response->getContent(), 'PDF bytes must match pre-generated static blob');
+
+        // Ensure it's a valid PDF (starts with %PDF)
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
     protected function login(User $user): string
     {
         return $this->postJson('/api/auth/login', [
@@ -103,7 +141,7 @@ class DummyInvoiceParityTest extends TestCase
         $this->assertEquals(
             $expectedKeys,
             $actualKeys,
-            "Keys mismatch at {$path}: expected [" . implode(', ', $expectedKeys) . "] got [" . implode(', ', $actualKeys) . "]"
+            "Keys mismatch at {$path}: expected [".implode(', ', $expectedKeys).'] got ['.implode(', ', $actualKeys).']'
         );
 
         foreach ($expectedKeys as $key) {
@@ -116,7 +154,7 @@ class DummyInvoiceParityTest extends TestCase
                 $firstE = array_values($e)[0] ?? null;
                 $firstA = array_values($a)[0] ?? null;
                 if (is_array($firstE) && is_array($firstA) && $this->isAssoc($firstE) && $this->isAssoc($firstA)) {
-                    $this->assertArrayKeysMatch($firstE, $firstA, $newPath . '[0]');
+                    $this->assertArrayKeysMatch($firstE, $firstA, $newPath.'[0]');
                 }
             }
         }

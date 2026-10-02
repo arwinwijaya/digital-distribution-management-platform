@@ -959,12 +959,6 @@
     "ast_hash": "2a27bdb2d4e70f5dc5c192f960151c9d",
     "semantic_hash": "2a27bdb2d4e70f5dc5c192f960151c9d"
   },
-  ".github/workflows/ci.yml": {
-    "mtime": 1789735001.0325582,
-    "seen": 1790779121.5941458,
-    "ast_hash": "f5eccee9407ba5e3b0469be307cab60f",
-    "semantic_hash": ""
-  },
   "README.md": {
     "mtime": 1789781696.6375697,
     "seen": 1790779121.5941656,
@@ -6743,12 +6737,6 @@
     "ast_hash": "7f05159872f4ec5b4e6dd4091df3ea4d",
     "semantic_hash": ""
   },
-  ".github/workflows/e2e.yml": {
-    "mtime": 1790844935.7713,
-    "seen": 1790910536.3450947,
-    "ast_hash": "89fedd3554bfa581f185d75a46b53767",
-    "semantic_hash": ""
-  },
   "CLAUDE.md": {
     "mtime": 1790909957.00391,
     "seen": 1790910536.3452132,
@@ -7065,6 +7053,30 @@
     "mtime": 1790919490.715269,
     "seen": 1790919795.1901274,
     "ast_hash": "0ac2492ca12f23b476a3c46b4a6037e0",
+    "semantic_hash": ""
+  },
+  "scripts/deploy.sh": {
+    "mtime": 1790926324.704384,
+    "seen": 1790926425.6400948,
+    "ast_hash": "226ba4bf1897375e740e486d66dee62e",
+    "semantic_hash": ""
+  },
+  "scripts/setup-vps.sh": {
+    "mtime": 1790926324.7053869,
+    "seen": 1790926425.6401103,
+    "ast_hash": "48eb71575b4150fecf98a5e1fa780f54",
+    "semantic_hash": ""
+  },
+  ".github/workflows/deploy-vps.yml": {
+    "mtime": 1790926324.7003832,
+    "seen": 1790926425.6401138,
+    "ast_hash": "1e1f34b5f8e790d0648e27a0037b45af",
+    "semantic_hash": ""
+  },
+  "docs/DEPLOY_VPS.md": {
+    "mtime": 1790926324.7023885,
+    "seen": 1790926425.6401975,
+    "ast_hash": "8e7a1317011dc8e5f70a3425022abc49",
     "semantic_hash": ""
   }
 }

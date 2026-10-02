@@ -1,0 +1,49 @@
+{
+  "task_id": "T7",
+  "task_name": "Frontend detail page and Export PDF button",
+  "cycle": 2,
+  "timestamp": "2026-10-02T12:30:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Phase-2 finding 1 (dummy zero-network PDF) verified fixed: downloadInvoicePdf now wraps real fetch with withDummyRead(isDummy, buildDummyInvoicePdfBlob(), realFetch) and test export-pdf.test.tsx asserts fetch not called, blob type application/pdf, canonical filename INV-20260101-123.pdf \u2014 apps/web/src/app/invoices/api.ts:348-399",
+      "Phase-2 finding 2 (template-toggle detail parity) verified fixed: InvoiceDetail now accepts template?: InvoiceTemplate|null, derives templateColor=template?.primary_color||#0F172A and showOutletPhone=template?template.show_outlet_phone:true, outlet phone gated, accent border color mirrors pdf.blade.php; page.tsx stores template via best-effort getAdminInvoiceTemplate and passes to InvoiceDetail \u2014 apps/web/src/app/invoices/components/InvoiceDetail.tsx:65-77,164, apps/web/src/app/invoices/[id]/page.tsx:16-19,89",
+      "All DELIVERABLE GWT verified: header/frozen line items/payments ordered newest/outlet info/OVERDUE badge render via InvoiceDetail; blob download via downloadInvoicePdf with invoicePdfFilename INV-YYYYMMDD-{id}.pdf; RBAC-gated button via useRbacStore.canRead(\"invoices\"); list rows Link to /invoices/[id] already present and unchanged",
+      "No must-not-have introduced: no jsPDF/html2pdf/client-side PDF lib import, no raw HTML editor, dummy path returns static Blob via withDummyRead mirroring backend DummyModeService::pdfResponse contract",
+      "Spec Authorization/Content/PDF parity rules still hold; 403 path preserved via getInvoiceDetail throw and page error state; dummy parity uses same isDummy guard as getInvoiceDetail/loadInvoices"
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Dummy zero-network export correctly reuses existing withDummyRead guard and centralized isDummy from useDummyStore.getState(), consistent with getInvoiceDetail pattern \u2014 apps/web/src/app/invoices/api.ts:364-396",
+      "Template parity correctly mirrors Blade toggles with null-template fallback (true / #0F172A) for RBAC-blocked best-effort fetch \u2014 no regression for non-admin users \u2014 apps/web/src/app/invoices/components/InvoiceDetail.tsx:69-77, page.tsx:32-38",
+      "Both corrections covered by integration tests exercising real components without mocking the SUT: detail view toggle/color tests and dummy zero-network test asserting blob download lifecycle \u2014 detail.test.tsx:168-317, export-pdf.test.tsx:200-265",
+      "Diff scoped strictly to T7 packet files (api.ts, InvoiceDetail.tsx, [id]/page.tsx) plus tests; no out-of-scope changes; mechanical gate green (12 passed, tsc --noEmit clean)"
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "DUMMY_PDF_BYTES is a static literal instead of a seeded factory blob \u2014 acceptable per spec static blob and mirrors backend static reuse, but not derived from T6 transaction factory like getInvoiceDetail dummy detail",
+        "location": "apps/web/src/app/invoices/api.ts:354"
+      },
+      {
+        "severity": "Minor",
+        "description": "show_npwp toggle not rendered in detail view (only show_outlet_phone + primary_color are visible) \u2014 PDF respects both but detail has no company NPWP surface; not required by Quality Bar and no regression, noted for completeness",
+        "location": "apps/web/src/app/invoices/components/InvoiceDetail.tsx:65-164"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "2e4fd5d62fed39c0aa56cd46b65af88aef3cb116"
+}

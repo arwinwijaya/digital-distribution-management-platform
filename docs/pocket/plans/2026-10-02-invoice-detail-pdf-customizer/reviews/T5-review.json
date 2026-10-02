@@ -1,0 +1,22 @@
+{
+  "task_id": "T5",
+  "task_name": "PDF export endpoint and Blade view",
+  "cycle": 1,
+  "timestamp": "2026-10-02T19:35:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {"status": "PASS", "issues": [], "concerns_addressed": []},
+  "stage_2": {
+    "status": "PASS",
+    "strengths": ["Server-side Dompdf only; no client-side PDF", "RBAC parity identical to detail endpoint", "PDF parity via InvoiceService::getDetail reuse; Blade respects template toggles, BATAL/OVERDUE conditions", "Filename INV-YYYYMMDD-{id}.pdf with correct headers", "Performance: isRemoteEnabled=false, 2MB logo cap, eager loading"],
+    "issues": [
+      {"severity": "Minor", "description": "isOverdue logic duplicated in PdfGeneratorService vs InvoiceService — shared helper reduces drift risk", "location": "apps/api/app/Services/PdfGeneratorService.php:118"},
+      {"severity": "Minor", "description": "pdf.blade.php 364 lines exceeds ~300 heuristic but is markup-only view", "location": "apps/api/resources/views/invoices/pdf.blade.php:1"}
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {"current_cycle": 1, "max_cycles": 2, "cycles_remaining": 2},
+  "reviewed_sha": "953efa8618ced7c6e4e41bc444be82777c285f7f"
+}

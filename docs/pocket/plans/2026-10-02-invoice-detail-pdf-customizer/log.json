@@ -2,9 +2,9 @@
   "header": {
     "plan_dir": "docs/pocket/plans/2026-10-02-invoice-detail-pdf-customizer",
     "plan_type": "phased",
-    "status": "IN_PROGRESS",
+    "status": "DONE",
     "date_started": "2026-10-01",
-    "date_completed": null,
+    "date_completed": "2026-10-02",
     "baseline_sha": "a23fed24741522d4be85737b4e3542b120ca9923",
     "pipeline": 4,
     "plan_file": "execution-plan/index.md"
@@ -13,68 +13,117 @@
     {
       "order": 1,
       "file": "execution-plan/phase-1.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T1",
           "name": "Create invoice_templates table, model, seeder, and RBAC entries",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T1-create-invoice-templates-table-model-seeder-and-rbac-entries.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T1-create-invoice-templates-table-model-seeder-and-rbac-entries.md",
+          "done_sha": "4ff1680ca953a4751bbbb95bea037e1a0c73ede2"
         },
         {
           "id": "T2",
           "name": "Add product_name_snapshot column to order_items",
-          "status": "WAITING",
-          "file": "execution-plan/tasks/T2-add-product-name-snapshot-column-to-order-items.md"
+          "status": "DONE",
+          "file": "execution-plan/tasks/T2-add-product-name-snapshot-column-to-order-items.md",
+          "done_sha": "1f638fdaa96014435e524cdb2c064d14707d7fa4"
         },
         {
           "id": "T3",
           "name": "Admin template CRUD API and structured form",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1",
-          "file": "execution-plan/tasks/T3-admin-template-crud-api-and-structured-form.md"
+          "file": "execution-plan/tasks/T3-admin-template-crud-api-and-structured-form.md",
+          "done_sha": "567849d377ce345a80337c1b8bc60e83ee1cec9f"
         },
         {
           "id": "T4",
           "name": "Invoice detail endpoint with authorization and content",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T1, T2",
-          "file": "execution-plan/tasks/T4-invoice-detail-endpoint-with-authorization-and-content.md"
+          "file": "execution-plan/tasks/T4-invoice-detail-endpoint-with-authorization-and-content.md",
+          "done_sha": "958e50c60e6a9f680667d1e4fdabfaccac86535a"
+        }
+      ],
+      "corrections": [
+        {
+          "sha": "567849d377ce345a80337c1b8bc60e83ee1cec9f",
+          "files": [
+            "apps/api/app/Http/Controllers/Admin/InvoiceTemplateController.php",
+            "apps/api/app/Http/Requests/UpdateInvoiceTemplateRequest.php",
+            "apps/api/routes/api.php",
+            "apps/api/tests/Feature/InvoiceTemplateAdminTest.php",
+            "apps/api/tests/Feature/InvoiceTemplateLogoValidationTest.php"
+          ],
+          "for_task": "T3"
+        },
+        {
+          "sha": "64bde691f9f557b2989a53c503600c20853d4246",
+          "files": [
+            "apps/api/app/Models/InvoiceTemplate.php",
+            "apps/api/database/migrations/2026_10_02_082339_add_singleton_check_constraint_to_invoice_templates_table.php",
+            "apps/api/tests/Feature/InvoiceTemplateSingletonTest.php"
+          ],
+          "for_task": "T1"
         }
       ]
     },
     {
       "order": 2,
       "file": "execution-plan/phase-2.md",
-      "status": "WAITING",
+      "status": "DONE",
       "tasks": [
         {
           "id": "T5",
           "name": "PDF export endpoint and Blade view",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4",
-          "file": "execution-plan/tasks/T5-pdf-export-endpoint-and-blade-view.md"
+          "file": "execution-plan/tasks/T5-pdf-export-endpoint-and-blade-view.md",
+          "done_sha": "953efa8618ced7c6e4e41bc444be82777c285f7f"
         },
         {
           "id": "T6",
           "name": "Dummy-mode parity for detail and PDF",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4, T5",
-          "file": "execution-plan/tasks/T6-dummy-mode-parity-for-detail-and-pdf.md"
+          "file": "execution-plan/tasks/T6-dummy-mode-parity-for-detail-and-pdf.md",
+          "done_sha": "d4b43c78f6b6a4946c328afcf3db53fa0ba731cf"
         },
         {
           "id": "T8",
           "name": "Frontend admin template form",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T3",
-          "file": "execution-plan/tasks/T8-frontend-admin-template-form.md"
+          "file": "execution-plan/tasks/T8-frontend-admin-template-form.md",
+          "done_sha": "4dce467c291d93047e694b62f1f9b664727988fc"
         },
         {
           "id": "T7",
           "name": "Frontend detail page and Export PDF button",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T4, T5",
-          "file": "execution-plan/tasks/T7-frontend-detail-page-and-export-pdf-button.md"
+          "file": "execution-plan/tasks/T7-frontend-detail-page-and-export-pdf-button.md",
+          "done_sha": "8d4419445dc2d9d1341ebd5a761ecc83d36c927f"
+        }
+      ],
+      "corrections": [
+        {
+          "sha": "04561c1",
+          "files": [
+            "apps/web/src/app/invoices/__tests__/export-pdf.test.tsx",
+            "apps/web/src/app/invoices/api.ts"
+          ],
+          "for_task": "T7"
+        },
+        {
+          "sha": "2e4fd5d",
+          "files": [
+            "apps/web/src/app/invoices/[id]/page.tsx",
+            "apps/web/src/app/invoices/__tests__/detail.test.tsx",
+            "apps/web/src/app/invoices/components/InvoiceDetail.tsx"
+          ],
+          "for_task": "T7"
         }
       ]
     }

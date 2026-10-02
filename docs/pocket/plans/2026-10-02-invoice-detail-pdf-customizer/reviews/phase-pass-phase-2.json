@@ -1,0 +1,26 @@
+{
+  "phase_key": "phase-2",
+  "phase_file": "execution-plan/phase-2.md",
+  "timestamp": "2026-10-02T05:18:06Z",
+  "reviewer_mode": "read-only",
+  "findings": [
+    {
+      "severity": "Minor",
+      "description": "Frontend dummy detail builder diverges on payments.outlet_id. buildDummyInvoiceDetail maps payments with outlet_id: invoice.order_id (copying order id) instead of the order/outlet id, while backend InvoiceService::getDetail and DummySeeder cache use real $payment->outlet_id. Detail shape keys match but value contract diverges; not caught by T7 detail.test which only checks amount/status, and T6 DummyInvoiceParityTest only checks backend cache. Cross-task dummy parity mismatch.",
+      "location": "apps/web/src/app/invoices/api.ts: buildDummyInvoiceDetail payments mapping (line 280)",
+      "tasks": ["T7", "T4", "T6"]
+    },
+    {
+      "severity": "Minor",
+      "description": "Spec Implementation Notes feature flag invoice_pdf for progressive rollout is not implemented by any Phase 2 task and no task packet mentions it. Migration/route guard remains unconditional. Spec-level gap left uncovered by task split; low risk as rollback notes handle removal but rollout gating is missing.",
+      "location": "docs/pocket/spec/2026-10-02-invoice-detail-pdf-customizer/invoice-detail-pdf-customizer.md: Implementation Notes / docs/pocket/plans/2026-10-02-invoice-detail-pdf-customizer/execution-plan/tasks/T5-pdf-export-endpoint-and-blade-view.md",
+      "tasks": ["T5"]
+    }
+  ],
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "status": "PHASE_PASS_RESOLVED"
+}

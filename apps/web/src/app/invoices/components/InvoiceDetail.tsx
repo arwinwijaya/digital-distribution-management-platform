@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button, Card, StatusBadge, Table } from '@/components/ui';
 import { useRbacStore } from '@/store/useRbacStore';
 import { downloadInvoicePdf } from '@/app/invoices/api';
-import type { InvoiceDetail } from '@/app/invoices/api';
+import type { InvoiceDetail, InvoiceTemplate } from '@/app/invoices/api';
 
 const money = (value: string | number | null | undefined) => `Rp ${Number(value ?? 0).toLocaleString('id-ID')}`;
 const date = (value: string | null) =>
@@ -62,13 +62,26 @@ const paymentColumns = [
   },
 ];
 
-export default function InvoiceDetail({ detail }: { detail: InvoiceDetail }) {
+const DEFAULT_PRIMARY_COLOR = '#0F172A';
+
+export default function InvoiceDetail({
+  detail,
+  template,
+}: {
+  detail: InvoiceDetail;
+  template?: InvoiceTemplate | null;
+}) {
   const canRead = useRbacStore((state) => state.canRead('invoices'));
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const overdue = detail.is_overdue || detail.overdue;
-  const templateColor = '#0F172A';
+  // Mirror the Blade PDF template toggles: accent color comes from the active
+  // template (`primary_color`), and the outlet phone is gated by
+  // `show_outlet_phone`. When the template is absent (RBAC may block the
+  // best-effort fetch), keep the pre-existing defaults.
+  const templateColor = template?.primary_color || DEFAULT_PRIMARY_COLOR;
+  const showOutletPhone = template ? template.show_outlet_phone : true;
 
   const handleExport = async () => {
     setDownloading(true);
@@ -151,7 +164,7 @@ export default function InvoiceDetail({ detail }: { detail: InvoiceDetail }) {
             <div className="pl-3">
               <h2 className="text-base font-semibold text-gray-900">Informasi outlet</h2>
               <p className="mt-1 font-medium text-gray-900">{detail.outlet.name}</p>
-              {detail.outlet.phone && <p className="text-sm text-gray-600">{detail.outlet.phone}</p>}
+              {detail.outlet.phone && showOutletPhone && <p className="text-sm text-gray-600">{detail.outlet.phone}</p>}
               {detail.outlet.address && <p className="text-sm text-gray-600">{detail.outlet.address}</p>}
               {detail.outlet.city && <p className="text-sm text-gray-600">{detail.outlet.city}</p>}
             </div>

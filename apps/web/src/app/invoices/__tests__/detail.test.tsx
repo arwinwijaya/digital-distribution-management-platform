@@ -163,6 +163,16 @@ const detailResponse = {
 let originalFetch: typeof fetch | undefined;
 let fetchMock: jest.Mock;
 
+// Mutable template payload so individual tests can override.
+let templatePayload: Record<string, unknown> = {
+  show_outlet_phone: true,
+  show_npwp: true,
+  primary_color: '#0F172A',
+  company_name: 'Test Co',
+  address: 'Test Addr',
+  npwp: '12.345.678.9-000.000',
+};
+
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem('ddp_token', 'test-token');
@@ -172,6 +182,9 @@ beforeEach(() => {
     const method = (options?.method ?? 'GET').toUpperCase();
     if (urlString.includes('/invoices/123') && !urlString.includes('/pdf') && method === 'GET') {
       return { ok: true, status: 200, json: async () => detailResponse } as Response;
+    }
+    if (urlString.includes('/admin/invoice-template') && method === 'GET') {
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: templatePayload }) } as Response;
     }
     return { ok: true, status: 200, json: async () => ({}) } as Response;
   });
@@ -237,5 +250,68 @@ describe('invoice detail page', () => {
       expect.stringContaining('/invoices/123'),
       expect.anything(),
     );
+  });
+
+  describe('detail view — template toggles and primary color parity', () => {
+    // These tests exercise that the detail view mirrors the Blade PDF
+    // (`pdf.blade.php` via `$template->show_outlet_phone`) and
+    // `template.primary_color`.
+    const buildTemplate = (overrides: Partial<Record<string, unknown>>) =>
+      ({
+        id: 1,
+        show_outlet_phone: true,
+        show_npwp: true,
+        primary_color: '#0F172A',
+        logo_path: null,
+        company_name: 'Test Co',
+        address: 'Addr',
+        npwp: '12.345.678',
+        footer_text: null,
+        notes: null,
+        signer_name: null,
+        signer_title: null,
+        ...overrides,
+      }) as unknown as import('@/app/invoices/api').InvoiceTemplate;
+
+    const accentStyleOf = (host: Element): string => {
+      const accented = host.querySelector<HTMLElement>('div[style*="border-left"]');
+      return accented?.getAttribute('style') ?? '';
+    };
+
+    const detail = detailResponse.data as unknown as import('@/app/invoices/api').InvoiceDetail;
+
+    const loadComponent = async () => (await import('@/app/invoices/components/InvoiceDetail')).default;
+
+    it('when template.show_outlet_phone is false, outlet phone is NOT rendered', async () => {
+      const InvoiceDetailComponent = await loadComponent();
+      const { container } = render(
+        <InvoiceDetailComponent detail={detail} template={buildTemplate({ show_outlet_phone: false })} />,
+      );
+
+      expect(container.textContent).toMatch(/Informasi outlet/i);
+      expect(container.textContent).toMatch(/Toko Sejahtera/i);
+      expect(container.textContent).not.toMatch(/081234567890/);
+    });
+
+    it('when template.show_outlet_phone is true, outlet phone IS rendered', async () => {
+      const InvoiceDetailComponent = await loadComponent();
+      const { container } = render(
+        <InvoiceDetailComponent detail={detail} template={buildTemplate({ show_outlet_phone: true })} />,
+      );
+
+      expect(container.textContent).toMatch(/Toko Sejahtera/i);
+      expect(container.textContent).toMatch(/081234567890/);
+    });
+
+    it('accent color reflects template.primary_color; absent template falls back to #0F172A', async () => {
+      const InvoiceDetailComponent = await loadComponent();
+      const withCustom = render(
+        <InvoiceDetailComponent detail={detail} template={buildTemplate({ primary_color: '#FF0000' })} />,
+      );
+      expect(accentStyleOf(withCustom.container)).toMatch(/#FF0000/i);
+
+      const fallback = render(<InvoiceDetailComponent detail={detail} template={null} />);
+      expect(accentStyleOf(fallback.container)).toContain('#0F172A');
+    });
   });
 });

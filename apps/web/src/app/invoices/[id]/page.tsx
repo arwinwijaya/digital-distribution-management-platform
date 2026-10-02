@@ -16,7 +16,7 @@ export default function InvoiceDetailPage() {
 
   const [token, setToken] = useState<string | null>(null);
   const [detail, setDetail] = useState<InvoiceDetailType | null>(null);
-  const [, setTemplate] = useState<InvoiceTemplate | null>(null);
+  const [template, setTemplate] = useState<InvoiceTemplate | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +89,7 @@ export default function InvoiceDetailPage() {
           {error}
         </p>
       )}
-      <InvoiceDetail detail={detail} />
+      <InvoiceDetail detail={detail} template={template} />
     </div>
   );
 }

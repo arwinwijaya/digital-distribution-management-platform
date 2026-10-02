@@ -349,29 +349,50 @@ export function invoicePdfFilename(invoice: Pick<InvoiceDetail, 'id' | 'issue_da
 }
 
 /**
+ * Pre-generated static PDF bytes for dummy mode — zero network, no
+ * client-side PDF libs. Mirrors the backend `DummyModeService::pdfResponse`
+ * contract which reuses a static blob instead of invoking the live renderer.
+ */
+const DUMMY_PDF_BYTES = '%PDF-1.4\n% dummy invoice pdf\n';
+
+function buildDummyInvoicePdfBlob(): Blob {
+  return new Blob([DUMMY_PDF_BYTES], { type: 'application/pdf' });
+}
+
+/**
  * GET /invoices/{id}/pdf — fetch the server-rendered PDF as a blob and trigger
  * a browser download named `INV-YYYYMMDD-{id}.pdf`. No client-side PDF libs.
+ * While dummy mode is ON, returns the pre-generated static blob with zero
+ * network via `withDummyRead` (same guard as `getInvoiceDetail`).
  */
 export async function downloadInvoicePdf(
   token: string,
   invoice: Pick<InvoiceDetail, 'id' | 'issue_date'>,
 ): Promise<void> {
   const filename = invoicePdfFilename(invoice);
-  const response = await fetch(apiUrl(`/invoices/${invoice.id}/pdf`), {
-    headers: authHeaders(token),
-  });
-  if (!response.ok) {
-    let message = 'PDF invoice tidak dapat diunduh.';
-    try {
-      const body = await response.json();
-      message = parseError(body, message);
-    } catch {
-      // Non-JSON error body — keep the default message.
-    }
-    throw new Error(message);
-  }
+  const { isDummy } = useDummyStore.getState();
 
-  const blob = await response.blob();
+  const blob = await withDummyRead(
+    isDummy,
+    buildDummyInvoicePdfBlob(),
+    async () => {
+      const response = await fetch(apiUrl(`/invoices/${invoice.id}/pdf`), {
+        headers: authHeaders(token),
+      });
+      if (!response.ok) {
+        let message = 'PDF invoice tidak dapat diunduh.';
+        try {
+          const body = await response.json();
+          message = parseError(body, message);
+        } catch {
+          // Non-JSON error body — keep the default message.
+        }
+        throw new Error(message);
+      }
+      return response.blob();
+    },
+  );
+
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = objectUrl;

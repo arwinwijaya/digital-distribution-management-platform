@@ -39,7 +39,7 @@ jest.mock('@/lib/api', () => ({
 
 jest.mock('@/dummy/store', () => ({
   useDummyStore: Object.assign(jest.fn(() => false), {
-    getState: () => ({ isDummy: false, dummyEntities: null }),
+    getState: jest.fn(() => ({ isDummy: false, dummyEntities: null })),
   }),
   selectIsDummy: (state: { isDummy: boolean }) => state.isDummy,
 }));
@@ -101,6 +101,11 @@ beforeEach(() => {
   localStorage.clear();
   localStorage.setItem('ddp_token', 'test-token');
   localStorage.setItem('ddp_role', 'finance');
+  // Default to real mode for existing tests; individual tests may override to dummy ON.
+  const { useDummyStore } = jest.requireMock('@/dummy/store') as {
+    useDummyStore: { getState: jest.Mock };
+  };
+  (useDummyStore.getState as jest.Mock).mockReturnValue({ isDummy: false, dummyEntities: null });
 });
 
 afterEach(() => {
@@ -194,5 +199,68 @@ describe('invoice detail export PDF', () => {
     });
 
     useRbacStore.getState().reset();
+  });
+
+  it('when dummy mode is ON, downloads static PDF with zero network and canonical filename', async () => {
+    const { useRbacStore } = await import('@/store/useRbacStore');
+    useRbacStore.getState().reset();
+    useRbacStore.getState().hydrateFromMe({ invoices: 'read' }, 'finance');
+
+    // Flip dummy mode ON — withDummyRead must short-circuit before any network.
+    const { useDummyStore } = await import('@/dummy/store');
+    (useDummyStore.getState as jest.Mock).mockReturnValue({ isDummy: true, dummyEntities: {} });
+
+    const capturedAnchors: HTMLAnchorElement[] = [];
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = jest.spyOn(document, 'createElement').mockImplementation((tag: string, options?: ElementCreationOptions) => {
+      const el = originalCreateElement(tag, options);
+      if (tag.toLowerCase() === 'a') capturedAnchors.push(el as HTMLAnchorElement);
+      return el;
+    });
+    const anchorClickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const createObjectURLSpy = jest.fn((_blob: Blob) => 'blob:mock-url');
+    const revokeObjectURLSpy = jest.fn();
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURLSpy, configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURLSpy, configurable: true });
+
+    fetchMock = jest.fn(async () => {
+      throw new Error('fetch should not be called in dummy mode');
+    });
+    originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
+
+    const { default: InvoiceDetail } = await import('@/app/invoices/components/InvoiceDetail');
+    render(<InvoiceDetail detail={detailForExport} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /export pdf/i })).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /export pdf/i }));
+
+    await waitFor(() => {
+      expect(createObjectURLSpy).toHaveBeenCalled();
+      expect(anchorClickSpy).toHaveBeenCalled();
+      expect(revokeObjectURLSpy).toHaveBeenCalled();
+    });
+
+    // Zero network: withDummyRead must not invoke fetch for the pdf blob.
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // Still triggers a blob download with the canonical filename INV-YYYYMMDD-{id}.pdf
+    expect(capturedAnchors.length).toBeGreaterThanOrEqual(1);
+    const anchorEl = capturedAnchors[capturedAnchors.length - 1];
+    expect(anchorEl.download).toBe('INV-20260101-123.pdf');
+    // The dummy blob is a PDF (verifies reuse of filename helper without network)
+    const blobArg = createObjectURLSpy.mock.calls[0][0] as Blob;
+    expect(blobArg.type).toBe('application/pdf');
+    expect(blobArg.size).toBeGreaterThan(0);
+
+    createElementSpy.mockRestore();
+    anchorClickSpy.mockRestore();
+    delete (URL as unknown as { createObjectURL?: unknown }).createObjectURL;
+    delete (URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL;
+    useRbacStore.getState().reset();
+    (useDummyStore.getState as jest.Mock).mockReturnValue({ isDummy: false, dummyEntities: null });
   });
 });

@@ -43,6 +43,8 @@ export interface UseOutletReorderResult {
 export interface UseOutletReorderOptions {
   cart?: Record<number, number>;
   setCart?: Dispatch<SetStateAction<Record<number, number>>>;
+  /** Bump to force a reload after cache invalidation (T2/T4 seam). */
+  refreshKey?: number;
 }
 
 const RECENT_ORDER_LIMIT = 3;
@@ -122,7 +124,7 @@ export function useOutletReorder(
       // Cleanup on token change / unmount.
       cancelled = true;
     };
-  }, [token]);
+  }, [token, options.refreshKey]);
 
   // R1: favorites (top-5) first, then unique items from the 3 most recent orders.
   // R5: enrich from the current catalog (`products` param); historical price is ignored.

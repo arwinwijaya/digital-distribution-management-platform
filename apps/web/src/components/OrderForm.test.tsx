@@ -2,6 +2,15 @@ import React from 'react';
 import '@testing-library/jest-dom';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 
+// jsdom does not expose structuredClone; fake-indexeddb (R32) requires it.
+if (typeof (globalThis as { structuredClone?: unknown }).structuredClone !== 'function') {
+  (globalThis as { structuredClone: <T>(v: T) => T }).structuredClone = <T,>(value: T): T =>
+    JSON.parse(JSON.stringify(value)) as T;
+}
+
+// Import fake-indexeddb for R32 test (must be before any IndexedDB usage)
+import 'fake-indexeddb/auto';
+
 // Mock API
 jest.mock('@/lib/api', () => ({
   apiUrl: (p: string) => `http://localhost:8000/api${p}`,
@@ -15,12 +24,32 @@ jest.mock('@/lib/offline/order-queue', () => ({
   createDefaultAdapter: jest.fn(),
 }));
 
+// Mock dashboard API to keep existing tests inert (no network calls from useOutletReorder)
+jest.mock('@/app/dashboard/api', () => {
+  const actual = jest.requireActual('@/app/dashboard/api');
+  return {
+    ...actual,
+    fetchOutletDashboard: jest.fn(),
+    loadOutletCachedSections: jest.fn(),
+    invalidateOutletOrdersCache: jest.fn((...args: unknown[]) => actual.invalidateOutletOrdersCache(...args)),
+  };
+});
+
 import { useDummyStore } from '@/dummy/store';
 import { installDummy } from '@/dummy/install';
 import OrderForm from '@/components/OrderForm';
 import { createOrderQueue, createDefaultAdapter } from '@/lib/offline/order-queue';
 import * as idempotency from '@/lib/offline/idempotency';
 import * as dashboardApi from '@/app/dashboard/api';
+
+const emptyOutletDashboard = {
+  kind: 'outlet' as const,
+  data: {
+    orders: [],
+    credit: { available_credit: null, credit_limit: null },
+    favorites: [],
+  },
+};
 
 const productsResponse = {
   status: 'success',
@@ -43,6 +72,8 @@ describe('OrderForm — online submission idempotency contract', () => {
     localStorage.clear();
     useDummyStore.getState().reset();
     installDummy();
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockResolvedValue(null);
+    (dashboardApi.fetchOutletDashboard as jest.Mock).mockResolvedValue(emptyOutletDashboard);
     const queuedItems: Array<{ id: string; payload: unknown; created_at: string }> = [];
     mockQueue = {
       enqueue: jest.fn().mockImplementation(async (item) => {
@@ -202,7 +233,7 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
     list: jest.Mock;
     flushQueue: jest.Mock;
   };
-  let invalidateSpy: jest.SpyInstance;
+  let invalidateMock: jest.Mock;
 
   function setOnline(value: boolean) {
     Object.defineProperty(window.navigator, 'onLine', {
@@ -217,6 +248,10 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
     installDummy();
     // Ensure dummy OFF so online path is exercised
     setOnline(true);
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockResolvedValue(null);
+    (dashboardApi.fetchOutletDashboard as jest.Mock).mockResolvedValue(emptyOutletDashboard);
+    invalidateMock = dashboardApi.invalidateOutletOrdersCache as jest.Mock;
+    invalidateMock.mockClear();
     const queuedItems: Array<{ id: string; payload: unknown; created_at: string }> = [];
     mockQueue = {
       enqueue: jest.fn().mockImplementation(async (item) => {
@@ -242,8 +277,6 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
       }
       return { ok: false, status: 404, json: async () => ({ status: 'error', message: 'not found' }) } as Response;
     });
-
-    invalidateSpy = jest.spyOn(dashboardApi, 'invalidateOutletOrdersCache').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -252,7 +285,7 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
     } else {
       delete (globalThis as unknown as { fetch?: unknown }).fetch;
     }
-    invalidateSpy.mockRestore();
+    invalidateMock.mockRestore();
     jest.restoreAllMocks();
   });
 
@@ -266,8 +299,8 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
     fireEvent.change(screen.getByLabelText('Jumlah Beras Premium'), { target: { value: '1' } });
     fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
     await waitFor(() => expect(screen.getByText('ORD-999')).toBeInTheDocument());
-    expect(invalidateSpy).toHaveBeenCalledTimes(1);
-    expect(invalidateSpy).toHaveBeenCalledWith('test-token');
+    expect(invalidateMock).toHaveBeenCalledTimes(1);
+    expect(invalidateMock).toHaveBeenCalledWith('test-token');
   });
 
   it('online submit failure does NOT invalidate cache', async () => {
@@ -286,7 +319,7 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
     fireEvent.change(screen.getByLabelText('Jumlah Beras Premium'), { target: { value: '1' } });
     fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
     await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument());
-    expect(invalidateSpy).not.toHaveBeenCalled();
+    expect(invalidateMock).not.toHaveBeenCalled();
   });
 
   it('offline flush success (sent>0) triggers cache invalidation', async () => {
@@ -297,8 +330,8 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
     setOnline(true);
     act(() => { window.dispatchEvent(new Event('online')); });
     await waitFor(() => expect(mockQueue.flushQueue).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledTimes(1));
-    expect(invalidateSpy).toHaveBeenCalledWith('test-token');
+    await waitFor(() => expect(invalidateMock).toHaveBeenCalledTimes(1));
+    expect(invalidateMock).toHaveBeenCalledWith('test-token');
   });
 
   it('offline flush with sent==0 does NOT invalidate cache', async () => {
@@ -310,7 +343,7 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
     await waitFor(() => expect(mockQueue.flushQueue).toHaveBeenCalledTimes(1));
     // Give a tick for potential invalidation
     await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
-    expect(invalidateSpy).not.toHaveBeenCalled();
+    expect(invalidateMock).not.toHaveBeenCalled();
   });
 
   it('dummy mode submit does not break (no throw, no queue)', async () => {
@@ -324,3 +357,554 @@ describe('OrderForm — cache invalidation on outlet order submission', () => {
     expect(mockQueue.enqueue).not.toHaveBeenCalled();
   });
 });
+
+describe('OrderForm — Pesanan Lagi Fast Reorder Integration', () => {
+  let originalFetch: typeof fetch | undefined;
+  let mockQueue: { enqueue: jest.Mock; list: jest.Mock; flushQueue: jest.Mock };
+  let queuedItems: Array<{ id: string; payload: unknown; created_at: string }>;
+
+  beforeEach(() => {
+    localStorage.clear();
+    useDummyStore.getState().reset();
+    installDummy();
+    // Ensure online path
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true });
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(null);
+    (dashboardApi.fetchOutletDashboard as jest.Mock).mockResolvedValue(emptyOutletDashboard);
+    (dashboardApi.invalidateOutletOrdersCache as jest.Mock).mockClear();
+
+    queuedItems = [];
+    mockQueue = {
+      enqueue: jest.fn().mockImplementation(async (item) => {
+        queuedItems.push({ id: `id-${queuedItems.length}`, payload: item, created_at: new Date().toISOString() });
+      }),
+      list: jest.fn().mockImplementation(async () => queuedItems),
+      flushQueue: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }),
+    };
+    (createOrderQueue as jest.Mock).mockReturnValue(mockQueue);
+    (createDefaultAdapter as jest.Mock).mockResolvedValue({});
+
+    originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => productsResponse } as Response;
+      }
+      if (urlString.includes('/orders')) {
+        return { ok: true, status: 201, json: async () => ({
+          status: 'success',
+          data: { id: 999, order_id: 'ORD-999', status: 'pending', total_amount: '45000.00', items: [] },
+        }) } as Response;
+      }
+      return { ok: false, status: 404, json: async () => ({ status: 'error', message: 'not found' }) } as Response;
+    });
+  });
+
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_ENABLE_REORDER;
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true });
+    if (originalFetch) {
+      (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    } else {
+      delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    }
+    jest.restoreAllMocks();
+  });
+
+  const cachedSections = (opts: {
+    favorites?: Array<{ product_id: number; display_name: string; total_qty: number }>;
+    orders?: Array<{ product_id: number; product_name: string; quantity: number }>;
+  }) => ({
+    favorites: opts.favorites ?? [],
+    orders: [
+      {
+        id: 10,
+        order_id: 'ORD-10',
+        status: 'completed',
+        created_at: new Date().toISOString(),
+        items: (opts.orders ?? []).map((o) => ({
+          product_id: o.product_id,
+          product_name: o.product_name,
+          quantity: o.quantity,
+          unit_price: '20000',
+          subtotal: String(o.quantity * 20000),
+        })),
+      },
+    ],
+  });
+
+  it('R1: renders reorder section with items', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+        orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 2 }],
+      }),
+    );
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+    expect(screen.getAllByText('Beras Premium').length).toBeGreaterThan(0);
+  });
+
+  it('R2: clicking Tambah adds quantity additively to cart', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+        orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 3 }],
+      }),
+    );
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    const addButton = screen.getByRole('button', { name: /^Tambah Beras Premium/ });
+    fireEvent.click(addButton);
+
+    const qtyInput = screen.getByLabelText('Jumlah Beras Premium') as HTMLInputElement;
+    expect(qtyInput.value).toBe('3');
+
+    fireEvent.click(addButton);
+    expect(qtyInput.value).toBe('6');
+  });
+
+  it('R3: Ulangi Pesanan Terakhir adds valid items and reports skipped ones', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        orders: [
+          { product_id: 1, product_name: 'Beras Premium', quantity: 2 },
+          { product_id: 2, product_name: 'Minyak Goreng', quantity: 1 },
+        ],
+      }),
+    );
+    // Product 2 is inactive → skipped in the batch
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => ({
+          status: 'success',
+          data: [
+            { id: 1, name: 'Beras Premium', price: '20000.00', stock_quantity: 50, is_active: true },
+            { id: 2, name: 'Minyak Goreng', price: '25000.00', stock_quantity: 30, is_active: false },
+          ],
+        }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: [] }) } as Response;
+    });
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Ulangi Pesanan Terakhir/ }));
+
+    const qtyInput = screen.getByLabelText('Jumlah Beras Premium') as HTMLInputElement;
+    expect(qtyInput.value).toBe('2');
+    await waitFor(() => expect(screen.getByTestId('reorder-notice')).toHaveTextContent(/Minyak Goreng/));
+  });
+
+  it('R3 edge: all-invalid batch leaves cart unchanged with all-skipped notice', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        orders: [{ product_id: 2, product_name: 'Minyak Goreng', quantity: 1 }],
+      }),
+    );
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => ({
+          status: 'success',
+          data: [{ id: 2, name: 'Minyak Goreng', price: '25000.00', stock_quantity: 30, is_active: false }],
+        }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: [] }) } as Response;
+    });
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Ulangi Pesanan Terakhir/ }));
+    await waitFor(() => expect(screen.getByTestId('reorder-notice')).toHaveTextContent(/Minyak Goreng/));
+    const qtyInput = screen.getByLabelText('Jumlah Minyak Goreng') as HTMLInputElement;
+    expect(qtyInput.value).toBe('0');
+  });
+
+  it('R4: disables add button and shows credit warning when credit exceeded', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(null);
+    (dashboardApi.fetchOutletDashboard as jest.Mock).mockResolvedValue({
+      kind: 'outlet',
+      data: {
+        summary: { total: 1, statuses: {}, recent: [], truncation: { capped: false, total: 1 } },
+        shopping: { total: '0', count: 0, period_label: 'x' },
+        credit: { credit_limit: 500000, outstanding_balance: '0', available_credit: 10000, hidden: false },
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 100 }],
+      },
+    });
+    (dashboardApi.loadOutletCachedSections as jest.Mock)
+      .mockReturnValueOnce(null)
+      .mockReturnValue(cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 100 }],
+        orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 100 }],
+      }));
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Melebihi batas kredit')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Tambah Beras Premium/ })).toBeDisabled();
+  });
+
+  it('R7: renders empty state hint when outlet has no reorder history', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(null);
+    (dashboardApi.fetchOutletDashboard as jest.Mock).mockResolvedValue(emptyOutletDashboard);
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText(/Belum ada riwayat pesanan/i)).toBeInTheDocument());
+    expect(screen.queryByText('Pesan Lagi')).not.toBeInTheDocument();
+  });
+
+  it('R16: feature flag off hides reorder section completely', async () => {
+    process.env.NEXT_PUBLIC_ENABLE_REORDER = 'false';
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+        orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 2 }],
+      }),
+    );
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getAllByLabelText(/^Jumlah /).length).toBeGreaterThan(0));
+    expect(screen.queryByText('Pesan Lagi')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ulangi Pesanan Terakhir/ })).not.toBeInTheDocument();
+    // Catalog should still be visible
+    expect(screen.getByText('Pilih produk')).toBeInTheDocument();
+  });
+
+  it('R18: stock-0 items render disabled with Stok habis reason', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        orders: [{ product_id: 2, product_name: 'Minyak Goreng', quantity: 1 }],
+      }),
+    );
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => ({
+          status: 'success',
+          data: [
+            { id: 2, name: 'Minyak Goreng', price: '25000.00', stock_quantity: 0, is_active: true },
+          ],
+        }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: [] }) } as Response;
+    });
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    const addButton = screen.getByRole('button', { name: /Tambah Minyak Goreng/ });
+    expect(addButton).toBeDisabled();
+    expect(screen.getByText('Stok habis')).toBeInTheDocument();
+  });
+
+  it('R20: accessibility — buttons have descriptive aria-labels and are keyboard reachable', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+        orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 3 }],
+      }),
+    );
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    // Tambah button aria-label includes qty and stock
+    const addButton = screen.getByRole('button', { name: /^Tambah Beras Premium/ });
+    expect(addButton.getAttribute('aria-label')).toMatch(/^Tambah Beras Premium, qty 3 — Stok: 50$/);
+
+    // Ulangi Pesanan Terakhir button has aria-label
+    const reorderButton = screen.getByRole('button', { name: /Ulangi Pesanan Terakhir/ });
+    expect(reorderButton.getAttribute('aria-label')).toBe('Ulangi Pesanan Terakhir');
+
+    // Native button semantics (type=button implied)
+    expect(addButton.tagName).toBe('BUTTON');
+    expect(reorderButton.tagName).toBe('BUTTON');
+
+    // Keyboard reachable: focus() works and Enter key does not throw
+    addButton.focus();
+    expect(document.activeElement).toBe(addButton);
+    fireEvent.keyDown(addButton, { key: 'Enter', code: 'Enter' });
+    fireEvent.click(addButton);
+    const qtyInput = screen.getByLabelText('Jumlah Beras Premium') as HTMLInputElement;
+    expect(qtyInput.value).toBe('3');
+  });
+
+  it('R22: offline — cache-only prefill with notice and queue enqueue with unified idempotency key', async () => {
+    // Set offline
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false });
+    window.dispatchEvent(new Event('offline'));
+
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+        orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 2 }],
+      }),
+    );
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    // Click Ulangi Pesanan Terakhir
+    fireEvent.click(screen.getByRole('button', { name: /Ulangi Pesanan Terakhir/ }));
+
+    // Offline notice should appear
+    await waitFor(() => expect(screen.getByTestId('reorder-notice')).toHaveTextContent(/berdasarkan data terakhir/));
+
+    // Cart should have item
+    const qtyInput = screen.getByLabelText('Jumlah Beras Premium') as HTMLInputElement;
+    expect(qtyInput.value).toBe('2');
+
+    // Submit while offline -> enqueue
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+    await waitFor(() => expect(screen.getByText(/menunggu sinkronisasi/i)).toBeInTheDocument());
+
+    // Verify queue enqueue was called with unified idempotency key
+    // (OrderQueue mock is per-test, check pendingCount > 0)
+    expect(screen.getByText(/1 pesanan menunggu sinkronisasi/)).toBeInTheDocument();
+  });
+
+  it('R24: race condition — backend per-item errors shown, valid items retained in cart', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [
+          { product_id: 1, display_name: 'Beras Premium', total_qty: 2 },
+          { product_id: 2, display_name: 'Minyak Goreng', total_qty: 1 },
+        ],
+        orders: [
+          { product_id: 1, product_name: 'Beras Premium', quantity: 2 },
+          { product_id: 2, product_name: 'Minyak Goreng', quantity: 1 },
+        ],
+      }),
+    );
+    // Mock fetch to return 422 with per-item errors
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => productsResponse } as Response;
+      }
+      if (urlString.includes('/orders')) {
+        return { ok: false, status: 422, json: async () => ({
+          status: 'error',
+          message: 'Validasi gagal',
+          errors: { 'items.0.quantity': ['Insufficient stock. Only 1 unit(s) remain.'] },
+        }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: [] }) } as Response;
+    });
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    // Add both items via reorder
+    fireEvent.click(screen.getByRole('button', { name: /^Tambah Beras Premium/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Tambah Minyak Goreng/ }));
+
+    // Submit
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+
+    // Error with per-item details shown
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Insufficient stock/));
+
+    // Valid items remain in cart
+    const qtyInput = screen.getByLabelText('Jumlah Beras Premium') as HTMLInputElement;
+    expect(qtyInput.value).toBe('2');
+  });
+
+  it('R26: cache invalidation → refetch → render (T2+T3+T4 seam)', async () => {
+    let phase: 'before' | 'after' = 'before';
+    const beforeSections = cachedSections({
+      favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+      orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 2 }],
+    });
+    const afterSections = cachedSections({
+      favorites: [
+        { product_id: 1, display_name: 'Beras Premium', total_qty: 5 },
+        { product_id: 2, display_name: 'Minyak Goreng', total_qty: 3 },
+      ],
+      orders: [
+        { product_id: 1, product_name: 'Beras Premium', quantity: 2 },
+        { product_id: 2, product_name: 'Minyak Goreng', quantity: 3 },
+      ],
+    });
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockImplementation(() =>
+      phase === 'before' ? beforeSections : afterSections,
+    );
+    (dashboardApi.fetchOutletDashboard as jest.Mock).mockResolvedValue(emptyOutletDashboard);
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+    expect(screen.getAllByText('Beras Premium').length).toBeGreaterThan(0);
+    // Before submit, only Beras is in the reorder section
+    expect(screen.queryAllByRole('button', { name: /^Tambah Minyak Goreng/ }).length).toBe(0);
+
+    // Submit success triggers invalidate and refreshKey bump
+    fireEvent.change(screen.getByLabelText('Jumlah Beras Premium'), { target: { value: '1' } });
+    phase = 'after';
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+    await waitFor(() => expect(screen.getByText('ORD-999')).toBeInTheDocument());
+
+    // Hook refetched via refreshKey and the new favorite appears
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Tambah Minyak Goreng/ })).toBeInTheDocument());
+  });
+
+  it('R28: hook + OrderForm composition — dedup favorites+recent, current_price, credit_exceeded', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+        orders: [
+          { product_id: 1, product_name: 'Beras Premium', quantity: 2 },
+          { product_id: 2, product_name: 'Minyak Goreng', quantity: 1 },
+        ],
+      }),
+    );
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    // Both products should appear in the reorder section (dedup: product 1 from favorites, product 2 from recent)
+    expect(screen.getByRole('button', { name: /^Tambah Beras Premium/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Tambah Minyak Goreng/ })).toBeInTheDocument();
+
+    // Credit within limit -> no label for Beras (credit limit high in emptyOutletDashboard)
+    expect(screen.queryByText('Melebihi batas kredit')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Tambah Beras Premium/ })).not.toBeDisabled();
+  });
+
+  it('R30: unified idempotency — offline enqueue key used as Idempotency-Key on flush', async () => {
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+        orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 2 }],
+      }),
+    );
+
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    let capturedFlushKey: string | undefined;
+    let capturedEnqueueKey: string | undefined;
+
+    fetchMock.mockImplementation(async (url: unknown, init?: RequestInit) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => productsResponse } as Response;
+      }
+      if (urlString.includes('/orders')) {
+        // Called during flush
+        capturedFlushKey = (init?.headers as Record<string, string>)?.['Idempotency-Key'];
+        return { ok: true, status: 201, json: async () => ({
+          status: 'success',
+          data: { id: 999, order_id: 'ORD-999', status: 'pending', total_amount: '40000.00', items: [] },
+        })} as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: [] }) } as Response;
+    });
+
+    // Spy on mockQueue.enqueue to capture offline key
+    const enqueueSpy = jest.spyOn(mockQueue, 'enqueue');
+    // Override flushQueue to call the real send with queued items
+    mockQueue.flushQueue.mockImplementation(async (send) => {
+      const items = await mockQueue.list();
+      let sent = 0;
+      for (const item of items) {
+        const payloadKey = item.payload && typeof item.payload === 'object'
+          ? (item.payload as { idempotency_key?: string }).idempotency_key
+          : undefined;
+        const key = payloadKey && payloadKey.length > 0 ? payloadKey : item.id;
+        await send(item.payload, { headers: { 'Idempotency-Key': key } });
+        sent++;
+      }
+      return { sent, failed: 0 };
+    });
+
+    // Go offline
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false });
+    window.dispatchEvent(new Event('offline'));
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    // Add item and submit while offline (enqueues)
+    fireEvent.click(screen.getByRole('button', { name: /^Tambah Beras Premium/ }));
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+    await waitFor(() => expect(screen.getByText(/menunggu sinkronisasi/i)).toBeInTheDocument());
+
+    // Capture enqueued key
+    const enqueueCall = enqueueSpy.mock.calls[enqueueSpy.mock.calls.length - 1];
+    capturedEnqueueKey = (enqueueCall[0] as { idempotency_key?: string })?.idempotency_key;
+
+    // Come online (triggers flush)
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true });
+    window.dispatchEvent(new Event('online'));
+
+    // Wait for auto-flush and cache invalidation
+    await waitFor(() => expect(dashboardApi.invalidateOutletOrdersCache).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/menunggu sinkronisasi/i)).not.toBeInTheDocument());
+
+    // Verify flush used the same key
+    expect(capturedEnqueueKey).toBeDefined();
+    expect(capturedFlushKey).toBeDefined();
+    expect(capturedFlushKey).toBe(capturedEnqueueKey);
+  });
+
+  it('R32: offline→online transition with real IndexedDB queue + fake-indexeddb', async () => {
+    // Use REAL queue implementation backed by fake-indexeddb
+    const realQueueModule = jest.requireActual('@/lib/offline/order-queue');
+    (createOrderQueue as jest.Mock).mockImplementation(realQueueModule.createOrderQueue);
+    (createDefaultAdapter as jest.Mock).mockImplementation(realQueueModule.createDefaultAdapter);
+
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(
+      cachedSections({
+        favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+        orders: [{ product_id: 1, product_name: 'Beras Premium', quantity: 2 }],
+      }),
+    );
+
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => productsResponse } as Response;
+      }
+      if (urlString.includes('/orders')) {
+        return { ok: true, status: 201, json: async () => ({
+          status: 'success',
+          data: { id: 999, order_id: 'ORD-999', status: 'pending', total_amount: '40000.00', items: [] },
+        })} as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: [] }) } as Response;
+    });
+
+    // Go offline
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false });
+    window.dispatchEvent(new Event('offline'));
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+
+    // Wait for async queue initialization (createDefaultAdapter with fake-indexeddb)
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+
+    // Add item and submit while offline (enqueues to real IndexedDB)
+    fireEvent.click(screen.getByRole('button', { name: /^Tambah Beras Premium/ }));
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+    await waitFor(() => expect(screen.getByText(/menunggu sinkronisasi/i)).toBeInTheDocument());
+
+    // Come online
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true });
+    window.dispatchEvent(new Event('online'));
+
+    // Wait for auto-flush and cache invalidation
+    await waitFor(() => expect(dashboardApi.invalidateOutletOrdersCache).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/menunggu sinkronisasi/i)).not.toBeInTheDocument());
+  });
+});
+

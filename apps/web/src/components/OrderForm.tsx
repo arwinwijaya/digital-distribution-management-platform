@@ -7,8 +7,10 @@ import { useDummyStore } from '@/dummy/store';
 import { createDummyOutletOrder } from '@/dummy/mutations';
 import type { FullDummy } from '@/dummy';
 import { Button, Card, EmptyState, Input, StatusBadge, Table, ViewModeToggle, useViewMode } from '@/components/ui';
+import ReorderSection from '@/components/ReorderSection';
 import { filterProducts } from '@/lib/product-filter';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useOutletReorder } from '@/hooks/useOutletReorder';
 import { createOrderQueue, createDefaultAdapter, type OrderQueue } from '@/lib/offline/order-queue';
 import { canonicalSignature, generateOrderIdempotencyKey, clearOrderIdempotencyKey } from '@/lib/offline/idempotency';
 import { invalidateOutletOrdersCache } from '@/app/dashboard/api';
@@ -27,7 +29,15 @@ export async function submitOutletOrder(token: string, items: Array<{ product_id
     body: JSON.stringify({ items, idempotency_key: idempotencyKey }),
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'Pesanan tidak dapat dibuat.');
+  if (!response.ok) {
+    const err = new Error(data.message || 'Pesanan tidak dapat dibuat.') as Error & {
+      errors?: Record<string, string[]>;
+    };
+    if (data.errors && typeof data.errors === 'object') {
+      err.errors = data.errors as Record<string, string[]>;
+    }
+    throw err;
+  }
   return data.data as Order;
 }
 
@@ -105,6 +115,7 @@ export default function OrderForm({ token }: { token: string }) {
   const [loading, setLoading] = useState(true); const [submitting, setSubmitting] = useState(false); const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(''); const [minPrice, setMinPrice] = useState(''); const [maxPrice, setMaxPrice] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
+  const [itemErrors, setItemErrors] = useState<Array<{ product_id: number; product_name: string; message: string }>>([]);
   const { viewMode, setViewMode } = useViewMode();
   const idempotencyAttempt = useRef<{ signature: string; key: string } | null>(null);
   const releaseIdempotencyKey = () => {
@@ -116,6 +127,20 @@ export default function OrderForm({ token }: { token: string }) {
   const queueRef = useRef<OrderQueue | null>(null);
   const isOnline = useOnlineStatus();
   const isDummy = useDummyStore((s) => s.isDummy);
+  const [reorderRefreshKey, setReorderRefreshKey] = useState(0);
+  const reorderEnabled = process.env.NEXT_PUBLIC_ENABLE_REORDER !== 'false';
+  const {
+    reorderItems,
+    lastOrderItems,
+    addToCart: reorderAddToCart,
+    reorderLastOrder,
+  } = useOutletReorder(token, products, {
+    cart,
+    setCart,
+    refreshKey: reorderRefreshKey,
+  });
+  const showReorderSection = reorderEnabled && !isDummy && (reorderItems.length > 0 || lastOrderItems.length > 0);
+  const showReorderHint = reorderEnabled && !isDummy && reorderItems.length === 0 && lastOrderItems.length === 0;
 
   // Initialize queue once
   useEffect(() => {
@@ -200,8 +225,21 @@ export default function OrderForm({ token }: { token: string }) {
 
       const data = await submitOutletOrder(token, items, idempotencyKey);
       if (!isDummy) invalidateOutletOrdersCache(token);
+      // R26: bump refresh key so the reorder section refetches and re-renders
+      setReorderRefreshKey((k) => k + 1);
       setOrder(data); setTrackingId(String(data.id)); setCart({}); releaseIdempotencyKey();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Pesanan tidak dapat dibuat.'); } finally { setSubmitting(false); }
+    } catch (reason) {
+      const err = reason as Error & { errors?: Record<string, string[]> };
+      const details = err.errors
+        ? Object.entries(err.errors)
+            .map(([key, messages]) => `${key}: ${messages.join(', ')}`)
+            .join(' | ')
+        : '';
+      setError(details ? `${err.message} — ${details}` : (reason instanceof Error ? reason.message : 'Pesanan tidak dapat dibuat.'));
+      // Retain valid items in cart; errors shown in error banner
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleTrackOrder(event: FormEvent) {
@@ -219,6 +257,21 @@ export default function OrderForm({ token }: { token: string }) {
       </p>
     )}
     <section>
+      {showReorderSection && (
+        <div className="mb-6">
+          <ReorderSection
+            items={reorderItems}
+            offline={!isOnline}
+            onAdd={reorderAddToCart}
+            onReorderLastOrder={reorderLastOrder}
+          />
+        </div>
+      )}
+      {showReorderHint && (
+        <p className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+          Belum ada riwayat pesanan — pilih dari katalog di bawah untuk pesanan pertama Anda.
+        </p>
+      )}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-gray-900">Pilih produk</h2>

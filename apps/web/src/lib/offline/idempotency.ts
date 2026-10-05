@@ -14,11 +14,27 @@ export type OrderItemLike = { product_id: number; quantity: number };
 
 const keyBySignature = new Map<string, string>();
 
+/** Cap to prevent unbounded growth in long-lived SPA sessions. */
+const MAX_ENTRIES = 1000;
+
+function bytesToUuid(bytes: Uint8Array): string {
+  // RFC 4122 v4: set version (0100) and variant (10xx) bits
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
 function randomKey(): string {
   if (typeof crypto !== 'undefined' && typeof (crypto as Crypto).randomUUID === 'function') {
     return (crypto as Crypto).randomUUID();
   }
-  // JSDOM / non-secure fallback — still unique per intent
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return bytesToUuid(bytes);
+  }
+  // Non-secure fallback — still unique per intent (no crypto available)
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${Math.random()
     .toString(36)
     .slice(2, 10)}`;
@@ -42,8 +58,17 @@ export function canonicalSignature(items: OrderItemLike[]): string {
 export function generateOrderIdempotencyKey(signature?: string): string {
   if (!signature) return randomKey();
   const cached = keyBySignature.get(signature);
-  if (cached) return cached;
+  if (cached) {
+    // LRU promotion: move to end so recently used entries survive eviction
+    keyBySignature.delete(signature);
+    keyBySignature.set(signature, cached);
+    return cached;
+  }
   const key = randomKey();
+  if (keyBySignature.size >= MAX_ENTRIES) {
+    const oldest = keyBySignature.keys().next().value as string | undefined;
+    if (oldest !== undefined) keyBySignature.delete(oldest);
+  }
   keyBySignature.set(signature, key);
   return key;
 }
@@ -52,5 +77,10 @@ export function generateOrderIdempotencyKey(signature?: string): string {
 export function clearOrderIdempotencyKey(signature?: string): void {
   if (signature === undefined) keyBySignature.clear();
   else keyBySignature.delete(signature);
+}
+
+/** Test isolation helper — clears the entire memo store. */
+export function resetOrderIdempotencyKeyStore(): void {
+  keyBySignature.clear();
 }
 

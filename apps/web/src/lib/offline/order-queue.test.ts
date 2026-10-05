@@ -40,6 +40,30 @@ describe('orderQueue', () => {
     expect(list[0].created_at).toBeTruthy();
   });
 
+  it('enqueue persists payload.idempotency_key in stored queue', async () => {
+    const key = 'persisted-key-123';
+    await queue.enqueue({ outlet_id: 1, items: [], idempotency_key: key });
+
+    const list = await queue.list();
+    expect(list).toHaveLength(1);
+    expect((list[0].payload as { idempotency_key: string }).idempotency_key).toBe(key);
+  });
+
+  it('enqueue without key persists legacy payload for fallback path', async () => {
+    await queue.enqueue({ outlet_id: 1, items: [] });
+
+    const list = await queue.list();
+    expect(list).toHaveLength(1);
+    expect((list[0].payload as { idempotency_key?: string }).idempotency_key).toBeUndefined();
+    expect(list[0].id).toBeTruthy(); // stable fallback key on flush
+  });
+
+  it('generates RFC4122 UUID v4 queue IDs in JSDOM without randomUUID', async () => {
+    await queue.enqueue({ outlet_id: 1, items: [] });
+    const [item] = await queue.list();
+    expect(item.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  });
+
   it('list returns items in FIFO order', async () => {
     await queue.enqueue({ outlet_id: 1, items: [] });
     await queue.enqueue({ outlet_id: 2, items: [] });

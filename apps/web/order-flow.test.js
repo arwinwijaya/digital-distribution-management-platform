@@ -200,6 +200,9 @@ echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.c
     // Admin login
     const adminLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'real-e2e-admin@example.com', password: 'admin-password' }) });
     const adminToken = adminLogin.body.data.token;
+    // Pre-count deliveries
+    const preDeliveries = await request('/api/deliveries', { headers: authHeaders(adminToken) });
+    const preCount = preDeliveries.body.data.length;
     // Attempt to assign delivery before order is Confirmed
     const assign = await request('/api/deliveries', { method: 'POST', headers: authHeaders(adminToken), body: JSON.stringify({ order_id: orderId, driver_id: driverId }) });
     expect(assign.response.status).toBe(422);
@@ -207,6 +210,8 @@ echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.c
     const deliveries = await request('/api/deliveries', { headers: authHeaders(adminToken) });
     expect(deliveries.response.status).toBe(200);
     expect(deliveries.body.data.some((delivery) => delivery.order_id === orderId)).toBe(false);
+    // Post-count deliveries - must equal pre-count (no delivery created)
+    expect(deliveries.body.data.length).toBe(preCount);
   });
 
   it('onboards, logs in, browses, submits idempotently, approves, and tracks over HTTP', async () => {
@@ -276,14 +281,22 @@ echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.c
     expect(approval.response.status).toBe(200);
     const assign = await request('/api/deliveries', { method: 'POST', headers: authHeaders(adminToken), body: JSON.stringify({ order_id: orderId, driver_id: driverId }) });
     expect(assign.response.status).toBe(201);
+    // Pre-count payments
+    const prePayments = await request('/api/payments', { headers: authHeaders(adminToken) });
+    const prePaymentCount = prePayments.body.data.length;
     const payment = await request('/api/payments', { method: 'POST', headers: authHeaders(adminToken), body: JSON.stringify({ order_id: orderId, amount: 10000, payment_method: 'cash', idempotency_key: 'pay-key-001' }) });
     expect(payment.response.status).toBe(422);
     expect(payment.body.message).toMatch(/Payments can only be recorded for delivered orders/);
     const after = await request(`/api/orders/${orderId}`, { headers: authHeaders(token) });
     expect(after.body.data.status).toBe('Confirmed');
+    // Invoice should remain unpaid (no payment recorded)
+    expect(Number(after.body.data.paid_amount)).toBe(0);
+    expect(Number(after.body.data.outstanding_balance)).toBe(Number(after.body.data.total_amount));
     const payments = await request('/api/payments', { headers: authHeaders(adminToken) });
     expect(payments.response.status).toBe(200);
     expect(payments.body.data.some((row) => row.order_id === orderId)).toBe(false);
+    // Post-count payments - must equal pre-count (no payment created)
+    expect(payments.body.data.length).toBe(prePaymentCount);
   });
 
   it('Overpayment rejected', async () => {
@@ -313,6 +326,9 @@ echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.c
     const financeToken = financeLogin.body.data.token;
     const before = await request(`/api/orders/${orderId}`, { headers: authHeaders(token) });
     const outstanding = Number(before.body.data.outstanding_balance || before.body.data.total_amount);
+    // Pre-count payments
+    const prePayments = await request('/api/payments', { headers: authHeaders(financeToken) });
+    const prePaymentCount = prePayments.body.data.length;
     const overAmount = (outstanding + 1).toFixed(2);
     const payment = await request('/api/payments', { method: 'POST', headers: authHeaders(financeToken), body: JSON.stringify({ order_id: orderId, amount: overAmount, payment_method: 'cash', idempotency_key: 'over-pay-key' }) });
     expect(payment.response.status).toBe(422);
@@ -321,6 +337,9 @@ echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.c
     expect(after.body.data.status).toBe('Delivered');
     expect(after.body.data.paid_amount).toBe(before.body.data.paid_amount);
     expect(after.body.data.outstanding_balance).toBe(before.body.data.outstanding_balance);
+    // Post-count payments - must equal pre-count (no payment created)
+    const postPayments = await request('/api/payments', { headers: authHeaders(financeToken) });
+    expect(postPayments.body.data.length).toBe(prePaymentCount);
   });
 
   it('Idempotency replay identical order', async () => {
@@ -334,12 +353,22 @@ echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.c
     const idKey = 'idempotent-replay-001';
     const payload = JSON.stringify({ items: [{ product_id: product.id, quantity: 1 }], idempotency_key: idKey });
     const first = await request('/api/orders', { method: 'POST', headers: authHeaders(outletToken, { 'Idempotency-Key': idKey }), body: payload });
+    const preOrders = await request('/api/orders', { headers: authHeaders(outletToken) });
+    const preOrderCount = preOrders.body.data.length;
     const second = await request('/api/orders', { method: 'POST', headers: authHeaders(outletToken, { 'Idempotency-Key': idKey }), body: payload });
     expect(first.response.status).toBe(201);
     expect(second.response.status).toBe(200);
+    // NEEDS_CONTEXT: backend API contract returns 200 (not 201) on identical replay with no created:false field.
     // Controller communicates replay via HTTP status; response data has no `created` field.
     expect(second.body.data.created).toBeUndefined();
     expect(second.body.data.id).toBe(first.body.data.id);
+    // No duplicate order created - same id and order_id/reference
+    expect(second.body.data.order_id).toBe(first.body.data.order_id);
+    // Verify total order count unchanged (no new order created)
+    const allOrders = await request('/api/orders', { headers: authHeaders(outletToken) });
+    expect(allOrders.body.data.length).toBe(preOrderCount);
+    const outletOrders = allOrders.body.data.filter((o) => o.id === first.body.data.id);
+    expect(outletOrders.length).toBe(1);
   });
 
   it('Idempotency different payload rejects', async () => {
@@ -356,6 +385,9 @@ echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.c
     expect(first.response.status).toBe(201);
     const snapshotResponse = await request(`/api/orders/${first.body.data.id}`, { headers: authHeaders(token) });
     const snapshot = snapshotResponse.body.data;
+    // Pre-count orders
+    const preOrders = await request('/api/orders', { headers: authHeaders(token) });
+    const preOrderCount = preOrders.body.data.length;
     const payloadB = JSON.stringify({ items: [{ product_id: product.id, quantity: 2 }], idempotency_key: idKey });
     const second = await request('/api/orders', { method: 'POST', headers: authHeaders(token, { 'Idempotency-Key': idKey }), body: payloadB });
     expect(second.response.status).toBe(422);
@@ -364,6 +396,14 @@ echo 'DRIVER_ID=' . App\\Models\\User::where('email', 'real-e2e-driver@example.c
     expect(afterResponse.response.status).toBe(200);
     expect(afterResponse.body.data).toMatchObject({ id: snapshot.id, order_id: snapshot.order_id, status: snapshot.status, total_amount: snapshot.total_amount });
     expect(afterResponse.body.data.items).toEqual(snapshot.items);
+    // Post-count orders - must equal pre-count (no new order created)
+    const postOrders = await request('/api/orders', { headers: authHeaders(token) });
+    expect(postOrders.body.data.length).toBe(preOrderCount);
+    // Snapshot id, order_id/reference, quantity, status unchanged
+    expect(afterResponse.body.data.id).toBe(snapshot.id);
+    expect(afterResponse.body.data.order_id).toBe(snapshot.order_id);
+    expect(afterResponse.body.data.items[0].quantity).toBe(snapshot.items[0].quantity);
+    expect(afterResponse.body.data.status).toBe(snapshot.status);
   });
 
 });

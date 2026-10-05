@@ -20,6 +20,7 @@ import { installDummy } from '@/dummy/install';
 import OrderForm from '@/components/OrderForm';
 import { createOrderQueue, createDefaultAdapter } from '@/lib/offline/order-queue';
 import * as idempotency from '@/lib/offline/idempotency';
+import * as dashboardApi from '@/app/dashboard/api';
 
 const productsResponse = {
   status: 'success',
@@ -191,5 +192,135 @@ describe('OrderForm — online submission idempotency contract', () => {
     const secondKey = captureOrderHeader()['Idempotency-Key'];
 
     expect(firstKey).not.toBe(secondKey);
+  });
+});
+
+describe('OrderForm — cache invalidation on outlet order submission', () => {
+  let originalFetch: typeof fetch | undefined;
+  let mockQueue: {
+    enqueue: jest.Mock;
+    list: jest.Mock;
+    flushQueue: jest.Mock;
+  };
+  let invalidateSpy: jest.SpyInstance;
+
+  function setOnline(value: boolean) {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      get: () => value,
+    });
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    useDummyStore.getState().reset();
+    installDummy();
+    // Ensure dummy OFF so online path is exercised
+    setOnline(true);
+    const queuedItems: Array<{ id: string; payload: unknown; created_at: string }> = [];
+    mockQueue = {
+      enqueue: jest.fn().mockImplementation(async (item) => {
+        queuedItems.push({ id: 'test-id', payload: item, created_at: new Date().toISOString() });
+      }),
+      list: jest.fn().mockImplementation(async () => queuedItems),
+      flushQueue: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }),
+    };
+    (createOrderQueue as jest.Mock).mockReturnValue(mockQueue);
+    (createDefaultAdapter as jest.Mock).mockResolvedValue({});
+
+    originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => productsResponse } as Response;
+      }
+      if (urlString.includes('/orders')) {
+        return { ok: true, status: 201, json: async () => ({
+          status: 'success',
+          data: { id: 999, order_id: 'ORD-999', status: 'pending', total_amount: '45000.00', items: [] }
+        })} as Response;
+      }
+      return { ok: false, status: 404, json: async () => ({ status: 'error', message: 'not found' }) } as Response;
+    });
+
+    invalidateSpy = jest.spyOn(dashboardApi, 'invalidateOutletOrdersCache').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    if (originalFetch) {
+      (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    } else {
+      delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    }
+    invalidateSpy.mockRestore();
+    jest.restoreAllMocks();
+  });
+
+  const renderForm = async () => {
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getAllByLabelText(/^Jumlah /).length).toBeGreaterThan(0));
+  };
+
+  it('online submit success triggers cache invalidation once with same token', async () => {
+    await renderForm();
+    fireEvent.change(screen.getByLabelText('Jumlah Beras Premium'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+    await waitFor(() => expect(screen.getByText('ORD-999')).toBeInTheDocument());
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledWith('test-token');
+  });
+
+  it('online submit failure does NOT invalidate cache', async () => {
+    const fetchMock = (globalThis as unknown as { fetch: jest.Mock }).fetch;
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const urlString = String(url);
+      if (urlString.includes('/products')) {
+        return { ok: true, status: 200, json: async () => productsResponse } as Response;
+      }
+      if (urlString.includes('/orders')) {
+        return { ok: false, status: 500, json: async () => ({ status: 'error', message: 'server error' }) } as Response;
+      }
+      return { ok: false, status: 404, json: async () => ({ status: 'error', message: 'not found' }) } as Response;
+    });
+    await renderForm();
+    fireEvent.change(screen.getByLabelText('Jumlah Beras Premium'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+    await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument());
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  it('offline flush success (sent>0) triggers cache invalidation', async () => {
+    mockQueue.flushQueue.mockResolvedValue({ sent: 1, failed: 0 });
+    setOnline(false);
+    await renderForm();
+    // Go back online to trigger flush
+    setOnline(true);
+    act(() => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(mockQueue.flushQueue).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledTimes(1));
+    expect(invalidateSpy).toHaveBeenCalledWith('test-token');
+  });
+
+  it('offline flush with sent==0 does NOT invalidate cache', async () => {
+    mockQueue.flushQueue.mockResolvedValue({ sent: 0, failed: 0 });
+    setOnline(false);
+    await renderForm();
+    setOnline(true);
+    act(() => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(mockQueue.flushQueue).toHaveBeenCalledTimes(1));
+    // Give a tick for potential invalidation
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  it('dummy mode submit does not break (no throw, no queue)', async () => {
+    useDummyStore.getState().toggle();
+    await renderForm();
+    const qtyInput = screen.getAllByLabelText(/^Jumlah /)[0];
+    fireEvent.change(qtyInput, { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+    await waitFor(() => expect(screen.getByText(/berhasil dibuat/i)).toBeInTheDocument());
+    // Invalidate may be called as no-op in dummy; ensure no error and queue not used
+    expect(mockQueue.enqueue).not.toHaveBeenCalled();
   });
 });

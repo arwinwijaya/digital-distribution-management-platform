@@ -11,6 +11,7 @@ import { filterProducts } from '@/lib/product-filter';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { createOrderQueue, createDefaultAdapter, type OrderQueue } from '@/lib/offline/order-queue';
 import { canonicalSignature, generateOrderIdempotencyKey, clearOrderIdempotencyKey } from '@/lib/offline/idempotency';
+import { invalidateOutletOrdersCache } from '@/app/dashboard/api';
 
 
 export interface Product { id: number; name: string; price: string; stock_quantity: number; is_active: boolean; }
@@ -144,6 +145,7 @@ export default function OrderForm({ token }: { token: string }) {
         });
         return response;
       });
+      if (result.sent > 0) invalidateOutletOrdersCache(token);
       if (result.sent > 0 || result.failed > 0) {
         setPendingCount(result.failed);
       }
@@ -197,6 +199,7 @@ export default function OrderForm({ token }: { token: string }) {
       }
 
       const data = await submitOutletOrder(token, items, idempotencyKey);
+      if (!isDummy) invalidateOutletOrdersCache(token);
       setOrder(data); setTrackingId(String(data.id)); setCart({}); releaseIdempotencyKey();
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Pesanan tidak dapat dibuat.'); } finally { setSubmitting(false); }
   }

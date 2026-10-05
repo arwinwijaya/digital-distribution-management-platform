@@ -39,18 +39,6 @@ export interface OrderQueue {
   flushQueue(send: (payload: unknown, init?: RequestInit) => Promise<Response>): Promise<FlushResult>;
 }
 
-/** Generate a stable idempotency key from a payload (SHA-256 hex, first 32 chars). */
-async function idempotencyKey(payload: unknown): Promise<string> {
-  const json = JSON.stringify(payload);
-  // Simple FNV-1a 64-bit hash (deterministic, no WebCrypto needed).
-  let hash = 0xcbf29ce484222325;
-  for (let i = 0; i < json.length; i++) {
-    hash ^= json.charCodeAt(i);
-    hash = (hash * 0x100000001b3) >>> 0;
-  }
-  return hash.toString(16).padStart(16, '0').slice(0, 32);
-}
-
 /** Simple UUID v4 generator (works in JSDOM without randomUUID). */
 function generateId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -208,7 +196,13 @@ export function createOrderQueue(adapter: StorageAdapter): OrderQueue {
       const remaining: QueuedOrder[] = [];
 
       for (const item of queue) {
-        const key = await idempotencyKey(item.payload);
+        const payloadKey = item.payload && typeof item.payload === 'object'
+          ? (item.payload as { idempotency_key?: unknown }).idempotency_key
+          : undefined;
+        // Older persisted queue entries may not have a payload key. Their
+        // persisted queue id is stable across flush retries and is preferable
+        // to recomputing a deterministic payload hash.
+        const key = typeof payloadKey === 'string' && payloadKey.length > 0 ? payloadKey : item.id;
         try {
           const response = await send(item.payload, {
             headers: { 'Idempotency-Key': key },

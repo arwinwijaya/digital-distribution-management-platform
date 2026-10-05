@@ -10,6 +10,7 @@ import { Button, Card, EmptyState, Input, StatusBadge, Table, ViewModeToggle, us
 import { filterProducts } from '@/lib/product-filter';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { createOrderQueue, createDefaultAdapter, type OrderQueue } from '@/lib/offline/order-queue';
+import { canonicalSignature, generateOrderIdempotencyKey, clearOrderIdempotencyKey } from '@/lib/offline/idempotency';
 
 
 export interface Product { id: number; name: string; price: string; stock_quantity: number; is_active: boolean; }
@@ -105,6 +106,12 @@ export default function OrderForm({ token }: { token: string }) {
   const [pendingCount, setPendingCount] = useState(0);
   const { viewMode, setViewMode } = useViewMode();
   const idempotencyAttempt = useRef<{ signature: string; key: string } | null>(null);
+  const releaseIdempotencyKey = () => {
+    if (idempotencyAttempt.current) {
+      clearOrderIdempotencyKey(idempotencyAttempt.current.signature);
+      idempotencyAttempt.current = null;
+    }
+  };
   const queueRef = useRef<OrderQueue | null>(null);
   const isOnline = useOnlineStatus();
   const isDummy = useDummyStore((s) => s.isDummy);
@@ -172,8 +179,10 @@ export default function OrderForm({ token }: { token: string }) {
     if (!items.length) { setError('Pilih minimal satu produk.'); return; }
     setSubmitting(true); setError(null);
     try {
-      const signature = JSON.stringify(items);
-      if (!idempotencyAttempt.current || idempotencyAttempt.current.signature !== signature) { const key = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`; idempotencyAttempt.current = { signature, key }; }
+      const signature = canonicalSignature(items);
+      if (!idempotencyAttempt.current || idempotencyAttempt.current.signature !== signature) {
+        idempotencyAttempt.current = { signature, key: generateOrderIdempotencyKey(signature) };
+      }
       const idempotencyKey = idempotencyAttempt.current.key;
 
       // Offline path: enqueue instead of direct submit
@@ -181,14 +190,14 @@ export default function OrderForm({ token }: { token: string }) {
         await queueRef.current.enqueue({ items, idempotency_key: idempotencyKey });
         const queued = await queueRef.current.list();
         setPendingCount(queued.length);
-        idempotencyAttempt.current = null; // clear for next order
+        releaseIdempotencyKey();
         setCart({});
         setSubmitting(false);
         return;
       }
 
       const data = await submitOutletOrder(token, items, idempotencyKey);
-      setOrder(data); setTrackingId(String(data.id)); setCart({}); idempotencyAttempt.current = null;
+      setOrder(data); setTrackingId(String(data.id)); setCart({}); releaseIdempotencyKey();
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Pesanan tidak dapat dibuat.'); } finally { setSubmitting(false); }
   }
 

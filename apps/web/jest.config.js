@@ -24,7 +24,6 @@ module.exports = {
     '<rootDir>/.next/',
     '<rootDir>/e2e/',
     '<rootDir>/playwright\\.(config|.*)\\.(ts|js)$',
-    'order-flow\\.test\\.js$',
     'data-intelligence-types\\.test\\.ts$',
   ],
 };

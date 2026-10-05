@@ -105,6 +105,12 @@ test.describe.serial('Siklus pemesanan E2E (hybrid thin-UI)', () => {
       // Verify invoice generated and linked to the order
       expect(approveBody.data.invoice).toBeTruthy();
       expect(approveBody.data.status).toBe('Confirmed');
+      // Invoice assertions: total matches order, paid_amount = 0, status = 'unpaid'
+      const invoice = approveBody.data.invoice;
+      // API money fields are decimal strings (e.g. "0.00").
+      expect(invoice.total_amount).toBe(approveBody.data.total_amount);
+      expect(Number(invoice.paid_amount)).toBe(0);
+      expect(invoice.status).toBe('unpaid');
 
       logger.logEvent({
         role: 'admin',
@@ -137,52 +143,69 @@ test.describe.serial('Siklus pemesanan E2E (hybrid thin-UI)', () => {
   test('Admin assigns delivery', async ({ request, runId }) => {
     const logger = createLogger(runId);
     const started = Date.now();
-    expect(createdOrderId).not.toBeNull();
-    const loginResp = await request.post(`${API_BASE}/auth/login`, {
-      data: { email: 'ratna.sari@ddp.test', password: 'password123' },
-    });
-    expect(loginResp.ok()).toBeTruthy();
-    const loginBody = await loginResp.json();
-    const token = loginBody.data.token;
-
-    // Find a driver
-    const driversResp = await request.get(`${API_BASE}/users?role=driver`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    let driverId: number | undefined;
-    if (driversResp.ok()) {
-      const driversBody = await driversResp.json();
-      driverId = driversBody.data?.[0]?.id;
-    }
-    if (!driverId) {
-      const driverLogin = await request.post(`${API_BASE}/auth/login`, {
-        data: { email: 'joko.widodo@ddp.test', password: 'password123' },
+    let apiStatus: number | null = null;
+    try {
+      expect(createdOrderId).not.toBeNull();
+      const loginResp = await request.post(`${API_BASE}/auth/login`, {
+        data: { email: 'ratna.sari@ddp.test', password: 'password123' },
       });
-      const driverBody = await driverLogin.json();
-      driverId = driverBody.data?.user?.id;
+      expect(loginResp.ok()).toBeTruthy();
+      const loginBody = await loginResp.json();
+      const token = loginBody.data.token;
+
+      // Find a driver
+      const driversResp = await request.get(`${API_BASE}/users?role=driver`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      let driverId: number | undefined;
+      if (driversResp.ok()) {
+        const driversBody = await driversResp.json();
+        driverId = driversBody.data?.[0]?.id;
+      }
+      if (!driverId) {
+        const driverLogin = await request.post(`${API_BASE}/auth/login`, {
+          data: { email: 'joko.widodo@ddp.test', password: 'password123' },
+        });
+        const driverBody = await driverLogin.json();
+        driverId = driverBody.data?.user?.id;
+      }
+      expect(driverId).toBeDefined();
+
+      // Assign delivery for our specific order
+      const assignResp = await request.post(`${API_BASE}/deliveries`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { order_id: createdOrderId, driver_id: driverId, notes: 'Pengiriman manual test 1 siklus pemesanan' },
+      });
+      apiStatus = assignResp.status();
+      expect([200, 201]).toContain(apiStatus);
+      const assignBody = await assignResp.json();
+      createdDeliveryId = assignBody.data?.id as number;
+      expect(createdDeliveryId).toBeDefined();
+
+      logger.logEvent({
+        role: 'admin',
+        step: 'delivery_assigned',
+        action: 'api: assign delivery',
+        url: '/api/deliveries',
+        selector: '',
+        apiStatus,
+        durationMs: Date.now() - started,
+        status: 'success',
+      });
+    } catch (error) {
+      logger.logEvent({
+        role: 'admin',
+        step: 'delivery_assigned',
+        action: 'api: assign delivery',
+        url: '/api/deliveries',
+        selector: '',
+        apiStatus,
+        durationMs: Date.now() - started,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
-    expect(driverId).toBeDefined();
-
-    // Assign delivery for our specific order
-    const assignResp = await request.post(`${API_BASE}/deliveries`, {
-      headers: { Authorization: `Bearer ${token}` },
-      data: { order_id: createdOrderId, driver_id: driverId, notes: 'Pengiriman manual test 1 siklus pemesanan' },
-    });
-    expect([200, 201]).toContain(assignResp.status());
-    const assignBody = await assignResp.json();
-    createdDeliveryId = assignBody.data?.id as number;
-    expect(createdDeliveryId).toBeDefined();
-
-    logger.logEvent({
-      role: 'admin',
-      step: 'delivery_assigned',
-      action: 'api: assign delivery',
-      url: '/api/deliveries',
-      selector: '',
-      apiStatus: assignResp.status(),
-      durationMs: Date.now() - started,
-      status: 'success',
-    });
   });
 
   test('Driver completes delivery', async ({ browser, runId, request }) => {
@@ -218,6 +241,20 @@ test.describe.serial('Siklus pemesanan E2E (hybrid thin-UI)', () => {
       await page.locator(`[data-testid="delivery-complete-${createdDeliveryId}"]`).click();
       const completeResponse = await completePromise;
       expect(completeResponse.ok()).toBeTruthy();
+
+      // Verify proof URL is stored via GET /api/deliveries/{id}
+      const driverLogin = await request.post(`${API_BASE}/auth/login`, {
+        data: { email: 'joko.widodo@ddp.test', password: 'password123' },
+      });
+      const driverBody = await driverLogin.json();
+      const driverToken = driverBody.data.token;
+      const deliveryResp = await request.get(`${API_BASE}/deliveries/${createdDeliveryId}`, {
+        headers: { Authorization: `Bearer ${driverToken}` },
+      });
+      expect(deliveryResp.ok()).toBeTruthy();
+      const deliveryBody = await deliveryResp.json();
+      expect(deliveryBody.data.recipient_name).toBe('Siti Nurhaliza');
+      expect(deliveryBody.data.proof_of_delivery_url).toBe('https://example.com/proof/manual-check-order-001.jpg');
 
       logger.logEvent({
         role: 'driver',
@@ -283,6 +320,9 @@ test.describe.serial('Siklus pemesanan E2E (hybrid thin-UI)', () => {
       expect([200, 201]).toContain(paymentResp.status());
       const paymentBody = await paymentResp.json();
       expect(paymentBody.data).toBeDefined();
+      // receipt_reference is required — check both top-level and nested receipt shape
+      const receiptRef = paymentBody.data.receipt_reference ?? paymentBody.data.receipt?.reference;
+      expect(receiptRef).toBeTruthy();
       // Verify order status is Paid after payment
       const statusCheck = await request.get(`${API_BASE}/orders/${createdOrderId}`, {
         headers: { Authorization: `Bearer ${adminToken}` },
@@ -290,7 +330,26 @@ test.describe.serial('Siklus pemesanan E2E (hybrid thin-UI)', () => {
       expect(statusCheck.ok()).toBeTruthy();
       const statusData = await statusCheck.json();
       expect(statusData.data.status).toBe('Paid');
+      // Toast / success banner must be visible and contain the receipt reference
       await expect(page.getByTestId('payment-success')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('payment-success')).toContainText(receiptRef);
+      // Badge "Paid" rendered by StatusBadge as "Lunas" (id-ID) — verify on admin detail page
+      const adminContext = await browser.newContext();
+      try {
+        const adminPage = await adminContext.newPage();
+        const adminPageLogin = new LoginPage(adminPage);
+        await adminPageLogin.goto();
+        await adminPageLogin.login('ratna.sari@ddp.test', 'password123');
+        await adminPage.goto('/admin/orders');
+        await expect(adminPage.getByTestId('admin-orders-table')).toBeVisible({ timeout: 15000 });
+        const orderRow = adminPage.getByTestId('admin-orders-table').locator('tr').filter({
+          has: adminPage.getByTestId(`admin-order-detail-${createdOrderId}`),
+        });
+        // StatusBadge renders the Paid state as "Lunas" in the order's row.
+        await expect(orderRow.locator('span.rounded-full').filter({ hasText: 'Lunas' })).toBeVisible({ timeout: 15000 });
+      } finally {
+        await adminContext.close();
+      }
 
       logger.logEvent({
         role: 'finance',
@@ -323,34 +382,52 @@ test.describe.serial('Siklus pemesanan E2E (hybrid thin-UI)', () => {
   test('Status history invariant', async ({ request, runId }) => {
     const logger = createLogger(runId);
     const started = Date.now();
-    expect(createdOrderId).not.toBeNull();
-    const adminLogin = await request.post(`${API_BASE}/auth/login`, {
-      data: { email: 'ratna.sari@ddp.test', password: 'password123' },
-    });
-    const adminBody = await adminLogin.json();
-    const adminToken = adminBody.data.token;
+    let apiStatus: number | null = null;
+    try {
+      expect(createdOrderId).not.toBeNull();
+      const adminLogin = await request.post(`${API_BASE}/auth/login`, {
+        data: { email: 'ratna.sari@ddp.test', password: 'password123' },
+      });
+      expect(adminLogin.ok()).toBeTruthy();
+      const adminBody = await adminLogin.json();
+      const adminToken = adminBody.data.token;
 
-    const detailResp = await request.get(`${API_BASE}/orders/${createdOrderId}`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    expect(detailResp.ok()).toBeTruthy();
-    const detailBody = await detailResp.json();
-    const history = (detailBody.data.status_history || []).map((h: any) => h.status);
-    expect(history).toEqual(expect.arrayContaining(['New', 'Confirmed', 'Delivered', 'Paid']));
-    const idx = (s: string) => history.indexOf(s);
-    expect(idx('New')).toBeLessThan(idx('Confirmed'));
-    expect(idx('Confirmed')).toBeLessThan(idx('Delivered'));
-    expect(idx('Delivered')).toBeLessThan(idx('Paid'));
+      const detailResp = await request.get(`${API_BASE}/orders/${createdOrderId}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      apiStatus = detailResp.status();
+      expect(detailResp.ok()).toBeTruthy();
+      const detailBody = await detailResp.json();
+      const history = (detailBody.data.status_history || []).map((h: any) => h.status);
+      expect(history).toEqual(expect.arrayContaining(['New', 'Confirmed', 'Delivered', 'Paid']));
+      const idx = (s: string) => history.indexOf(s);
+      expect(idx('New')).toBeLessThan(idx('Confirmed'));
+      expect(idx('Confirmed')).toBeLessThan(idx('Delivered'));
+      expect(idx('Delivered')).toBeLessThan(idx('Paid'));
 
-    logger.logEvent({
-      role: 'admin',
-      step: 'history_verified',
-      action: 'api: verify status history',
-      url: `/api/orders/${createdOrderId}`,
-      selector: '',
-      apiStatus: detailResp.status(),
-      durationMs: Date.now() - started,
-      status: 'success',
-    });
+      logger.logEvent({
+        role: 'admin',
+        step: 'history_verified',
+        action: 'api: verify status history',
+        url: `/api/orders/${createdOrderId}`,
+        selector: '',
+        apiStatus,
+        durationMs: Date.now() - started,
+        status: 'success',
+      });
+    } catch (error) {
+      logger.logEvent({
+        role: 'admin',
+        step: 'history_verified',
+        action: 'api: verify status history',
+        url: `/api/orders/${createdOrderId}`,
+        selector: '',
+        apiStatus,
+        durationMs: Date.now() - started,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   });
 });

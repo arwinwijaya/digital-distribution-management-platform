@@ -99,17 +99,128 @@ class RecommendationService
     }
 
     /**
-     * Discovery envelope placeholder. T1 scaffold: no business logic yet.
+     * Discover available products an outlet has not previously purchased, ranked
+     * by aggregate popularity in its purchased categories (or platform-wide).
      *
-     * @return array{recommendations: array<int, array<string, mixed>>, limit: int, fallback: bool, method: string}
+     * @return array<string, mixed>
      */
     public function discover(?int $outletId, int $limit = self::DISCOVERY_DEFAULT_LIMIT): array
     {
+        $limit = min(max(1, $limit), self::DISCOVERY_DEFAULT_LIMIT);
+        $eligibleOrders = DB::table('orders')
+            ->whereNotIn('status', self::EXCLUDED_ORDER_STATUSES);
+        if ($outletId !== null) {
+            $eligibleOrders->where('outlet_id', $outletId);
+        }
+
+        $dataPoints = (int) (clone $eligibleOrders)
+            ->whereExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('order_items')
+                    ->whereColumn('order_items.order_id', 'orders.id')
+                    ->where('order_items.quantity', '>', 0);
+            })
+            ->count();
+
+        $purchasedItems = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->join('products', 'products.id', '=', 'order_items.product_id')
+            ->whereNotIn('orders.status', self::EXCLUDED_ORDER_STATUSES)
+            ->where('order_items.quantity', '>', 0)
+            ->when($outletId !== null, fn ($query) => $query->where('orders.outlet_id', $outletId));
+        $purchasedProductIds = (clone $purchasedItems)->select('order_items.product_id')->distinct()->pluck('product_id')->all();
+        $categories = $outletId === null
+            ? collect()
+            : (clone $purchasedItems)->whereNotNull('products.category')->distinct()->pluck('products.category');
+
+        $hasHistory = $dataPoints > 0;
+        $categorySpecific = $hasHistory && $categories->isNotEmpty();
+        $fallback = ! $categorySpecific;
+        $reason = $categorySpecific
+            ? 'Populer di kategori '.$categories->first()
+            : 'Populer di platform';
+
+        $popularity = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereNotIn('orders.status', self::EXCLUDED_ORDER_STATUSES)
+            ->where('order_items.quantity', '>', 0)
+            ->selectRaw('order_items.product_id, SUM(order_items.quantity) as purchased_quantity, COUNT(DISTINCT orders.id) as order_count')
+            ->groupBy('order_items.product_id');
+
+        $candidateQuery = DB::table('products')
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'products.supplier_id')
+            ->leftJoinSub($popularity, 'popularity', fn ($join) => $join->on('popularity.product_id', '=', 'products.id'))
+            ->where('products.is_active', true)
+            ->where('products.stock_quantity', '>', 0)
+            ->where(function ($supplier) {
+                $supplier->whereNull('products.supplier_id')
+                    ->orWhere('suppliers.subscription_status', 'active');
+            })
+            ->when($purchasedProductIds !== [], fn ($query) => $query->whereNotIn('products.id', $purchasedProductIds))
+            ->selectRaw('products.id as product_id, products.name, products.sku, products.category, products.price, COALESCE(popularity.purchased_quantity, 0) as purchased_quantity, COALESCE(popularity.order_count, 0) as order_count');
+
+        if ($categorySpecific) {
+            $candidateQuery->whereIn('products.category', $categories->all());
+        }
+
+        $rows = $candidateQuery
+            ->orderByDesc('purchased_quantity')
+            ->orderBy('products.id')
+            ->limit($limit)
+            ->get();
+
+        // Empty category results use the same globally popular fallback while
+        // preserving the outlet's prior-purchase exclusions.
+        if ($categorySpecific && $rows->isEmpty()) {
+            $fallback = true;
+            $reason = 'Populer di platform';
+            $rows = DB::table('products')
+                ->leftJoin('suppliers', 'suppliers.id', '=', 'products.supplier_id')
+                ->leftJoinSub($popularity, 'popularity', fn ($join) => $join->on('popularity.product_id', '=', 'products.id'))
+                ->where('products.is_active', true)
+                ->where('products.stock_quantity', '>', 0)
+                ->where(function ($supplier) {
+                    $supplier->whereNull('products.supplier_id')
+                        ->orWhere('suppliers.subscription_status', 'active');
+                })
+                ->when($purchasedProductIds !== [], fn ($query) => $query->whereNotIn('products.id', $purchasedProductIds))
+                ->selectRaw('products.id as product_id, products.name, products.sku, products.category, products.price, COALESCE(popularity.purchased_quantity, 0) as purchased_quantity, COALESCE(popularity.order_count, 0) as order_count')
+                ->orderByDesc('purchased_quantity')
+                ->orderBy('products.id')
+                ->limit($limit)
+                ->get();
+        }
+
+        $daysInWindow = $this->daysInWindow($outletId);
+        $limitedData = $daysInWindow > 0 && $daysInWindow < self::WINDOW_DAYS;
+
         return [
-            'recommendations' => [],
+            'recommendations' => $this->format($rows, $outletId, $reason),
             'limit' => $limit,
-            'fallback' => true,
+            'data_points' => $dataPoints,
+            'data_sufficiency' => [
+                'level' => $dataPoints === 0 ? 'insufficient' : ($dataPoints >= self::MIN_DATA_POINTS ? 'adequate' : 'limited'),
+                'window_days' => self::WINDOW_DAYS,
+                'days_in_window' => $daysInWindow,
+                'recent_average_fallback' => $limitedData,
+                'sparse' => $limitedData,
+                'minimum_recommended' => self::MIN_DATA_POINTS,
+                'note' => $dataPoints === 0
+                    ? 'No eligible order history; empty output with insufficient-data metadata.'
+                    : ($limitedData
+                        ? 'Recent-average heuristic fallback over fewer than 30 days; limited-data, low-confidence ranking quality, not a probability.'
+                        : 'Non-probabilistic heuristic based on completed order count; ranking quality is not a probability.'),
+            ],
+            'fallback' => $fallback,
             'method' => 'discovery_popular_v1',
+            'method_version' => '1.0.0',
+            'measurement' => [
+                'measured' => false,
+                'acceptance_target' => null,
+                'accuracy_target' => null,
+                'note' => 'Production acceptance and ranking accuracy require measured usage data.',
+            ],
+            'low_confidence' => $limitedData,
         ];
     }
 
@@ -134,11 +245,11 @@ class RecommendationService
             ->value('distinct_days');
     }
 
-    private function format(Collection $rows, ?int $outletId): array
+    private function format(Collection $rows, ?int $outletId, ?string $reasonOverride = null): array
     {
-        $reason = $outletId === null
+        $reason = $reasonOverride ?? ($outletId === null
             ? 'Frequently purchased across all outlets.'
-            : 'Frequently purchased by this outlet.';
+            : 'Frequently purchased by this outlet.');
 
         return $rows->values()->map(function ($row, int $index) use ($reason): array {
             return [

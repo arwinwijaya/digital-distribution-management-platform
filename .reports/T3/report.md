@@ -1,25 +1,51 @@
-# Task 3: Outlet Recommendation Discovery Implementation Report
+# Task 3: Outlet Recommendation Discovery — Report
 
-## Overview
-Implemented `AIController::discovery` in worktree `T3` with strict outlet-only scoping, authentication checks, proper error handling, and structured envelopes.
+Status: DONE
 
-## Implementation Details
-1. **Endpoint**: `GET /api/ai/discovery` mapped to `AIController::discovery`.
-2. **Scoping**:
-   - Only authenticated users with `isOutlet()` (or admin overriding `outlet_id`) are permitted.
-   - Non-outlet / non-admin roles receive a `403 Forbidden` response with `status: error`.
-   - Strict outlet scoping ensures outlet users can only query their own `outlet_id` (403 if mismatch).
-   - Unauthenticated requests receive `401 Unauthorized`.
-3. **Service Integration**:
+## Scope
+- `apps/api/app/Http/Controllers/AIController.php`
+- `apps/api/tests/Feature/AITest.php`
+
+## Implementation Summary
+Implemented `AIController::discovery` (`GET /api/ai/discovery`, route already wired in `routes/api.php`):
+
+1. **Strict outlet-only scoping**
+   - Unauthenticated → `401` (auth middleware, unchanged).
+   - Non-outlet / non-admin roles (admin, sales, marketplace) → `403` via `forbidden()` returning the `{status: error, message}` envelope.
+   - Outlet requesting another outlet's `outlet_id` → `403` (envelope). `resolveOutletId()` is reused unchanged; its `HttpException` (403) is caught in the controller and converted to the error envelope so no shared/out-of-scope exception-handler change was needed.
+2. **Service call**
    - Calls `RecommendationService::discover($outletId, $limit)` directly.
-4. **Error Handling & Response Envelope**:
-   - Proper success envelope (`status: success`, `data: ...`).
-   - Exception handling wrapping the service call catches any failure, logs via `Log::error`, and returns a `500 Internal Server Error` with `status: error` and an informative message.
+   - `limit` defaults to `RecommendationService::DISCOVERY_DEFAULT_LIMIT` (5).
+3. **Error handling / envelope**
+   - Success: `{status: 'success', data: <discover()>}`.
+   - Service throws / timeout → caught, `Log::error(...)`, returns `500` `{status: 'error', message: ...}`.
 
 ## Verification
-- Added 4 feature tests in `AITest.php`:
-  - `test_outlet_discovery_scoping_strict_token_only` (403 when requesting another outlet's ID)
-  - `test_outlet_discovery_non_outlet_role_forbidden` (403 for non-outlet roles)
-  - `test_outlet_discovery_fetch_error_response_shape` (500 with error envelope on service exception)
-  - `test_outlet_discovery_unauthenticated_401` (401 when unauthenticated)
-- All new tests passed successfully.
+`php artisan test tests/Feature/AITest.php` (worktree `T3`, sqlite in-memory):
+
+- 4 new tests (all PASS):
+  - `test_outlet_discovery_scoping_strict_token_only` — 403 + `status: error` for `?outlet_id=<other>`
+  - `test_outlet_discovery_non_outlet_role_forbidden` — 403 + `status: error` for admin/sales
+  - `test_outlet_discovery_fetch_error_response_shape` — 500 + `status: error` envelope on service exception
+  - `test_outlet_discovery_unauthenticated_401` — 401 without auth
+- Existing AI tests: PASS (recommendations, forecast, segmentation, cross-outlet private-signals).
+
+### Pre-existing failure (NOT introduced by T3)
+`test_outlet_discovery_returns_never_bought_products` fails with
+`Failed asserting that true is identical to false` at `AITest.php:97`
+(`data.fallback` expected `false`, got `true`).
+
+Verified pre-existing: checked out pristine `HEAD` (`b95474e`) — same test fails identically.
+Root cause is in `RecommendationService::discover()` (T2 scope: products in this test have no
+`category`, so the category-specific ranking yields no candidates and the service falls back).
+Out of T3 scope (`AIController` + `AITest` only).
+
+### Command
+```
+cd apps/api && php artisan test tests/Feature/AITest.php
+=> 8 passed, 1 failed (pre-existing), 62 assertions
+```
+
+## Notes
+- No changes to auth/RBAC gates, DB schema, `OrderCreationService`, or the exception handler.
+- `graphify` knowledge graph refreshed and committed separately.

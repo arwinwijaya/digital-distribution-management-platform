@@ -15,6 +15,7 @@ class AIController extends Controller
         private readonly RecommendationModelAdapter $recommendationAdapter,
         private readonly ForecastService $forecastService,
         private readonly SegmentationService $segmentationService,
+        private readonly RecommendationService $recommendationService,
     ) {}
 
     public function recommendations(Request $request): JsonResponse
@@ -29,6 +30,22 @@ class AIController extends Controller
             'status' => 'success',
             'data' => $this->recommendationAdapter->resolve()->predict($outletId, (int) ($validated['limit'] ?? RecommendationService::DEFAULT_LIMIT)),
         ]);
+    }
+
+    public function discovery(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['limit' => ['sometimes', 'integer']]);
+        $limit = (int) ($validated['limit'] ?? RecommendationService::DISCOVERY_DEFAULT_LIMIT);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $this->recommendationService->discover($this->resolveOutletId($request, null), $limit),
+        ]);
+    }
+
+    public function storeDiscoveryEvent(Request $request): JsonResponse
+    {
+        return response()->json(['status' => 'error', 'message' => 'Not Implemented'], 501);
     }
 
     public function forecast(Request $request): JsonResponse

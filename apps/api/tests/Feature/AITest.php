@@ -78,6 +78,30 @@ class AITest extends TestCase
         $this->assertLessThanOrEqual(10, count($response->json('data.recommendations')));
     }
 
+    public function test_outlet_discovery_returns_never_bought_products(): void
+    {
+        [, $outlet, $headers] = $this->authenticatedUser();
+        $p1 = Product::factory()->create(['name' => 'P1', 'stock_quantity' => 10, 'is_active' => true]);
+        $p2 = Product::factory()->create(['name' => 'P2', 'stock_quantity' => 10, 'is_active' => true]);
+        $p3 = Product::factory()->create(['name' => 'P3', 'stock_quantity' => 10, 'is_active' => true]);
+        $p4 = Product::factory()->create(['name' => 'P4', 'stock_quantity' => 0, 'is_active' => true]);
+
+        $order = $this->order($outlet, '2025-09-01');
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $p1->id, 'quantity' => 2, 'unit_price' => 50, 'subtotal' => 100]);
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $p2->id, 'quantity' => 3, 'unit_price' => 50, 'subtotal' => 150]);
+
+        $response = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.fallback', false)
+            ->assertJsonPath('data.limit', 5)
+            ->assertJsonPath('data.method', 'discovery_popular_v1');
+        $this->assertSame([$p3->id], collect($response->json('data.recommendations'))->pluck('product_id')->all());
+        $this->assertNotEmpty($response->json('data.recommendations.0.reason'));
+        $this->assertNotContains($p4->id, collect($response->json('data.recommendations'))->pluck('product_id')->all());
+    }
+
     public function test_forecast_validates_period_and_horizon_and_is_deterministic(): void
     {
         [, $outlet, $headers] = $this->authenticatedUser();

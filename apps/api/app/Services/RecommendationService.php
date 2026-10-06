@@ -16,6 +16,8 @@ class RecommendationService
 {
     public const DEFAULT_LIMIT = 10;
 
+    public const DISCOVERY_DEFAULT_LIMIT = 5;
+
     public const MIN_DATA_POINTS = 3;
 
     public const WINDOW_DAYS = 30;
@@ -93,6 +95,21 @@ class RecommendationService
                 'note' => 'Production acceptance and ranking accuracy require measured usage data.',
             ],
             'low_confidence' => $limitedData,
+        ];
+    }
+
+    /**
+     * Discovery envelope placeholder. T1 scaffold: no business logic yet.
+     *
+     * @return array{recommendations: array<int, array<string, mixed>>, limit: int, fallback: bool, method: string}
+     */
+    public function discover(?int $outletId, int $limit = self::DISCOVERY_DEFAULT_LIMIT): array
+    {
+        return [
+            'recommendations' => [],
+            'limit' => $limit,
+            'fallback' => true,
+            'method' => 'discovery_popular_v1',
         ];
     }
 

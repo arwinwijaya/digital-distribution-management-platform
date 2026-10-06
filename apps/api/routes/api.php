@@ -197,6 +197,8 @@ Route::middleware('auth:api')->group(function () {
     // (isAdmin() || isOutlet()), so no single `rbac:` menu gate applies.
     Route::prefix('ai')->group(function () {
         Route::get('/recommendations', [AIController::class, 'recommendations']);
+        Route::get('/discovery', [AIController::class, 'discovery']);
+        Route::post('/discovery/events', [AIController::class, 'storeDiscoveryEvent']);
         Route::get('/forecast', [AIController::class, 'forecast']);
         Route::get('/segmentation', [AIController::class, 'segmentation']);
     });

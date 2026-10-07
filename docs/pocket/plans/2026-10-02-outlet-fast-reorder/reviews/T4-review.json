@@ -1,0 +1,77 @@
+{
+  "task_id": "T4",
+  "task_name": "Integrate Pesanan Lagi Section & Guards into OrderForm.tsx",
+  "cycle": 1,
+  "timestamp": "2026-10-05T00:00:00Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "standard",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "R1 reorder section renders with enriched items (dedup favorites + recent, inactive excluded)",
+      "R2 additive +Tambah using last_qty from history",
+      "R3 Ulangi Pesanan Terakhir batch add with mixed valid/invalid skip + role=alert notification",
+      "R3 edge all-invalid batch leaves cart unchanged with collective notice",
+      "R4 credit guard disabled + Melebihi batas kredit label when exceeded",
+      "R7 new outlet empty state with exact hint string",
+      "R8 client prefilter stock-0/inactive disabled with reason labels",
+      "Feature flag NEXT_PUBLIC_ENABLE_REORDER rollback hides section",
+      "Accessibility native buttons + dynamic aria-labels + keyboard focus",
+      "Offline cache-only prefill + notice + queue enqueue with unified idempotency key",
+      "Race condition backend per-item errors shown, valid items retained",
+      "Seams R26 invalidation→refetch→render, R28 composition, R30 unified key, R32 real IndexedDB transition"
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "ReorderSection extracted as pure presentational component; OrderForm stays 298 lines",
+      "No new backend endpoints; uses existing api.ts + order-queue; T2 invalidation preserved",
+      "Notifications use existing role=alert pattern; native BUTTON semantics",
+      "Additive logic mirrors changeQuantity setCart pattern via injected setCart",
+      "Feature-flag + isDummy guards prevent reorder in dummy mode without breaking catalog"
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "id": "Minor-1",
+        "description": "Dead state itemErrors declared but never read/written beyond init; per-item errors concatenated into single error banner. Not blocking — R24 passes — but intent vs code mismatch; remove or wire per-item UI.",
+        "location": "apps/web/src/components/OrderForm.tsx:118"
+      },
+      {
+        "severity": "Minor",
+        "id": "Minor-2",
+        "description": "useOutletReorder options.cart destructured with default but never read (only setCart used). Dead param; remove from interface or use for guard.",
+        "location": "apps/web/src/hooks/useOutletReorder.ts:44,79"
+      },
+      {
+        "severity": "Minor",
+        "id": "Minor-3",
+        "description": "fake-indexeddb added to root package.json instead of apps/web/package.json. Works via workspaces hoist but misplaced; move to apps/web devDependencies.",
+        "location": "package.json:22"
+      },
+      {
+        "severity": "Minor",
+        "id": "Minor-4",
+        "description": "R4-positive standalone test absent; positive guard asserted indirectly via R28 and R2. Behavior covered, naming gap only.",
+        "location": "apps/web/src/components/OrderForm.test.tsx"
+      },
+      {
+        "severity": "Minor",
+        "id": "Minor-5",
+        "description": "R5 current-price assertion not explicit at OrderForm integration level. Consider one price-value assertion to lock R5 at integration.",
+        "location": "apps/web/src/components/OrderForm.test.tsx"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 1
+  },
+  "reviewed_sha": "d2881b2b883d2c3df4cb593a5b63a0ef3c950e4f"
+}

@@ -1,0 +1,1 @@
+{"runId":"e2e-2026-10-05T08-32-16-053Z-0","timestamp":"2026-10-05T08:32:21.153Z","role":"outlet","step":"race_condition_product_deactivated","action":"browser: verified backend per-item error + valid items retained","url":"http://localhost:8080/orders","selector":"[data-testid=\"order-submit\"]","apiStatus":422,"durationMs":5088,"status":"success","error":null,"attachments":[]}

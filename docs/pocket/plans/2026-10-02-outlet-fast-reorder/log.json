@@ -1,0 +1,55 @@
+{
+  "header": {
+    "plan_dir": "docs/pocket/plans/2026-10-02-outlet-fast-reorder",
+    "plan_type": "flat",
+    "status": "DONE",
+    "date_started": "2026-10-05",
+    "date_completed": "2026-10-05",
+    "baseline_sha": "4b98fa6a1606d6b0416d3d9bf4a4349b5b774976",
+    "pipeline": 4
+  },
+  "phases": [
+    {
+      "order": 1,
+      "file": "execution-plan/index.md",
+      "status": "DONE",
+      "tasks": [
+        {
+          "id": "T1",
+          "name": "Unify Idempotency Key Generation Across OrderForm and Offline Queue",
+          "file": "execution-plan/tasks/T1-unify-idempotency-key-generation-across-orderform-and-offline-queue.md",
+          "status": "DONE",
+          "done_sha": "a930bab7edac2e3575615b4773c0e2ddc63388ae"
+        },
+        {
+          "id": "T2",
+          "name": "Add Cache Invalidation Trigger on Outlet Order Submission",
+          "file": "execution-plan/tasks/T2-add-cache-invalidation-trigger-on-outlet-order-submission.md",
+          "status": "DONE",
+          "done_sha": "eaf7db0d30b67a06b2ad8276ed8ae6c29156abc6"
+        },
+        {
+          "id": "T3",
+          "name": "Implement `useOutletReorder` Hook & Computation Logic",
+          "file": "execution-plan/tasks/T3-implement-useoutletreorder-hook-computation-logic.md",
+          "status": "DONE",
+          "done_sha": "cfea1d9f4bb86e2dcbf7f37644735bbc0079ded0"
+        },
+        {
+          "id": "T4",
+          "name": "Integrate \"Pesan Lagi\" Section & Guards into OrderForm.tsx",
+          "file": "execution-plan/tasks/T4-integrate-pesan-lagi-section-guards-into-orderform-tsx.md",
+          "status": "DONE",
+          "done_sha": "d2881b2b883d2c3df4cb593a5b63a0ef3c950e4f"
+        },
+        {
+          "id": "T5",
+          "name": "End-to-End & Edge-Case Verification",
+          "file": "execution-plan/tasks/T5-end-to-end-edge-case-verification.md",
+          "status": "DONE",
+          "done_sha": "ad0634f6e3b0eba8b075b56bd1bd680ac1db3021"
+        }
+      ]
+    }
+  ]
+}

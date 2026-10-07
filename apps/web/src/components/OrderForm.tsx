@@ -1,14 +1,15 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead, useDummyRefresh } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { createDummyOutletOrder } from '@/dummy/mutations';
 import type { FullDummy } from '@/dummy';
-import { Button, Card, EmptyState, Input, StatusBadge, Table, ViewModeToggle, useViewMode } from '@/components/ui';
+import { Button, Card, Input, StatusBadge } from '@/components/ui';
 import OrderFormRecommendations from '@/components/OrderFormRecommendations';
-import { filterProducts } from '@/lib/product-filter';
+import OrderFormCatalog from '@/components/OrderFormCatalog';
+import OrderFormTracking from '@/components/OrderFormTracking';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useOrderSubmission } from '@/hooks/useOrderSubmission';
 
@@ -108,10 +109,7 @@ export async function trackOrder(token: string, trackingId: string): Promise<Ord
 
 export default function OrderForm({ token }: { token: string }) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [tracked, setTracked] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(''); const [minPrice, setMinPrice] = useState(''); const [maxPrice, setMaxPrice] = useState('');
-  const { viewMode, setViewMode } = useViewMode();
   const isOnline = useOnlineStatus();
   const isDummy = useDummyStore((s) => s.isDummy);
   const { cart, setCart, order, trackingId, setTrackingId, submitting, error, setError,
@@ -132,20 +130,6 @@ export default function OrderForm({ token }: { token: string }) {
       .finally(() => setLoading(false));
   });
   const total = useMemo(() => products.reduce((sum, product) => sum + Number(product.price) * (cart[product.id] || 0), 0), [products, cart]);
-  const changeQuantity = (id: number, quantity: number) => setCart((current) => ({ ...current, [id]: Math.max(0, quantity) }));
-  const filteredProducts = useMemo(() => filterProducts(products, { name: search, minPrice, maxPrice }), [products, search, minPrice, maxPrice]);
-  const columns = [
-    { key: 'name', header: 'Produk', render: (product: Product) => <span className="font-medium text-gray-900">{product.name}</span> },
-    { key: 'price', header: 'Harga', render: (product: Product) => <span className="font-bold text-primary-700">Rp {Number(product.price).toLocaleString('id-ID')}</span> },
-    { key: 'stock', header: 'Stok', render: (product: Product) => <span className="text-gray-600">{product.stock_quantity}</span> },
-    { key: 'quantity', header: 'Jumlah', render: (product: Product) => { const available = product.is_active && product.stock_quantity > 0; return <input aria-label={`Jumlah ${product.name}`} type="number" min="0" max={product.stock_quantity} disabled={!available} value={cart[product.id] || 0} onChange={(event) => changeQuantity(product.id, Number(event.target.value))} className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100" />; } },
-  ];
-
-  async function handleTrackOrder(event: FormEvent) {
-    event.preventDefault(); setError(null); if (!trackingId.trim()) return;
-    try { const result = await trackOrder(token, trackingId); setTracked(result); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Pesanan tidak ditemukan.'); }
-  }
 
   if (loading) return <div className="space-y-3"><div className="skeleton h-6 w-40 rounded" /><div className="grid gap-4 sm:grid-cols-2"><div className="skeleton h-32 rounded-xl" /><div className="skeleton h-32 rounded-xl" /></div></div>;
   return <div className="space-y-6">
@@ -166,27 +150,9 @@ export default function OrderForm({ token }: { token: string }) {
         reorderRefreshKey={reorderRefreshKey}
         discoveryRefreshKey={discoveryRefreshKey}
       />
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">Pilih produk</h2>
-          <span className="text-sm text-gray-500">{filteredProducts.length} dari {products.length} produk</span>
-        </div>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
-      </div>
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Input aria-label="Cari produk" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama produk..." />
-        <Input aria-label="Harga minimum" type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="Harga min" />
-        <Input aria-label="Harga maksimum" type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="Harga maks" />
-      </div>
-      {products.length === 0
-        ? <Card><EmptyState icon={<span>📦</span>} title="Belum ada produk" description="Produk yang tersedia akan muncul di sini." /></Card>
-        : filteredProducts.length === 0
-          ? <Card><EmptyState icon={<span>🔍</span>} title="Produk tidak ditemukan" description="Tidak ada produk yang cocok dengan pencarian atau rentang harga Anda." /></Card>
-          : viewMode === 'table'
-            ? <Card className="overflow-hidden"><Table columns={columns} rows={filteredProducts} rowKey={(product) => product.id} /></Card>
-            : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{filteredProducts.map((product) => { const available = product.is_active && product.stock_quantity > 0; return <Card key={product.id} className="p-4"><div className="flex items-start justify-between gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">📦</div><StatusBadge status={available ? 'active' : 'inactive'} /></div><h3 className="mt-3 font-semibold text-gray-900">{product.name}</h3><p className="mt-1 text-sm font-bold text-primary-700">Rp {Number(product.price).toLocaleString('id-ID')}</p><div className="mt-3 flex items-center justify-between"><span className="text-xs text-gray-500">Stok {product.stock_quantity}</span><input aria-label={`Jumlah ${product.name}`} type="number" min="0" max={product.stock_quantity} disabled={!available} value={cart[product.id] || 0} onChange={(event) => changeQuantity(product.id, Number(event.target.value))} className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100" /></div></Card>; })}</div>}
+      <OrderFormCatalog products={products} cart={cart} setCart={setCart} />
     </section>
     <Card className="p-5"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-sm text-gray-500">Total pesanan</p><p className="text-2xl font-bold text-gray-900">Rp {total.toLocaleString('id-ID')}</p></div><Button onClick={submitOrder} disabled={submitting || total === 0} data-testid="order-submit">{submitting ? 'Mengirim...' : 'Kirim pesanan'}</Button></div>{order && <div className="mt-4 flex items-center gap-2 rounded-lg bg-success-50 p-3 text-sm text-success-700" data-testid="order-success">Pesanan <strong>{order.order_id}</strong> berhasil dibuat. <StatusBadge status={order.status} /></div>}</Card>
-    <Card className="p-5"><h2 className="text-base font-semibold text-gray-900">Lacak pesanan</h2><form onSubmit={handleTrackOrder} className="mt-3 flex gap-2"><Input aria-label="Nomor pesanan" value={trackingId} onChange={(event) => setTrackingId(event.target.value)} placeholder="Masukkan ID pesanan" data-testid="order-track-input" /><Button type="submit" variant="secondary" data-testid="order-track-submit">Lacak</Button></form>{tracked && <div className="mt-4 border-t border-gray-100 pt-4"><div className="flex items-center gap-2"><strong>{tracked.order_id}</strong><StatusBadge status={tracked.status} /></div><ol className="mt-3 space-y-2 border-l-2 border-primary-100 pl-4 text-sm text-gray-600">{(tracked.status_history || []).map((history) => <li key={`${history.status}-${history.created_at}`}><span className="font-medium text-gray-800">{history.status}</span> · {new Date(history.created_at).toLocaleString('id-ID')}</li>)}</ol></div>}</Card>
+    <OrderFormTracking token={token} trackingId={trackingId} setTrackingId={setTrackingId} onError={setError} />
   </div>;
 }

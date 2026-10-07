@@ -328,4 +328,84 @@ class AITest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.recommendations.0.reason', 'Frequently purchased across all outlets.');
     }
+
+    public function test_outlet_discovery_event_tracking_recorded(): void
+    {
+        [, $outlet, $headers] = $this->authenticatedUser();
+        $product = Product::factory()->create(['stock_quantity' => 10, 'is_active' => true]);
+        $eventUuid = 'evt-'.uniqid();
+
+        $response = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', [
+            'event_uuid' => $eventUuid,
+            'event_type' => 'displayed',
+            'product_id' => $product->id,
+            'occurred_at' => now()->toDateTimeString(),
+        ]);
+
+        $response->assertCreated()->assertJsonPath('status', 'success');
+        $this->assertDatabaseHas('recommendation_events', [
+            'event_uuid' => $eventUuid,
+            'event_type' => 'displayed',
+            'outlet_id' => $outlet->id,
+            'product_id' => $product->id,
+        ]);
+    }
+
+    public function test_outlet_discovery_event_idempotent_replay(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        $product = Product::factory()->create(['stock_quantity' => 10, 'is_active' => true]);
+        $payload = [
+            'event_uuid' => 'evt-'.uniqid(),
+            'event_type' => 'displayed',
+            'product_id' => $product->id,
+            'occurred_at' => now()->toDateTimeString(),
+        ];
+
+        $first = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', $payload);
+        $first->assertCreated();
+
+        $second = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', $payload);
+        $second->assertOk()->assertJsonPath('data.idempotent_replay', true);
+        $this->assertSame(1, \App\Models\RecommendationEvent::where('event_uuid', $payload['event_uuid'])->count());
+    }
+
+    public function test_outlet_discovery_event_conflict_409(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        $product = Product::factory()->create(['stock_quantity' => 10, 'is_active' => true]);
+        $eventUuid = 'evt-'.uniqid();
+        $occurredAt = now()->toDateTimeString();
+
+        $first = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', [
+            'event_uuid' => $eventUuid,
+            'event_type' => 'displayed',
+            'product_id' => $product->id,
+            'occurred_at' => $occurredAt,
+        ]);
+        $first->assertCreated();
+
+        $second = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', [
+            'event_uuid' => $eventUuid,
+            'event_type' => 'clicked',
+            'product_id' => $product->id,
+            'occurred_at' => $occurredAt,
+        ]);
+        $second->assertStatus(409)->assertJsonPath('status', 'error');
+    }
+
+    public function test_outlet_discovery_event_non_outlet_forbidden(): void
+    {
+        [, , $adminHeaders] = $this->authenticatedUser('admin');
+        $product = Product::factory()->create(['stock_quantity' => 10, 'is_active' => true]);
+
+        $response = $this->withHeaders($adminHeaders)->postJson('/api/ai/discovery/events', [
+            'event_uuid' => 'evt-'.uniqid(),
+            'event_type' => 'displayed',
+            'product_id' => $product->id,
+            'occurred_at' => now()->toDateTimeString(),
+        ]);
+
+        $response->assertForbidden();
+    }
 }

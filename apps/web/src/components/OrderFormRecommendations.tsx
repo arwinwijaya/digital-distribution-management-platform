@@ -17,10 +17,11 @@ interface Props {
   isDummy: boolean;
   reorderRefreshKey: number;
   discoveryRefreshKey: number;
+  onDiscoveryAdd?: (productId: number, price: string) => void;
 }
 
 /** The recommendation slots live together, directly above the catalog in the same section. */
-export default function OrderFormRecommendations({ token, products, cart, setCart, isOnline, isDummy, reorderRefreshKey, discoveryRefreshKey }: Props): ReactNode {
+export default function OrderFormRecommendations({ token, products, cart, setCart, isOnline, isDummy, reorderRefreshKey, discoveryRefreshKey, onDiscoveryAdd }: Props): ReactNode {
   const dismissed = useRef<Set<number>>(new Set());
   const reorderEnabled = process.env.NEXT_PUBLIC_ENABLE_REORDER !== 'false';
   const discoveryEnabled = process.env.NEXT_PUBLIC_ENABLE_DISCOVERY !== 'false';
@@ -33,7 +34,7 @@ export default function OrderFormRecommendations({ token, products, cart, setCar
   const offline = !isOnline;
   const discoveryOptions = {
     online: !offline && showDiscoverySection,
-    cart, dismissed: dismissed.current, refreshKey: discoveryRefreshKey, setCart,
+    cart, dismissed: dismissed.current, refreshKey: discoveryRefreshKey, setCart, onAdd: onDiscoveryAdd,
   };
   const { discovery, error, addToCart, dismiss, retry } = useOutletDiscovery(token, products, discoveryOptions);
 

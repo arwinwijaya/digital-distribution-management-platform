@@ -179,13 +179,17 @@ export function useOutletDiscovery(
   const addToCart = useCallback(
     (productId: number) => {
       const product = products.find((candidate) => candidate.id === productId);
-      if (!product || !product.is_active || product.stock_quantity <= 0) return;
+      const item = items.find((candidate) => candidate.product_id === productId);
+      const active = product?.is_active ?? item?.is_active ?? true;
+      const stock = product?.stock_quantity ?? item?.stock_quantity ?? 0;
+      if (!active || stock <= 0) return;
       setCart?.((current) => ({ ...current, [productId]: (current[productId] || 0) + 1 }));
       sendEvent('clicked', productId);
       sendEvent('cart', productId);
-      onAdd?.(productId, product.price);
+      const price = product?.price ?? item?.price ?? '0';
+      onAdd?.(productId, price);
     },
-    [products, onAdd, setCart, sendEvent],
+    [products, items, onAdd, setCart, sendEvent],
   );
 
   const dismiss = useCallback(

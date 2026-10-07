@@ -10,6 +10,7 @@ type Submit = (token: string, items: Array<{ product_id: number; quantity: numbe
 
 export function useOrderSubmission(token: string, isOnline: boolean, isDummy: boolean, submit: Submit) {
   const [cart, setCart] = useState<Record<number, number>>({});
+  const [discoveryPrices, setDiscoveryPrices] = useState<Record<number, string>>({});
   const [order, setOrder] = useState<Order | null>(null);
   const [trackingId, setTrackingId] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -25,8 +26,14 @@ export function useOrderSubmission(token: string, isOnline: boolean, isDummy: bo
     }
   };
 
+  function addDiscoveryItem(productId: number, price: string) {
+    setDiscoveryPrices((current) => ({ ...current, [productId]: price }));
+  }
+
   async function submitOrder() {
     const items = Object.entries(cart).filter(([, quantity]) => quantity > 0).map(([product_id, quantity]) => ({ product_id: Number(product_id), quantity }));
+    const discoveryItems = Object.keys(discoveryPrices).filter((id) => !cart[Number(id)]).map((id) => ({ product_id: Number(id), quantity: 1 }));
+    items.push(...discoveryItems);
     if (!items.length) { setError('Pilih minimal satu produk.'); return; }
     setSubmitting(true); setError(null);
     try {
@@ -38,14 +45,14 @@ export function useOrderSubmission(token: string, isOnline: boolean, isDummy: bo
       if (!isOnline && !isDummy && queueRef.current) {
         await queueRef.current.enqueue({ items, idempotency_key: key });
         setPendingCount((await queueRef.current.list()).length);
-        releaseKey(); setCart({}); setSubmitting(false);
+        releaseKey(); setCart({}); setDiscoveryPrices({}); setSubmitting(false);
         return;
       }
       const data = await submit(token, items, key);
       if (!isDummy) invalidateOutletOrdersCache(token);
       setReorderRefreshKey((k) => k + 1);
       setDiscoveryRefreshKey((k) => k + 1);
-      setOrder(data); setTrackingId(String(data.id)); setCart({}); releaseKey();
+      setOrder(data); setTrackingId(String(data.id)); setCart({}); setDiscoveryPrices({}); releaseKey();
     } catch (reason) {
       const err = reason as Error & { errors?: Record<string, string[]> };
       const details = err.errors
@@ -58,5 +65,5 @@ export function useOrderSubmission(token: string, isOnline: boolean, isDummy: bo
   }
 
   return { cart, setCart, order, trackingId, setTrackingId, submitting, error, setError,
-    reorderRefreshKey, discoveryRefreshKey, pendingCount, submitOrder };
+    reorderRefreshKey, discoveryRefreshKey, pendingCount, submitOrder, discoveryCart: Object.fromEntries(Object.keys(discoveryPrices).map((id) => [Number(id), { price: discoveryPrices[Number(id)], quantity: 1 }])), addDiscoveryItem };
 }

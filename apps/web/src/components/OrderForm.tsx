@@ -113,7 +113,7 @@ export default function OrderForm({ token }: { token: string }) {
   const isOnline = useOnlineStatus();
   const isDummy = useDummyStore((s) => s.isDummy);
   const { cart, setCart, order, trackingId, setTrackingId, submitting, error, setError,
-    reorderRefreshKey, discoveryRefreshKey, pendingCount, submitOrder } =
+    reorderRefreshKey, discoveryRefreshKey, pendingCount, submitOrder, discoveryCart, addDiscoveryItem } =
     useOrderSubmission(token, isOnline, isDummy, submitOutletOrder);
 
   useEffect(() => {
@@ -129,7 +129,9 @@ export default function OrderForm({ token }: { token: string }) {
       .catch((reason) => setError(reason.message || 'Katalog tidak tersedia.'))
       .finally(() => setLoading(false));
   });
-  const total = useMemo(() => products.reduce((sum, product) => sum + Number(product.price) * (cart[product.id] || 0), 0), [products, cart]);
+  const total = useMemo(() => products.reduce((sum, product) => sum + Number(product.price) * (cart[product.id] || 0), 0) +
+    Object.entries(discoveryCart).reduce((sum, [id, entry]) => sum + Number(entry.price) * (entry.quantity || 0), 0),
+  [products, cart, discoveryCart]);
 
   if (loading) return <div className="space-y-3"><div className="skeleton h-6 w-40 rounded" /><div className="grid gap-4 sm:grid-cols-2"><div className="skeleton h-32 rounded-xl" /><div className="skeleton h-32 rounded-xl" /></div></div>;
   return <div className="space-y-6">
@@ -149,6 +151,7 @@ export default function OrderForm({ token }: { token: string }) {
         isDummy={isDummy}
         reorderRefreshKey={reorderRefreshKey}
         discoveryRefreshKey={discoveryRefreshKey}
+        onDiscoveryAdd={addDiscoveryItem}
       />
       <OrderFormCatalog products={products} cart={cart} setCart={setCart} />
     </section>

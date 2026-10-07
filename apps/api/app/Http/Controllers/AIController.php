@@ -85,39 +85,13 @@ class AIController extends Controller
             return $this->forbidden('The authenticated user is not associated with an outlet.');
         }
 
-        $payload = $request->validate([
-            'event_uuid' => ['required', 'string', 'max:128'],
-            'event_type' => ['required', 'string', 'in:displayed,clicked,cart'],
-            'product_id' => ['required', 'integer', 'exists:products,id'],
-            'occurred_at' => ['required', 'date'],
-        ]);
+        $payload = $this->validateDiscoveryEventPayload($request);
 
         $outletId = (int) $outlet->id;
         $occurredAt = \Carbon\Carbon::parse($payload['occurred_at'])->format('Y-m-d H:i:s');
         $existing = RecommendationEvent::where('event_uuid', $payload['event_uuid'])->first();
-
         if ($existing !== null) {
-            if (
-                $existing->event_type === $payload['event_type']
-                && (int) $existing->outlet_id === $outletId
-                && (int) $existing->product_id === (int) $payload['product_id']
-                && $existing->occurred_at->format('Y-m-d H:i:s') === $occurredAt
-            ) {
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Event already recorded.',
-                    'data' => [
-                        'id' => (int) $existing->id,
-                        'event_uuid' => $existing->event_uuid,
-                        'idempotent_replay' => true,
-                    ],
-                ]);
-            }
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Event UUID is already used with conflicting attributes.',
-            ], 409);
+            return $this->discoveryEventReplayResponse($existing, $payload, $outletId, $occurredAt);
         }
 
         try {
@@ -132,31 +106,11 @@ class AIController extends Controller
         } catch (\Throwable $exception) {
             // A concurrent retry can race between the lookup and unique insert.
             $existing = RecommendationEvent::where('event_uuid', $payload['event_uuid'])->first();
-            if ($existing !== null) {
-                if (
-                    $existing->event_type === $payload['event_type']
-                    && (int) $existing->outlet_id === $outletId
-                    && (int) $existing->product_id === (int) $payload['product_id']
-                    && $existing->occurred_at->format('Y-m-d H:i:s') === $occurredAt
-                ) {
-                    return response()->json([
-                        'status' => 'success',
-                        'message' => 'Event already recorded.',
-                        'data' => [
-                            'id' => (int) $existing->id,
-                            'event_uuid' => $existing->event_uuid,
-                            'idempotent_replay' => true,
-                        ],
-                    ]);
-                }
-
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Event UUID is already used with conflicting attributes.',
-                ], 409);
+            if ($existing === null) {
+                throw $exception;
             }
 
-            throw $exception;
+            return $this->discoveryEventReplayResponse($existing, $payload, $outletId, $occurredAt);
         }
 
         return response()->json([
@@ -167,6 +121,49 @@ class AIController extends Controller
                 'event_uuid' => $event->event_uuid,
             ],
         ], 201);
+    }
+
+    private function validateDiscoveryEventPayload(Request $request): array
+    {
+        return $request->validate([
+            'event_uuid' => ['required', 'string', 'max:128'],
+            'event_type' => ['required', 'string', 'in:displayed,clicked,cart'],
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'occurred_at' => ['required', 'date'],
+        ]);
+    }
+
+    private function discoveryEventReplayResponse(
+        RecommendationEvent $existing,
+        array $payload,
+        int $outletId,
+        string $occurredAt,
+    ): JsonResponse {
+        if (
+            $existing->event_type === $payload['event_type']
+            && (int) $existing->outlet_id === $outletId
+            && (int) $existing->product_id === (int) $payload['product_id']
+            && $existing->occurred_at->format('Y-m-d H:i:s') === $occurredAt
+        ) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Event already recorded.',
+                'data' => [
+                    'id' => (int) $existing->id,
+                    'event_uuid' => $existing->event_uuid,
+                    'idempotent_replay' => true,
+                ],
+            ]);
+        }
+
+        // Kept local rather than shared with MeasurementController::storeEvent(): that endpoint
+        // accepts admin-supplied outlet_id and arbitrary metadata and maps any insert failure to
+        // 409, whereas discovery fixes its metadata source and treats a found UUID as a replay race.
+        // Sharing would couple two deliberately different ingestion contracts.
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Event UUID is already used with conflicting attributes.',
+        ], 409);
     }
 
     public function forecast(Request $request): JsonResponse

@@ -1,21 +1,16 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { apiUrl, authHeaders } from '@/lib/api';
 import { withDummyRead, useDummyRefresh } from '@/dummy/guards';
 import { useDummyStore } from '@/dummy/store';
 import { createDummyOutletOrder } from '@/dummy/mutations';
 import type { FullDummy } from '@/dummy';
 import { Button, Card, EmptyState, Input, StatusBadge, Table, ViewModeToggle, useViewMode } from '@/components/ui';
-import ReorderSection from '@/components/ReorderSection';
-import DiscoverySection from '@/components/DiscoverySection';
+import OrderFormRecommendations from '@/components/OrderFormRecommendations';
 import { filterProducts } from '@/lib/product-filter';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { useOutletReorder } from '@/hooks/useOutletReorder';
-import { useOutletDiscovery } from '@/hooks/useOutletDiscovery';
-import { createOrderQueue, createDefaultAdapter, type OrderQueue } from '@/lib/offline/order-queue';
-import { canonicalSignature, generateOrderIdempotencyKey, clearOrderIdempotencyKey } from '@/lib/offline/idempotency';
-import { invalidateOutletOrdersCache } from '@/app/dashboard/api';
+import { useOrderSubmission } from '@/hooks/useOrderSubmission';
 
 
 export interface Product { id: number; name: string; price: string; stock_quantity: number; is_active: boolean; }
@@ -112,90 +107,16 @@ export async function trackOrder(token: string, trackingId: string): Promise<Ord
 }
 
 export default function OrderForm({ token }: { token: string }) {
-  const [products, setProducts] = useState<Product[]>([]); const [cart, setCart] = useState<Record<number, number>>({});
-  const [order, setOrder] = useState<Order | null>(null); const [trackingId, setTrackingId] = useState(''); const [tracked, setTracked] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true); const [submitting, setSubmitting] = useState(false); const [error, setError] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [tracked, setTracked] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(''); const [minPrice, setMinPrice] = useState(''); const [maxPrice, setMaxPrice] = useState('');
-  const [pendingCount, setPendingCount] = useState(0);
-  const [itemErrors, setItemErrors] = useState<Array<{ product_id: number; product_name: string; message: string }>>([]);
   const { viewMode, setViewMode } = useViewMode();
-  const idempotencyAttempt = useRef<{ signature: string; key: string } | null>(null);
-  const releaseIdempotencyKey = () => {
-    if (idempotencyAttempt.current) {
-      clearOrderIdempotencyKey(idempotencyAttempt.current.signature);
-      idempotencyAttempt.current = null;
-    }
-  };
-  const queueRef = useRef<OrderQueue | null>(null);
   const isOnline = useOnlineStatus();
   const isDummy = useDummyStore((s) => s.isDummy);
-  const [reorderRefreshKey, setReorderRefreshKey] = useState(0);
-  const reorderEnabled = process.env.NEXT_PUBLIC_ENABLE_REORDER !== 'false';
-  const discoveryEnabled = process.env.NEXT_PUBLIC_ENABLE_DISCOVERY !== 'false';
-  const [discoveryRefreshKey, setDiscoveryRefreshKey] = useState(0);
-  const dismissedRef = useRef<Set<number>>(new Set<number>());
-  const {
-    reorderItems,
-    lastOrderItems,
-    addToCart: reorderAddToCart,
-    reorderLastOrder,
-  } = useOutletReorder(token, products, {
-    cart,
-    setCart,
-    refreshKey: reorderRefreshKey,
-  });
-  const showReorderSection = reorderEnabled && !isDummy && (reorderItems.length > 0 || lastOrderItems.length > 0);
-  const showReorderHint = reorderEnabled && !isDummy && reorderItems.length === 0 && lastOrderItems.length === 0;
-  const showDiscoverySection = discoveryEnabled && !isDummy;
-  const {
-    discovery,
-    error: discoveryError,
-    addToCart: discoveryAddToCart,
-    dismiss: discoveryDismiss,
-    retry: discoveryRetry,
-  } = useOutletDiscovery(token, products, {
-    online: isOnline && showDiscoverySection,
-    cart,
-    dismissed: dismissedRef.current,
-    refreshKey: discoveryRefreshKey,
-    setCart,
-  });
-
-  // Initialize queue once
-  useEffect(() => {
-    let mounted = true;
-    createDefaultAdapter().then((adapter) => {
-      if (mounted) queueRef.current = createOrderQueue(adapter);
-    });
-    return () => { mounted = false; };
-  }, []);
-
-  // Update pending count when online status changes
-  useEffect(() => {
-    if (queueRef.current) {
-      queueRef.current.list().then((items) => setPendingCount(items.length));
-    }
-  }, [isOnline]);
-
-  // Auto-flush when coming back online
-  useEffect(() => {
-    if (!isOnline || !queueRef.current || isDummy) return;
-    const flush = async () => {
-      const result = await queueRef.current!.flushQueue(async (payload, init) => {
-        const response = await fetch(apiUrl('/orders'), {
-          method: 'POST',
-          headers: { ...authHeaders(token), ...(init?.headers as Record<string, string>) },
-          body: JSON.stringify(payload),
-        });
-        return response;
-      });
-      if (result.sent > 0) invalidateOutletOrdersCache(token);
-      if (result.sent > 0 || result.failed > 0) {
-        setPendingCount(result.failed);
-      }
-    };
-    flush();
-  }, [isOnline, token, isDummy]);
+  const { cart, setCart, order, trackingId, setTrackingId, submitting, error, setError,
+    reorderRefreshKey, discoveryRefreshKey, pendingCount, submitOrder } =
+    useOrderSubmission(token, isOnline, isDummy, submitOutletOrder);
 
   useEffect(() => {
     loadOrderFormProducts(token)
@@ -220,49 +141,6 @@ export default function OrderForm({ token }: { token: string }) {
     { key: 'quantity', header: 'Jumlah', render: (product: Product) => { const available = product.is_active && product.stock_quantity > 0; return <input aria-label={`Jumlah ${product.name}`} type="number" min="0" max={product.stock_quantity} disabled={!available} value={cart[product.id] || 0} onChange={(event) => changeQuantity(product.id, Number(event.target.value))} className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100" />; } },
   ];
 
-  async function submitOrder() {
-    const items = Object.entries(cart).filter(([, quantity]) => quantity > 0).map(([product_id, quantity]) => ({ product_id: Number(product_id), quantity }));
-    if (!items.length) { setError('Pilih minimal satu produk.'); return; }
-    setSubmitting(true); setError(null);
-    try {
-      const signature = canonicalSignature(items);
-      if (!idempotencyAttempt.current || idempotencyAttempt.current.signature !== signature) {
-        idempotencyAttempt.current = { signature, key: generateOrderIdempotencyKey(signature) };
-      }
-      const idempotencyKey = idempotencyAttempt.current.key;
-
-      // Offline path: enqueue instead of direct submit
-      if (!isOnline && !isDummy && queueRef.current) {
-        await queueRef.current.enqueue({ items, idempotency_key: idempotencyKey });
-        const queued = await queueRef.current.list();
-        setPendingCount(queued.length);
-        releaseIdempotencyKey();
-        setCart({});
-        setSubmitting(false);
-        return;
-      }
-
-      const data = await submitOutletOrder(token, items, idempotencyKey);
-      if (!isDummy) invalidateOutletOrdersCache(token);
-      // R26: bump refresh key so the reorder section refetches and re-renders
-      setReorderRefreshKey((k) => k + 1);
-      // T8: bump discovery refresh key so purchased items drop out of discovery
-      setDiscoveryRefreshKey((k) => k + 1);
-      setOrder(data); setTrackingId(String(data.id)); setCart({}); releaseIdempotencyKey();
-    } catch (reason) {
-      const err = reason as Error & { errors?: Record<string, string[]> };
-      const details = err.errors
-        ? Object.entries(err.errors)
-            .map(([key, messages]) => `${key}: ${messages.join(', ')}`)
-            .join(' | ')
-        : '';
-      setError(details ? `${err.message} — ${details}` : (reason instanceof Error ? reason.message : 'Pesanan tidak dapat dibuat.'));
-      // Retain valid items in cart; errors shown in error banner
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   async function handleTrackOrder(event: FormEvent) {
     event.preventDefault(); setError(null); if (!trackingId.trim()) return;
     try { const result = await trackOrder(token, trackingId); setTracked(result); }
@@ -278,33 +156,16 @@ export default function OrderForm({ token }: { token: string }) {
       </p>
     )}
     <section>
-      {showReorderSection && (
-        <div className="mb-6">
-          <ReorderSection
-            items={reorderItems}
-            offline={!isOnline}
-            onAdd={reorderAddToCart}
-            onReorderLastOrder={reorderLastOrder}
-          />
-        </div>
-      )}
-      {showReorderHint && (
-        <p className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
-          Belum ada riwayat pesanan — pilih dari katalog di bawah untuk pesanan pertama Anda.
-        </p>
-      )}
-      {showDiscoverySection && (
-        <div className="mb-6">
-          <DiscoverySection
-            items={discovery}
-            onAdd={(productId: number) => discoveryAddToCart(productId)}
-            onDismiss={discoveryDismiss}
-            offline={!isOnline}
-            error={discoveryError}
-            onRetry={discoveryRetry}
-          />
-        </div>
-      )}
+      <OrderFormRecommendations
+        token={token}
+        products={products}
+        cart={cart}
+        setCart={setCart}
+        isOnline={isOnline}
+        isDummy={isDummy}
+        reorderRefreshKey={reorderRefreshKey}
+        discoveryRefreshKey={discoveryRefreshKey}
+      />
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-gray-900">Pilih produk</h2>

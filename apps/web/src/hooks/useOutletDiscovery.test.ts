@@ -20,7 +20,7 @@ it('useOutletDiscovery_fetches_discovery_when_online', async () => {
   global.fetch = fetchMock as typeof fetch;
 
   try {
-    const { result } = renderHook(() => useOutletDiscovery('outlet-token', [product], true));
+    const { result } = renderHook(() => useOutletDiscovery('outlet-token', [product], { online: true }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/ai/discovery'),

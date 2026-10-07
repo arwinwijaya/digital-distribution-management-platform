@@ -89,10 +89,10 @@
         {
           "id": "T8",
           "name": "Integrate DiscoverySection into OrderForm",
-          "status": "BLOCKED",
+          "status": "DONE",
           "depends": "T6, T7",
           "file": "execution-plan/tasks/T8-integrate-discoverysection-into-orderform.md",
-          "done_sha": "f9ed97121c99ab8cf63a526385ee43365d808190"
+          "done_sha": "fc2615deff0406311ec6c35d13a30a8d03da35b0"
         },
         {
           "id": "T9",

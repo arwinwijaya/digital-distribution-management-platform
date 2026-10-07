@@ -1,25 +1,25 @@
 {
   "task_id": "T8",
   "task_name": "Integrate DiscoverySection into OrderForm",
-  "cycle": 1,
-  "timestamp": "2026-10-07T04:54:24Z",
+  "cycle": 2,
+  "timestamp": "2026-10-07T15:38:23Z",
   "reviewer_mode": "read-only",
   "reviewer_config": "batch-parallel",
   "stage_1": {
     "status": "PASS",
     "issues": [],
     "concerns_addressed": [
-      "All 4 GWT scenarios verified: renders discovery below reorder, hidden when NEXT_PUBLIC_ENABLE_DISCOVERY=false, hidden in dummy mode, refreshes after order success",
-      "Placement below ReorderSection in same section wrapper confirmed (OrderForm.tsx:296-308)",
-      "Feature flag guard matches reorderEnabled pattern: discoveryEnabled = process.env.NEXT_PUBLIC_ENABLE_DISCOVERY !== 'false' (OrderForm.tsx:133)",
-      "Dummy-mode guard matches showReorderSection pattern: showDiscoverySection = discoveryEnabled && !isDummy (OrderForm.tsx:149 vs showReorderSection at 135)",
-      "Post-order refresh key increment implemented: setDiscoveryRefreshKey((k) => k + 1) at OrderForm.tsx:253",
-      "Props offline={!isOnline}, error={discoveryError}, onRetry={discoveryRetry} wired correctly (OrderForm.tsx:304-306)",
-      "No changes to ReorderSection behavior, OrderCreationService, or auto-add logic"
+      "All 4 GWT scenarios verified at fc2615d: renders discovery below reorder, hidden when NEXT_PUBLIC_ENABLE_DISCOVERY=false, hidden in dummy mode, refreshes after order success via discoveryRefreshKey increment",
+      "Placement below ReorderSection in same section wrapper confirmed (OrderFormRecommendations.tsx:33-45; OrderForm.tsx:87-94)",
+      "Feature flag guard matches reorderEnabled pattern: discoveryEnabled = process.env.NEXT_PUBLIC_ENABLE_DISCOVERY !== 'false' (OrderFormRecommendations.tsx:21)",
+      "Dummy-mode guard matches showReorderSection pattern: showDiscoverySection = discoveryEnabled && !isDummy (OrderFormRecommendations.tsx:24 vs showReorderSection at 22-23)",
+      "Post-order refresh key increment implemented in useOrderSubmission.ts:47 (setDiscoveryRefreshKey((k) => k + 1))",
+      "Props offline={!isOnline}, error, onRetry from hook wired to DiscoverySection (OrderFormRecommendations.tsx:38-40)",
+      "No changes to ReorderSection behavior, OrderCreationService, or auto-add logic — scope respected"
     ]
   },
   "stage_2": {
-    "status": "FAIL",
+    "status": "PASS",
     "strengths": [
       "Implementation follows existing ReorderSection integration pattern exactly — consistent architecture",
       "Feature flag, dummy guard, and cache invalidation parity with reorder section achieved cleanly",
@@ -27,33 +27,24 @@
       "DOM order verified via compareDocumentPosition (OrderForm.test.tsx:985-990)",
       "Test for refresh key increment tracks hook options across renders (OrderForm.test.tsx:1059-1112)",
       "TypeScript strict compliance — no tsc --noEmit errors",
+      "Refactor split OrderForm into focused components (OrderFormRecommendations, OrderFormCatalog, OrderFormTracking) and hooks (useOrderSubmission, useOrderQueue) — all files well under ~300 lines, functions under ~50 lines",
       "No extra work beyond T8 scope (OrderCreationService, auth, DB schema untouched)"
     ],
     "issues": [
       {
-        "severity": "Important",
-        "description": "The modified OrderForm.tsx is 331 lines, exceeding the approximately 300-line refactor heuristic threshold. Extract an appropriate section/helper (for example, the new discovery integration setup/rendering) while preserving the existing behavior, then re-run the specified tests and TypeScript check.",
-        "location": "apps/web/src/components/OrderForm.tsx:1-331"
-      },
-      {
         "severity": "Minor",
-        "description": "Inline dismissedRef initialization and hook options object could be extracted to a small helper (e.g., useDiscoveryOptions) for readability and consistency with reorder pattern which uses a simpler inline object. Prior auditor noted same observation.",
-        "location": "apps/web/src/components/OrderForm.tsx:131-158"
-      },
-      {
-        "severity": "Minor",
-        "description": "Both offline={!isOnline} and online: isOnline && showDiscoverySection passed to hook — two derived values that could drift if one changes. Consider single source of truth for 'should fetch discovery' boolean.",
-        "location": "apps/web/src/components/OrderForm.tsx:156-157,304"
+        "description": "Circular import between OrderForm.tsx and OrderFormTracking.tsx (OrderForm imports OrderFormTracking; OrderFormTracking imports trackOrder function from OrderForm). Works at runtime due to ES module live bindings but is a code smell; could extract trackOrder to shared lib in future refactor.",
+        "location": "apps/web/src/components/OrderForm.tsx:12, apps/web/src/components/OrderFormTracking.tsx:6"
       }
     ],
-    "assessment": "Request Changes"
+    "assessment": "Approved"
   },
-  "overall": "REVIEW_FAIL",
-  "fix_instructions": "1. Refactor the modified OrderForm.tsx so it no longer exceeds the approximately 300-line file-size heuristic; extract an appropriate section/helper while preserving the T8 integration behavior. 2. Re-run the OrderForm test command and TypeScript check, then request a re-audit.",
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
   "loop_info": {
-    "current_cycle": 1,
+    "current_cycle": 2,
     "max_cycles": 2,
-    "cycles_remaining": 1
+    "cycles_remaining": 0
   },
-  "reviewed_sha": "f9ed97121c99ab8cf63a526385ee43365d808190"
+  "reviewed_sha": "fc2615deff0406311ec6c35d13a30a8d03da35b0"
 }

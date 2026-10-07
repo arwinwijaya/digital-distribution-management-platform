@@ -231,6 +231,50 @@ class AITest extends TestCase
         $this->assertSame([$drink->id], collect($response->json('data.recommendations'))->pluck('product_id')->all());
     }
 
+    public function test_outlet_discovery_scoping_strict_token_only(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        [, $otherOutlet] = $this->authenticatedUser();
+
+        $this->withHeaders($headers)
+            ->getJson('/api/ai/discovery?outlet_id='.$otherOutlet->id)
+            ->assertForbidden()
+            ->assertJsonPath('status', 'error');
+    }
+
+    public function test_outlet_discovery_non_outlet_role_forbidden(): void
+    {
+        foreach (['admin', 'sales'] as $role) {
+            [, , $headers] = $this->authenticatedUser($role);
+            $this->withHeaders($headers)
+                ->getJson('/api/ai/discovery')
+                ->assertForbidden()
+                ->assertJsonPath('status', 'error');
+        }
+    }
+
+    public function test_outlet_discovery_fetch_error_response_shape(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+
+        $this->mock(\App\Services\RecommendationService::class, function ($mock) {
+            $mock->shouldReceive('discover')
+                ->once()
+                ->andThrow(new \RuntimeException('discovery backend unavailable'));
+        });
+
+        $this->withHeaders($headers)
+            ->getJson('/api/ai/discovery')
+            ->assertStatus(500)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonStructure(['status', 'message']);
+    }
+
+    public function test_outlet_discovery_unauthenticated_401(): void
+    {
+        $this->getJson('/api/ai/discovery')->assertStatus(401);
+    }
+
     public function test_forecast_validates_period_and_horizon_and_is_deterministic(): void
     {
         [, $outlet, $headers] = $this->authenticatedUser();

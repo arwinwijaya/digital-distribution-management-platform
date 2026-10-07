@@ -8,6 +8,8 @@ use App\Services\RecommendationService;
 use App\Services\SegmentationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Illuminate\Support\Facades\Log;
 
 class AIController extends Controller
 {
@@ -34,13 +36,40 @@ class AIController extends Controller
 
     public function discovery(Request $request): JsonResponse
     {
-        $validated = $request->validate(['limit' => ['sometimes', 'integer']]);
-        $limit = (int) ($validated['limit'] ?? RecommendationService::DISCOVERY_DEFAULT_LIMIT);
+        $user = $request->user();
+        if (! $user || ! $user->isOutlet()) {
+            return $this->forbidden('Only outlet users can access product discovery.');
+        }
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $this->recommendationService->discover($this->resolveOutletId($request, null), $limit),
+        $validated = $request->validate([
+            'outlet_id' => ['sometimes', 'integer', 'exists:outlets,id'],
+            'limit' => ['sometimes', 'integer'],
         ]);
+        $limit = (int) ($validated['limit'] ?? RecommendationService::DISCOVERY_DEFAULT_LIMIT);
+        $requestedOutletId = isset($validated['outlet_id']) ? (int) $validated['outlet_id'] : null;
+
+        try {
+            $outletId = $this->resolveOutletId($request, $requestedOutletId);
+        } catch (HttpException $exception) {
+            return $this->forbidden($exception->getMessage());
+        }
+
+        try {
+            $data = $this->recommendationService->discover($outletId, $limit);
+        } catch (\Throwable $exception) {
+            Log::error('Failed to fetch outlet product discovery.', [
+                'user_id' => $user->id,
+                'outlet_id' => $outletId,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unable to fetch product discovery recommendations.',
+            ], 500);
+        }
+
+        return response()->json(['status' => 'success', 'data' => $data]);
     }
 
     public function storeDiscoveryEvent(Request $request): JsonResponse

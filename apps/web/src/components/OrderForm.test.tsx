@@ -24,7 +24,14 @@ jest.mock('@/lib/offline/order-queue', () => ({
   createDefaultAdapter: jest.fn(),
 }));
 
-// Mock dashboard API to keep existing tests inert (no network calls from useOutletReorder)
+// Keep discovery network calls inert in existing OrderForm tests; integration scenarios below
+// supply explicit hook results while the hook itself is verified in its own test suite.
+jest.mock('@/hooks/useOutletDiscovery', () => ({
+  useOutletDiscovery: jest.fn(() => ({
+    discovery: [], loading: false, error: null,
+    addToCart: jest.fn(), dismiss: jest.fn(), retry: jest.fn(),
+  })),
+}));
 jest.mock('@/app/dashboard/api', () => {
   const actual = jest.requireActual('@/app/dashboard/api');
   return {
@@ -41,6 +48,16 @@ import OrderForm from '@/components/OrderForm';
 import { createOrderQueue, createDefaultAdapter } from '@/lib/offline/order-queue';
 import * as idempotency from '@/lib/offline/idempotency';
 import * as dashboardApi from '@/app/dashboard/api';
+import { useOutletDiscovery } from '@/hooks/useOutletDiscovery';
+
+// Default discovery hook result for every test; individual scenarios override as needed.
+// A top-level beforeEach (re)establishes it because nested afterEach hooks call restoreAllMocks().
+beforeEach(() => {
+  (useOutletDiscovery as jest.Mock).mockReturnValue({
+    discovery: [], loading: false, error: null,
+    addToCart: jest.fn(), dismiss: jest.fn(), retry: jest.fn(),
+  });
+});
 
 const emptyOutletDashboard = {
   kind: 'outlet' as const,
@@ -905,6 +922,181 @@ describe('OrderForm — Pesanan Lagi Fast Reorder Integration', () => {
     // Wait for auto-flush and cache invalidation
     await waitFor(() => expect(dashboardApi.invalidateOutletOrdersCache).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByText(/menunggu sinkronisasi/i)).not.toBeInTheDocument());
+  });
+});
+
+describe('OrderForm — Outlet Discovery Section Integration (T8)', () => {
+  const originalEnvFlag = process.env.NEXT_PUBLIC_ENABLE_DISCOVERY;
+  let originalFetch: typeof fetch | undefined;
+
+  beforeEach(() => {
+    useDummyStore.getState().reset();
+    installDummy();
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue(null);
+    (dashboardApi.fetchOutletDashboard as jest.Mock).mockResolvedValue(emptyOutletDashboard);
+    (createOrderQueue as jest.Mock).mockReturnValue({
+      enqueue: jest.fn(), list: jest.fn().mockResolvedValue([]),
+      flushQueue: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }),
+    });
+    (createDefaultAdapter as jest.Mock).mockResolvedValue({});
+    originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (url: unknown) => {
+      if (String(url).includes('/products')) {
+        return { ok: true, status: 200, json: async () => productsResponse } as Response;
+      }
+      if (String(url).includes('/orders')) {
+        return { ok: true, status: 201, json: async () => ({
+          status: 'success',
+          data: { id: 999, order_id: 'ORD-999', status: 'pending', total_amount: '20000.00', items: [] },
+        }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: [] }) } as Response;
+    });
+  });
+
+  afterEach(() => {
+    if (originalFetch) {
+      (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    } else {
+      delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    }
+    if (originalEnvFlag === undefined) {
+      delete process.env.NEXT_PUBLIC_ENABLE_DISCOVERY;
+    } else {
+      process.env.NEXT_PUBLIC_ENABLE_DISCOVERY = originalEnvFlag;
+    }
+    useDummyStore.getState().reset();
+  });
+
+  it('OrderForm_renders_discovery_below_reorder', async () => {
+    delete process.env.NEXT_PUBLIC_ENABLE_DISCOVERY;
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockReturnValue({
+      favorites: [{ product_id: 1, display_name: 'Beras Premium', total_qty: 5 }],
+      orders: [],
+    });
+    (useOutletDiscovery as jest.Mock).mockReturnValue({
+      discovery: [
+        {
+          product_id: 3,
+          product_name: 'Gula Pasir',
+          reason: 'Populer di platform',
+          price: '15000.00',
+          stock_quantity: 40,
+          is_active: true,
+          available: true,
+        },
+      ],
+      loading: false,
+      error: null,
+      addToCart: jest.fn(),
+      dismiss: jest.fn(),
+      retry: jest.fn(),
+    });
+
+    render(<OrderForm token="test-token" />);
+
+    await waitFor(() => expect(screen.getByText('Pesan Lagi')).toBeInTheDocument());
+    expect(screen.getByText('Coba produk lain')).toBeInTheDocument();
+    expect(screen.getByText('Gula Pasir')).toBeInTheDocument();
+
+    // Verify DOM order: ReorderSection header appears before DiscoverySection header
+    const reorderHeader = screen.getByText('Pesan Lagi');
+    const discoveryHeader = screen.getByText('Coba produk lain');
+    expect(
+      reorderHeader.compareDocumentPosition(discoveryHeader) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('OrderForm_discovery_hidden_when_feature_flag_disabled', async () => {
+    process.env.NEXT_PUBLIC_ENABLE_DISCOVERY = 'false';
+    (useOutletDiscovery as jest.Mock).mockReturnValue({
+      discovery: [
+        {
+          product_id: 3,
+          product_name: 'Gula Pasir',
+          reason: 'Populer di platform',
+          price: '15000.00',
+          stock_quantity: 40,
+          is_active: true,
+          available: true,
+        },
+      ],
+      loading: false,
+      error: null,
+      addToCart: jest.fn(),
+      dismiss: jest.fn(),
+      retry: jest.fn(),
+    });
+
+    render(<OrderForm token="test-token" />);
+
+    await waitFor(() => expect(screen.getByText('Pilih produk')).toBeInTheDocument());
+    // Integration must exist (hook wired) yet the section stays hidden by the flag guard.
+    expect(useOutletDiscovery).toHaveBeenCalled();
+    expect(screen.queryByText('Coba produk lain')).not.toBeInTheDocument();
+    expect(screen.queryByText('Gula Pasir')).not.toBeInTheDocument();
+  });
+
+  it('OrderForm_discovery_hidden_in_dummy_mode', async () => {
+    delete process.env.NEXT_PUBLIC_ENABLE_DISCOVERY;
+    useDummyStore.getState().toggle(); // isDummy = true
+    (useOutletDiscovery as jest.Mock).mockReturnValue({
+      discovery: [
+        {
+          product_id: 3,
+          product_name: 'Gula Pasir',
+          reason: 'Populer di platform',
+          price: '15000.00',
+          stock_quantity: 40,
+          is_active: true,
+          available: true,
+        },
+      ],
+      loading: false,
+      error: null,
+      addToCart: jest.fn(),
+      dismiss: jest.fn(),
+      retry: jest.fn(),
+    });
+
+    render(<OrderForm token="test-token" />);
+
+    await waitFor(() => expect(screen.getByText('Pilih produk')).toBeInTheDocument());
+    // Integration must exist (hook wired) yet the section stays hidden in dummy mode.
+    expect(useOutletDiscovery).toHaveBeenCalled();
+    expect(screen.queryByText('Coba produk lain')).not.toBeInTheDocument();
+  });
+
+  it('OrderForm_refreshes_discovery_after_order_success', async () => {
+    delete process.env.NEXT_PUBLIC_ENABLE_DISCOVERY;
+
+    // Track hook calls across renders to verify refreshKey is incremented
+    const discoveryCalls: Array<Record<string, unknown>> = [];
+    (useOutletDiscovery as jest.Mock).mockImplementation((token: string, products: unknown[], opts: Record<string, unknown>) => {
+      discoveryCalls.push(opts);
+      return {
+        discovery: [],
+        loading: false,
+        error: null,
+        addToCart: jest.fn(),
+        dismiss: jest.fn(),
+        retry: jest.fn(),
+      };
+    });
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Pilih produk')).toBeInTheDocument());
+
+    const initialKey = (discoveryCalls[discoveryCalls.length - 1]?.refreshKey as number) ?? 0;
+
+    // Select product and submit order
+    fireEvent.change(screen.getByLabelText('Jumlah Beras Premium'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: /kirim pesanan/i }));
+
+    await waitFor(() => expect(screen.getByText('ORD-999')).toBeInTheDocument());
+
+    const postOrderKey = (discoveryCalls[discoveryCalls.length - 1]?.refreshKey as number) ?? 0;
+    expect(postOrderKey).toBeGreaterThan(initialKey);
   });
 });
 

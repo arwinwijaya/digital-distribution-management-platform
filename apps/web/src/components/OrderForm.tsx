@@ -8,9 +8,11 @@ import { createDummyOutletOrder } from '@/dummy/mutations';
 import type { FullDummy } from '@/dummy';
 import { Button, Card, EmptyState, Input, StatusBadge, Table, ViewModeToggle, useViewMode } from '@/components/ui';
 import ReorderSection from '@/components/ReorderSection';
+import DiscoverySection from '@/components/DiscoverySection';
 import { filterProducts } from '@/lib/product-filter';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useOutletReorder } from '@/hooks/useOutletReorder';
+import { useOutletDiscovery } from '@/hooks/useOutletDiscovery';
 import { createOrderQueue, createDefaultAdapter, type OrderQueue } from '@/lib/offline/order-queue';
 import { canonicalSignature, generateOrderIdempotencyKey, clearOrderIdempotencyKey } from '@/lib/offline/idempotency';
 import { invalidateOutletOrdersCache } from '@/app/dashboard/api';
@@ -129,6 +131,9 @@ export default function OrderForm({ token }: { token: string }) {
   const isDummy = useDummyStore((s) => s.isDummy);
   const [reorderRefreshKey, setReorderRefreshKey] = useState(0);
   const reorderEnabled = process.env.NEXT_PUBLIC_ENABLE_REORDER !== 'false';
+  const discoveryEnabled = process.env.NEXT_PUBLIC_ENABLE_DISCOVERY !== 'false';
+  const [discoveryRefreshKey, setDiscoveryRefreshKey] = useState(0);
+  const dismissedRef = useRef<Set<number>>(new Set<number>());
   const {
     reorderItems,
     lastOrderItems,
@@ -141,6 +146,20 @@ export default function OrderForm({ token }: { token: string }) {
   });
   const showReorderSection = reorderEnabled && !isDummy && (reorderItems.length > 0 || lastOrderItems.length > 0);
   const showReorderHint = reorderEnabled && !isDummy && reorderItems.length === 0 && lastOrderItems.length === 0;
+  const showDiscoverySection = discoveryEnabled && !isDummy;
+  const {
+    discovery,
+    error: discoveryError,
+    addToCart: discoveryAddToCart,
+    dismiss: discoveryDismiss,
+    retry: discoveryRetry,
+  } = useOutletDiscovery(token, products, {
+    online: isOnline && showDiscoverySection,
+    cart,
+    dismissed: dismissedRef.current,
+    refreshKey: discoveryRefreshKey,
+    setCart,
+  });
 
   // Initialize queue once
   useEffect(() => {
@@ -227,6 +246,8 @@ export default function OrderForm({ token }: { token: string }) {
       if (!isDummy) invalidateOutletOrdersCache(token);
       // R26: bump refresh key so the reorder section refetches and re-renders
       setReorderRefreshKey((k) => k + 1);
+      // T8: bump discovery refresh key so purchased items drop out of discovery
+      setDiscoveryRefreshKey((k) => k + 1);
       setOrder(data); setTrackingId(String(data.id)); setCart({}); releaseIdempotencyKey();
     } catch (reason) {
       const err = reason as Error & { errors?: Record<string, string[]> };
@@ -271,6 +292,18 @@ export default function OrderForm({ token }: { token: string }) {
         <p className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
           Belum ada riwayat pesanan — pilih dari katalog di bawah untuk pesanan pertama Anda.
         </p>
+      )}
+      {showDiscoverySection && (
+        <div className="mb-6">
+          <DiscoverySection
+            items={discovery}
+            onAdd={(productId: number) => discoveryAddToCart(productId)}
+            onDismiss={discoveryDismiss}
+            offline={!isOnline}
+            error={discoveryError}
+            onRetry={discoveryRetry}
+          />
+        </div>
       )}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>

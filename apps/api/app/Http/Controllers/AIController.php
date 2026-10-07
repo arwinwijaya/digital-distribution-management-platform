@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RecommendationEvent;
 use App\Services\ForecastService;
 use App\Services\Recommendation\RecommendationModelAdapter;
 use App\Services\RecommendationService;
@@ -74,7 +75,98 @@ class AIController extends Controller
 
     public function storeDiscoveryEvent(Request $request): JsonResponse
     {
-        return response()->json(['status' => 'error', 'message' => 'Not Implemented'], 501);
+        $user = $request->user();
+        if (! $user || ! $user->isOutlet()) {
+            return $this->forbidden('Only outlet users can record product discovery events.');
+        }
+
+        $outlet = $user->outlet;
+        if (! $outlet) {
+            return $this->forbidden('The authenticated user is not associated with an outlet.');
+        }
+
+        $payload = $request->validate([
+            'event_uuid' => ['required', 'string', 'max:128'],
+            'event_type' => ['required', 'string', 'in:displayed,clicked,cart'],
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'occurred_at' => ['required', 'date'],
+        ]);
+
+        $outletId = (int) $outlet->id;
+        $occurredAt = \Carbon\Carbon::parse($payload['occurred_at'])->format('Y-m-d H:i:s');
+        $existing = RecommendationEvent::where('event_uuid', $payload['event_uuid'])->first();
+
+        if ($existing !== null) {
+            if (
+                $existing->event_type === $payload['event_type']
+                && (int) $existing->outlet_id === $outletId
+                && (int) $existing->product_id === (int) $payload['product_id']
+                && $existing->occurred_at->format('Y-m-d H:i:s') === $occurredAt
+            ) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Event already recorded.',
+                    'data' => [
+                        'id' => (int) $existing->id,
+                        'event_uuid' => $existing->event_uuid,
+                        'idempotent_replay' => true,
+                    ],
+                ]);
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Event UUID is already used with conflicting attributes.',
+            ], 409);
+        }
+
+        try {
+            $event = RecommendationEvent::create([
+                'event_uuid' => $payload['event_uuid'],
+                'event_type' => $payload['event_type'],
+                'outlet_id' => $outletId,
+                'product_id' => (int) $payload['product_id'],
+                'occurred_at' => $payload['occurred_at'],
+                'metadata' => ['source' => 'discovery_v1'],
+            ]);
+        } catch (\Throwable $exception) {
+            // A concurrent retry can race between the lookup and unique insert.
+            $existing = RecommendationEvent::where('event_uuid', $payload['event_uuid'])->first();
+            if ($existing !== null) {
+                if (
+                    $existing->event_type === $payload['event_type']
+                    && (int) $existing->outlet_id === $outletId
+                    && (int) $existing->product_id === (int) $payload['product_id']
+                    && $existing->occurred_at->format('Y-m-d H:i:s') === $occurredAt
+                ) {
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Event already recorded.',
+                        'data' => [
+                            'id' => (int) $existing->id,
+                            'event_uuid' => $existing->event_uuid,
+                            'idempotent_replay' => true,
+                        ],
+                    ]);
+                }
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Event UUID is already used with conflicting attributes.',
+                ], 409);
+            }
+
+            throw $exception;
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Event recorded.',
+            'data' => [
+                'id' => (int) $event->id,
+                'event_uuid' => $event->event_uuid,
+            ],
+        ], 201);
     }
 
     public function forecast(Request $request): JsonResponse

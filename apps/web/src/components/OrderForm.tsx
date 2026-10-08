@@ -129,9 +129,14 @@ export default function OrderForm({ token }: { token: string }) {
       .catch((reason) => setError(reason.message || 'Katalog tidak tersedia.'))
       .finally(() => setLoading(false));
   });
-  const total = useMemo(() => products.reduce((sum, product) => sum + Number(product.price) * (cart[product.id] || 0), 0) +
-    Object.entries(discoveryCart).reduce((sum, [id, entry]) => sum + Number(entry.price) * (entry.quantity || 0), 0),
-  [products, cart, discoveryCart]);
+  const productIdSet = useMemo(() => new Set(products.map((p) => p.id)), [products]);
+  const total = useMemo(() => {
+    const catalogTotal = products.reduce((sum, product) => sum + Number(product.price) * (cart[product.id] || 0), 0);
+    const discoveryFallbackTotal = Object.entries(discoveryCart)
+      .filter(([id]) => !productIdSet.has(Number(id)))
+      .reduce((sum, [, entry]) => sum + Number(entry.price) * (entry.quantity || 0), 0);
+    return catalogTotal + discoveryFallbackTotal;
+  }, [products, cart, discoveryCart, productIdSet]);
 
   if (loading) return <div className="space-y-3"><div className="skeleton h-6 w-40 rounded" /><div className="grid gap-4 sm:grid-cols-2"><div className="skeleton h-32 rounded-xl" /><div className="skeleton h-32 rounded-xl" /></div></div>;
   return <div className="space-y-6">

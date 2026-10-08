@@ -1,6 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 
 // jsdom does not expose structuredClone; fake-indexeddb (R32) requires it.
 if (typeof (globalThis as { structuredClone?: unknown }).structuredClone !== 'function') {
@@ -922,6 +922,71 @@ describe('OrderForm — Pesanan Lagi Fast Reorder Integration', () => {
     // Wait for auto-flush and cache invalidation
     await waitFor(() => expect(dashboardApi.invalidateOutletOrdersCache).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByText(/menunggu sinkronisasi/i)).not.toBeInTheDocument());
+  });
+});
+
+describe('OrderForm — discovery totals', () => {
+  let originalFetch: typeof fetch | undefined;
+  beforeEach(() => {
+    useDummyStore.getState().reset();
+    installDummy();
+    (dashboardApi.loadOutletCachedSections as jest.Mock).mockResolvedValue(null);
+    (dashboardApi.fetchOutletDashboard as jest.Mock).mockResolvedValue(emptyOutletDashboard);
+    (createOrderQueue as jest.Mock).mockReturnValue({
+      enqueue: jest.fn(), list: jest.fn().mockResolvedValue([]),
+      flushQueue: jest.fn().mockResolvedValue({ sent: 0, failed: 0 }),
+    });
+    (createDefaultAdapter as jest.Mock).mockResolvedValue({});
+    originalFetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn(async (url: unknown) => {
+      if (String(url).includes('/products')) {
+        return { ok: true, status: 200, json: async () => productsResponse } as Response;
+      }
+      if (String(url).includes('/orders')) {
+        return { ok: true, status: 201, json: async () => ({ status: 'success', data: { id: 999, order_id: 'ORD-999', status: 'pending', total_amount: '20000.00', items: [] } }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({ status: 'success', data: [] }) } as Response;
+    });
+  });
+  afterEach(() => {
+    if (originalFetch) (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    else delete (globalThis as unknown as { fetch?: unknown }).fetch;
+    useDummyStore.getState().reset();
+  });
+  it('counts a discovery item already in the catalog only once using catalog quantity and price', async () => {
+    (useOutletDiscovery as jest.Mock).mockImplementation((_token: string, _products: unknown[], opts: Record<string, unknown>) => ({
+      discovery: [{ product_id: 1, product_name: 'Beras Premium', reason: 'Populer di platform', price: '20000.00', stock_quantity: 50, is_active: true, available: true }],
+      loading: false, error: null,
+      addToCart: (productId: number) => {
+        (opts.setCart as (u: (c: Record<number, number>) => Record<number, number>) => void)((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
+        (opts.onAdd as (id: number, price: string) => void)(productId, '20000.00');
+      },
+      dismiss: jest.fn(), retry: jest.fn(),
+    }));
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Coba produk lain')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Tambah Beras Premium/ }));
+    await waitFor(() => expect((screen.getByLabelText('Jumlah Beras Premium') as HTMLInputElement).value).toBe('1'));
+    const totalLabel = screen.getByText('Total pesanan').parentElement!;
+    expect(within(totalLabel).getByText('Rp 20.000')).toBeInTheDocument();
+    expect(within(totalLabel).queryByText('Rp 40.000')).not.toBeInTheDocument();
+  });
+  it('includes an undiscovered catalog item once via the discovery fallback price', async () => {
+    (useOutletDiscovery as jest.Mock).mockImplementation((_token: string, _products: unknown[], opts: Record<string, unknown>) => ({
+      discovery: [{ product_id: 3, product_name: 'Gula Pasir', reason: 'Populer', price: '15000.00', stock_quantity: 40, is_active: true, available: true }],
+      loading: false, error: null,
+      addToCart: (productId: number) => (opts.onAdd as (id: number, price: string) => void)(productId, '15000.00'),
+      dismiss: jest.fn(), retry: jest.fn(),
+    }));
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Coba produk lain')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Tambah Gula Pasir/ }));
+    const totalLabel = await waitFor(() => {
+      const total = screen.getByText('Total pesanan').parentElement!;
+      expect(within(total).getByText('Rp 15.000')).toBeInTheDocument();
+      return total;
+    });
+    expect(within(totalLabel).queryByText('Rp 30.000')).not.toBeInTheDocument();
   });
 });
 

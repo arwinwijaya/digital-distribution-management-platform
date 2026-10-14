@@ -97,9 +97,20 @@
         {
           "id": "T9",
           "name": "Verify discovery order flow end-to-end (Playwright E2E)",
-          "status": "WAITING",
+          "status": "DONE",
           "depends": "T8",
-          "file": "execution-plan/tasks/T9-verify-discovery-order-flow-end-to-end-playwright-e2e.md"
+          "file": "execution-plan/tasks/T9-verify-discovery-order-flow-end-to-end-playwright-e2e.md",
+          "done_sha": "cc6e5a014a73b0c28bad043858d7934df91fb812"
+        }
+      ],
+      "corrections": [
+        {
+          "sha": "00816b253c672322007ea904759c6fd97cdccdfb",
+          "files": [
+            "apps/web/src/components/OrderForm.test.tsx",
+            "apps/web/src/components/OrderForm.tsx"
+          ],
+          "for_task": "T8"
         }
       ]
     }

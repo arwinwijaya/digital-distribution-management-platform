@@ -975,7 +975,10 @@ describe('OrderForm — discovery totals', () => {
     (useOutletDiscovery as jest.Mock).mockImplementation((_token: string, _products: unknown[], opts: Record<string, unknown>) => ({
       discovery: [{ product_id: 3, product_name: 'Gula Pasir', reason: 'Populer', price: '15000.00', stock_quantity: 40, is_active: true, available: true }],
       loading: false, error: null,
-      addToCart: (productId: number) => (opts.onAdd as (id: number, price: string) => void)(productId, '15000.00'),
+      addToCart: (productId: number) => {
+        (opts.setCart as (u: (c: Record<number, number>) => Record<number, number>) => void)((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
+        (opts.onAdd as (id: number, price: string) => void)(productId, '15000.00');
+      },
       dismiss: jest.fn(), retry: jest.fn(),
     }));
     render(<OrderForm token="test-token" />);
@@ -987,6 +990,38 @@ describe('OrderForm — discovery totals', () => {
       return total;
     });
     expect(within(totalLabel).queryByText('Rp 30.000')).not.toBeInTheDocument();
+  });
+
+  it('keeps a catalog discovery item in total and submission when its cart quantity is zero', async () => {
+    (useOutletDiscovery as jest.Mock).mockImplementation((_token: string, _products: unknown[], opts: Record<string, unknown>) => ({
+      discovery: [{ product_id: 1, product_name: 'Beras Premium', reason: 'Populer di platform', price: '20000.00', stock_quantity: 50, is_active: true, available: true }],
+      loading: false, error: null,
+      addToCart: (productId: number) => {
+        (opts.setCart as (u: (c: Record<number, number>) => Record<number, number>) => void)((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
+        (opts.onAdd as (id: number, price: string) => void)(productId, '20000.00');
+      },
+      dismiss: jest.fn(), retry: jest.fn(),
+    }));
+
+    render(<OrderForm token="test-token" />);
+    await waitFor(() => expect(screen.getByText('Coba produk lain')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Tambah Beras Premium/ }));
+    fireEvent.change(screen.getByLabelText('Jumlah Minyak Goreng'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Jumlah Beras Premium'), { target: { value: '0' } });
+
+    const totalLabel = screen.getByText('Total pesanan').parentElement!;
+    await waitFor(() => expect(within(totalLabel).getByText('Rp 45.000')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('order-submit'));
+    await waitFor(() => {
+      const ordersCall = (globalThis.fetch as jest.Mock).mock.calls.find(([url]) => String(url).includes('/orders'));
+      expect(ordersCall).toBeDefined();
+      const payload = JSON.parse(ordersCall![1].body as string);
+      expect(payload.items).toEqual(expect.arrayContaining([
+        { product_id: 1, quantity: 1 },
+        { product_id: 2, quantity: 1 },
+      ]));
+    });
   });
 });
 

@@ -336,9 +336,9 @@
     "semantic_hash": ""
   },
   "apps/api/app/Services/RecommendationService.php": {
-    "mtime": 1791258999.948877,
-    "seen": 1791346432.5954971,
-    "ast_hash": "8c6be92a8142fcb39a67e6d46f933935",
+    "mtime": 1791385953.3483207,
+    "seen": 1791397530.800315,
+    "ast_hash": "5aa1ac9e1d3ec904ae359182597a78cd",
     "semantic_hash": ""
   },
   "apps/api/app/Services/RoutingService.php": {
@@ -822,9 +822,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/OrderForm.tsx": {
-    "mtime": 1791351373.7351072,
-    "seen": 1791352088.7047393,
-    "ast_hash": "dba9af96aac5ca1ce0696c2347e3a93f",
+    "mtime": 1791458608.9923189,
+    "seen": 1791458854.765718,
+    "ast_hash": "174d52951947087fb7045127ceb63ab3",
     "semantic_hash": ""
   },
   "apps/web/src/components/OutletForm.tsx": {
@@ -6623,12 +6623,6 @@
     "ast_hash": "9f453f32ad9c229af30d910d41c8e5ae",
     "semantic_hash": ""
   },
-  "apps/web/test-results/.last-run.json": {
-    "mtime": 1791189158.7255394,
-    "seen": 1791346432.5972946,
-    "ast_hash": "f196824657d8858bc7fa44eecbba38b1",
-    "semantic_hash": ""
-  },
   "docs/pocket/plans/2026-09-30-siklus-pemesanan-e2e/log.json": {
     "mtime": 1791344940.519382,
     "seen": 1791346432.5989943,
@@ -6741,12 +6735,6 @@
     "mtime": 1790909957.00391,
     "seen": 1791346432.599732,
     "ast_hash": "8a6643a420fdad6bfb583523bc6cef16",
-    "semantic_hash": ""
-  },
-  "apps/web/playwright-report/index.html": {
-    "mtime": 1791344801.5228608,
-    "seen": 1791346432.5997496,
-    "ast_hash": "1f5a93a399422943a0d48ba5c1e51e4d",
     "semantic_hash": ""
   },
   "docs/pocket/plans/2026-09-30-siklus-pemesanan-e2e/closeout.md": {
@@ -6971,12 +6959,6 @@
     "ast_hash": "21dee0b9db319dd2e957e930685027f0",
     "semantic_hash": ""
   },
-  "apps/web/playwright-report/data/4c8a8c276d0cc91be95025e158fe4782fbe8984c.png": {
-    "mtime": 1791344801.5278964,
-    "seen": 1791346432.603917,
-    "ast_hash": "4d896aac416d2826e31c69423db0d1e5",
-    "semantic_hash": ""
-  },
   "docs/pocket/plans/2026-10-02-invoice-detail-pdf-customizer/reviews/T8-review.json": {
     "mtime": 1790910621.8628013,
     "seen": 1791346432.5994432,
@@ -7086,9 +7068,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/OrderForm.test.tsx": {
-    "mtime": 1791345876.9286962,
-    "seen": 1791346432.5969439,
-    "ast_hash": "1b1bd6c8a37c2f5921d31bc118369013",
+    "mtime": 1791459369.498944,
+    "seen": 1791459406.6186998,
+    "ast_hash": "64d704d2823f6aa79043d87ed0cb4332",
     "semantic_hash": ""
   },
   "apps/web/src/components/ReorderSection.tsx": {
@@ -7152,9 +7134,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/hooks/useOutletDiscovery.ts": {
-    "mtime": 1791344958.448303,
-    "seen": 1791346432.5971763,
-    "ast_hash": "770ce53815c6f5e4399dd89d4d5e867b",
+    "mtime": 1791379622.2583866,
+    "seen": 1791397530.8023188,
+    "ast_hash": "c9f8571235236ebc9e9cd22de5c3cdd2",
     "semantic_hash": ""
   },
   "docs/pocket/plans/2026-09-30-siklus-pemesanan-e2e/reviews/T1-review.json": {
@@ -7260,9 +7242,9 @@
     "semantic_hash": ""
   },
   "docs/pocket/plans/2026-10-06-outlet-recommendation-discovery/log.json": {
-    "mtime": 1791348542.3145916,
-    "seen": 1791350926.5963717,
-    "ast_hash": "475d309af5c85cfce48abb4b76f3a78c",
+    "mtime": 1791415381.5312161,
+    "seen": 1791458854.7664125,
+    "ast_hash": "36489b0056df84d6588c0257c2626f1a",
     "semantic_hash": ""
   },
   "docs/pocket/plans/2026-10-06-outlet-recommendation-discovery/reviews/T1-review.json": {
@@ -7469,16 +7451,10 @@
     "ast_hash": "5feacc60e3b9bc727072f543d078206d",
     "semantic_hash": ""
   },
-  "apps/web/playwright-report/data/7285594a5f73565f217097b3c06c2cd4e8daeec6.png": {
-    "mtime": 1791336325.727317,
-    "seen": 1791346432.6039195,
-    "ast_hash": "b24be753ff85da20309e0ade979309df",
-    "semantic_hash": ""
-  },
   "apps/web/src/components/OrderFormRecommendations.tsx": {
-    "mtime": 1791349525.014953,
-    "seen": 1791350926.595285,
-    "ast_hash": "fb6e986f31f16879c4859c12af6a932c",
+    "mtime": 1791378658.299047,
+    "seen": 1791397530.8020039,
+    "ast_hash": "bc927888d774e86f9278bd67d2a3e770",
     "semantic_hash": ""
   },
   "apps/web/src/hooks/useOrderQueue.ts": {
@@ -7488,15 +7464,81 @@
     "semantic_hash": ""
   },
   "docs/pocket/plans/2026-10-06-outlet-recommendation-discovery/reviews/T8-review.json": {
-    "mtime": 1791349236.6279354,
-    "seen": 1791350926.5963948,
-    "ast_hash": "2fd55cbaa8110bef68e2130376495967",
+    "mtime": 1791387555.6428485,
+    "seen": 1791397530.8033695,
+    "ast_hash": "4edee75b08fc8cfda5e5d14deb5a299e",
     "semantic_hash": ""
   },
   "apps/web/src/hooks/useOrderSubmission.ts": {
-    "mtime": 1791351319.1758256,
-    "seen": 1791352088.7048435,
-    "ast_hash": "382d5d45d535c2835b67539c7033bcdd",
+    "mtime": 1791379906.5448394,
+    "seen": 1791397530.8023105,
+    "ast_hash": "53635be3697ee971c1f09b39569eed13",
+    "semantic_hash": ""
+  },
+  "apps/web/e2e/outlet-discovery.spec.ts": {
+    "mtime": 1791385965.913346,
+    "seen": 1791397530.8014226,
+    "ast_hash": "c43350d7bc988c1d1c7b026bb1fa8c24",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/OrderFormCatalog.tsx": {
+    "mtime": 1791353434.7298677,
+    "seen": 1791397530.8019986,
+    "ast_hash": "d5eddb4293ac024873b66f2b5ee7e543",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/OrderFormTracking.tsx": {
+    "mtime": 1791353538.957132,
+    "seen": 1791397530.8020082,
+    "ast_hash": "b2b8d7d1f205a4c93e039668b8e21840",
+    "semantic_hash": ""
+  },
+  "docs/pocket/spec/2026-10-07-optimal-cepat-customer-outlet/reorder-first.md": {
+    "mtime": 1791397473.799836,
+    "seen": 1791397530.8048236,
+    "ast_hash": "06ff84993843d54e811c58b4d1ce62b7",
+    "semantic_hash": ""
+  },
+  "apps/web/test-results/.last-run.json": {
+    "mtime": 1791397614.074447,
+    "seen": 1791458854.7659943,
+    "ast_hash": "f196824657d8858bc7fa44eecbba38b1",
+    "semantic_hash": ""
+  },
+  "apps/web/test-results/e2e-results.json": {
+    "mtime": 1791397614.073453,
+    "seen": 1791458854.7659967,
+    "ast_hash": "ddac86aec4fb9a6af4a4f0344ad25bc2",
+    "semantic_hash": ""
+  },
+  "docs/pocket/plans/2026-10-06-outlet-recommendation-discovery/reviews/T9-review.json": {
+    "mtime": 1791415372.0982213,
+    "seen": 1791458854.7664337,
+    "ast_hash": "72c7a5643f239afe889a4c9dc78d0b01",
+    "semantic_hash": ""
+  },
+  "docs/pocket/plans/2026-10-06-outlet-recommendation-discovery/reviews/phase-pass-phase-2.json": {
+    "mtime": 1791458271.9947548,
+    "seen": 1791458854.7664385,
+    "ast_hash": "c1d45b09a4dcbd13c6842a6147a668d3",
+    "semantic_hash": ""
+  },
+  "apps/web/playwright-report/index.html": {
+    "mtime": 1791397614.0669198,
+    "seen": 1791458854.766518,
+    "ast_hash": "ba1096aa1c9494a9f3df93cb11708f5d",
+    "semantic_hash": ""
+  },
+  "docs/pocket/plans/2026-10-07-optimal-cepat-customer-outlet/execution-plan.md": {
+    "mtime": 1791422424.4874513,
+    "seen": 1791458854.7671983,
+    "ast_hash": "ed0c4df0c6d4b9c99b45b9194b128b5b",
+    "semantic_hash": ""
+  },
+  "docs/pocket/spec/2026-10-08-outlet-dashboard-reorder-highlight/pitch-exploration.md": {
+    "mtime": 1791458331.812567,
+    "seen": 1791458854.7672882,
+    "ast_hash": "5fc5b5cb335d54f3029604dcc404853f",
     "semantic_hash": ""
   }
 }

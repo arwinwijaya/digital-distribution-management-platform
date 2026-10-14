@@ -132,9 +132,14 @@ export default function OrderForm({ token }: { token: string }) {
   const productIdSet = useMemo(() => new Set(products.map((p) => p.id)), [products]);
   const total = useMemo(() => {
     const catalogTotal = products.reduce((sum, product) => sum + Number(product.price) * (cart[product.id] || 0), 0);
-    const discoveryFallbackTotal = Object.entries(discoveryCart)
-      .filter(([id]) => !productIdSet.has(Number(id)))
-      .reduce((sum, [, entry]) => sum + Number(entry.price) * (entry.quantity || 0), 0);
+    const discoveryFallbackTotal = Object.entries(discoveryCart).reduce((sum, [idStr, entry]) => {
+      const pid = Number(idStr);
+      const price = Number(entry.price);
+      if (productIdSet.has(pid)) {
+        return !cart[pid] ? sum + price * entry.quantity : sum;
+      }
+      return sum + price * (cart[pid] || entry.quantity || 1);
+    }, 0);
     return catalogTotal + discoveryFallbackTotal;
   }, [products, cart, discoveryCart, productIdSet]);
 

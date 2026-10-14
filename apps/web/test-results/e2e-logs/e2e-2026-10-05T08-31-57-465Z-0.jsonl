@@ -1,1 +1,0 @@
-{"runId":"e2e-2026-10-05T08-31-57-465Z-0","timestamp":"2026-10-05T08:32:06.983Z","role":"outlet","step":"concurrent_tabs_stale_cache","action":"browser: verified stale cache behavior acceptable v1 + refresh pickup","url":"http://localhost:8080/orders","selector":"[data-testid=\"orders-page\"]","apiStatus":201,"durationMs":9473,"status":"success","error":null,"attachments":[]}

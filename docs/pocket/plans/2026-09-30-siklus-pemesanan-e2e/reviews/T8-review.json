@@ -1,0 +1,60 @@
+{
+  "task_id": "T8",
+  "task_name": "CI workflow wiring for E2E",
+  "cycle": 1,
+  "timestamp": "2026-10-05T04:28:24Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "Diff range a387a05..081dd2f includes T6 DONE commit ecd8b7b (login.page.ts, siklus-pemesanan.spec.ts, fixtures.ts, baseURL 3000->8080, e2e-seed.sh ScaleFixtureSeeder) plus T8 commits 5c11240/67469a4/8e9fcd2/77dba26/081dd2f; T6 files already covered by T6-review.json PASS (0869c71 correction) and are not re-judged here \u2014 T8 verdict scopes to .github/workflows/e2e.yml plus CI-supporting channel conditional",
+      "DELIVERABLE verified against final .github/workflows/e2e.yml at 081dd2f: triggers on push [main, develop] + pull_request [main]; steps checkout, setup-node, setup-php, generate .env, composer install, npm install, docker compose build, docker compose up -d, wait via curl http://localhost:8080/api/health, bash scripts/e2e-seed.sh, npm run test:e2e (API), Playwright via docker://mcr.microsoft.com/playwright:v1.48.0-jammy with --project=chromium, upload-artifact retention-days: 30",
+      "Quality-bar container requirement met via exact first option: uses docker://mcr.microsoft.com/playwright:v1.48.0-jammy (.github/workflows/e2e.yml step 'Run Playwright UI tests')",
+      "Artifacts path covers apps/web/test-results/** and apps/web/playwright-report/**; test-results/** glob recursively includes test-results/e2e-logs/** sink so all three quality-bar paths are satisfied",
+      "Must-not-haves absent: no firefox/webkit jobs (single chromium project only); no app runtime code changes in T8-owned commits (only e2e.yml + CI-conditional channel in playwright.config.ts + log.json bookkeeping)",
+      "Existing ci.yml untouched by diff (diff stat shows no ci.yml modification; ci.yml present in 081dd2f tree with api-tests/web-tests/docker-build intact) \u2014 red flag 'existing ci.yml broken' not triggered",
+      "No secrets committed: .env is generated at runtime from .env.example with ephemeral APP_KEY (php random_bytes) and JWT_SECRET (openssl rand -hex 32); DB_PASSWORD=secret123 is a CI-only throwaway for compose; no prod credential in repo",
+      "Playwright config supporting edits are test-infra only: baseURL http://localhost:8080 aligns with nginx APP_PORT 8080 (already approved in T6 review), channel conditional (CI ? undefined : chrome fallback) lets the official container use its bundled Chromium while preserving local chrome-channel debug",
+      "No purge step inside e2e.yml is correct by design: CI retention is handled natively by retention-days: 30 (auto-expiry); 7-day local purge is T7-owned (scripts/purge-e2e-artifacts.sh + test:e2e:purge) and wired in apps/web/package.json at 081dd2f"
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Official Playwright container pinned v1.48.0-jammy matches @playwright/test ~1.48 devDependency in apps/web/package.json \u2014 no version drift between runner and image",
+      "Correct hybrid order: seed (scripts/e2e-seed.sh) -> API Jest (npm run test:e2e) -> Playwright --project=chromium, matching sandwich architecture rule",
+      "Service readiness gate present: curl loop against /api/health (route confirmed in apps/api/routes/api.php via HealthController) before seed/test steps",
+      ".env generation derives from committed .env.example (never commits real .env) and sets NEXT_PUBLIC_API_URL=http://localhost:8080/api consistent with compose/nginx topology",
+      "YAML parses as valid (python yaml.safe_load round-trip) with pinned actions (checkout@v4, setup-node@v4, setup-php@v2, upload-artifact@v4)",
+      "log.json bookkeeping only touches status/done_sha fields; no implementation logic smuggled via plan metadata"
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "setup-node cache-dependency-path points at root package-lock.json while web install runs in apps/web; cache key may miss on CI (should be apps/web/package-lock.json). Cosmetic/perf only, does not break install.",
+        "location": ".github/workflows/e2e.yml:Setup Node.js"
+      },
+      {
+        "severity": "Minor",
+        "description": "Generate .env step runs cat .env, printing ephemeral APP_KEY/JWT_SECRET into job logs. Values are per-run random and non-prod, but prefer masking or dropping the cat to keep logs clean.",
+        "location": ".github/workflows/e2e.yml:Generate .env for docker compose"
+      },
+      {
+        "severity": "Minor",
+        "description": "Playwright runs inside docker:// container while baseURL/services are localhost:8080 on the runner host; container-to-host localhost reachability is an unverified CI-runtime assumption (flagged as NEEDS_CONTEXT-style observation per packet open-question risk, not a YAML defect \u2014 spec mandates the official container over host runner). Validate on first green CI run; if unreachable, use host-network or host-runner install variant.",
+        "location": ".github/workflows/e2e.yml:Run Playwright UI tests"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 1,
+    "max_cycles": 2,
+    "cycles_remaining": 2
+  },
+  "reviewed_sha": "081dd2f8e23120f11b32f74de3a5990282d362cb"
+}

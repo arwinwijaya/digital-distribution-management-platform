@@ -1,0 +1,67 @@
+{
+  "task_id": "T5",
+  "task_name": "End-to-End & Edge-Case Verification",
+  "cycle": 2,
+  "timestamp": "2026-10-05T08:38:00Z",
+  "reviewed_sha": "ad0634f6e3b0eba8b075b56bd1bd680ac1db3021",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "standard",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "verified_ok": [
+      "Concurrent-tabs: stale assertion kept (spec.ts ~294-296) plus post-reload API proof that Tab A order_id exists in outlet history and Pesan Lagi renders (spec.ts ~303-318) — exactly per cycle-1 I1 fix, which forbade innerHTML-diff as flaky",
+      "Offline mixed-states: product 2 deactivated via SQL before load, eligible-only prefill asserted (P1=1, P2=0+disabled), zero /products requests while offline asserted, flush-to-empty via toPass after setOffline(false), queue payload idempotency_key + product-1-only asserted — cycle-1 I2 fixed",
+      "Race: SQL deactivation between prefill and submit, 422 + per-item message + retained cart values asserted — proof solid",
+      "Keyboard: Ulangi aria-label exact, +Tambah aria-label pattern, Space triggers cart-qty change via toPass — cycle-1 I3 substantially fixed (residual gaps are Minor, see M-2)",
+      "No fetch/network mocking in E2E layer; real backend + SQL state manipulation per packet"
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "assessment": "Approved",
+    "strengths": [
+      "Single new spec file; helpers co-located; describe.serial + finally-restores preserved",
+      "Cycle-1 dead waits converted to assertion-backed toPass (offline flush, Space-add)"
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "id": "M-1",
+        "description": "Two waitForTimeout remain, both timing-flavored but bounded: 1000ms settle before stale-read (assertion-backed, gives auto-sync a chance to disprove staleness) and 300ms after Enter on Ulangi with no post-Enter assertion (dead). Carry-forward of cycle-1 Minor; non-blocking.",
+        "location": "apps/web/e2e/outlet-fast-reorder.spec.ts:294,462"
+      },
+      {
+        "severity": "Minor",
+        "id": "M-2",
+        "description": "Post-reload check proves API persistence (Tab A order_id in history) + section visibility, not that refreshed reorder UI content reflects the new order; and keyboard proof covers Space (cart change asserted) but not Enter (no post-Enter assert), with Tab-order proven on catalog inputs rather than Tab-walked through reorder controls. Accepted proxies per cycle-1 fix guidance (diff-assert deemed flaky); strengthen only opportunistically.",
+        "location": "apps/web/e2e/outlet-fast-reorder.spec.ts:~303-318,440-490"
+      },
+      {
+        "severity": "Minor",
+        "id": "M-3",
+        "description": "Seeded orders (ORD-TEST-REORDER-*/test-seed-*, Date.now-based, future created_at) are never deleted — afterAll restores product flags only. Deterministic under serial+future-timestamp ordering but DB accumulates fixtures; mixed-states covers inactive-only, not stock-0/credit-exceed variants from the packet.",
+        "location": "apps/web/e2e/outlet-fast-reorder.spec.ts:seedLastOrder/beforeAll/afterAll"
+      },
+      {
+        "severity": "Minor",
+        "id": "M-4",
+        "description": "File is 518 lines, over the ~300-line heuristic, but cohesive single-purpose E2E spec (4 scenarios + local helpers, serial ordering requires co-location). No duplication or scope creep. Extraction of SQL/API helpers to support/ is optional, non-blocking.",
+        "location": "apps/web/e2e/outlet-fast-reorder.spec.ts:1-518"
+      },
+      {
+        "severity": "Minor",
+        "id": "M-5",
+        "description": "Unrelated one-line change in diff: jest.config.js drops 'order-flow.test.js$' from the ignore list. Out of T5 scope (packet allows only the spec file + optional e2e-seed.sh). Justify or revert in a separate change; not decision-driving for this review.",
+        "location": "apps/web/jest.config.js"
+      }
+    ]
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "Non-blocking follow-ups only (any future cycle): replace the 300ms post-Enter dead wait with a cart-change assertion; optionally delete seeded test orders in afterAll and add stock-0/credit mixed-state variants; optionally move SQL/API helpers to e2e/support; justify or revert the jest.config.js one-liner separately.",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 0
+  }
+}

@@ -397,14 +397,23 @@ export async function fetchOutletDashboard(
   };
 }
 
+export type CachedOutletOrder = {
+  id: number;
+  order_id: string;
+  status: string;
+  created_at: string;
+  items: Array<{ product_id: number; product_name: string; quantity: number; unit_price: string; subtotal: string }>;
+};
+
 /**
- * Recompute shopping & favorites from cached orders for a given period.
+ * Recompute shopping & favorites from cached orders for a given period,
+ * plus the raw cached orders (newest-first) for reorder composition.
  * Used by retryShopping/retryFavorites to avoid network round-trip.
  */
 export function loadOutletCachedSections(
   token: string,
   periodDays: 7 | 30 | 90,
-): Pick<OutletDashboardData, 'shopping' | 'favorites'> | null {
+): (Pick<OutletDashboardData, 'shopping' | 'favorites'> & { orders: CachedOutletOrder[] }) | null {
   const hash = tokenHash(token);
   // Aggregate all cached pages for this token
   const allOrders: OrdersEnvelope['data'] = [];
@@ -450,7 +459,7 @@ export function loadOutletCachedSections(
     period_label: pw.label,
   };
 
-  return { shopping, favorites };
+  return { shopping, favorites, orders: summaryOrders };
 }
 
 /** Force an orders retry to refetch pages while leaving credit unchanged. */

@@ -40,6 +40,30 @@ describe('orderQueue', () => {
     expect(list[0].created_at).toBeTruthy();
   });
 
+  it('enqueue persists payload.idempotency_key in stored queue', async () => {
+    const key = 'persisted-key-123';
+    await queue.enqueue({ outlet_id: 1, items: [], idempotency_key: key });
+
+    const list = await queue.list();
+    expect(list).toHaveLength(1);
+    expect((list[0].payload as { idempotency_key: string }).idempotency_key).toBe(key);
+  });
+
+  it('enqueue without key persists legacy payload for fallback path', async () => {
+    await queue.enqueue({ outlet_id: 1, items: [] });
+
+    const list = await queue.list();
+    expect(list).toHaveLength(1);
+    expect((list[0].payload as { idempotency_key?: string }).idempotency_key).toBeUndefined();
+    expect(list[0].id).toBeTruthy(); // stable fallback key on flush
+  });
+
+  it('generates RFC4122 UUID v4 queue IDs in JSDOM without randomUUID', async () => {
+    await queue.enqueue({ outlet_id: 1, items: [] });
+    const [item] = await queue.list();
+    expect(item.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  });
+
   it('list returns items in FIFO order', async () => {
     await queue.enqueue({ outlet_id: 1, items: [] });
     await queue.enqueue({ outlet_id: 2, items: [] });
@@ -108,8 +132,8 @@ describe('orderQueue', () => {
       expect(remaining[0].id).toBe(failItem.id);
     });
 
-    it('idempotency key is derived from payload and included in request headers', async () => {
-      const payload = { outlet_id: 42, items: [{ product_id: 9, quantity: 3 }] };
+    it('sends the stored payload idempotency_key as the Idempotency-Key header', async () => {
+      const payload = { outlet_id: 42, items: [{ product_id: 9, quantity: 3 }], idempotency_key: 'stored-key-123' };
       await queue.enqueue(payload);
 
       const capturedHeaders: Record<string, string> = {};
@@ -122,14 +146,14 @@ describe('orderQueue', () => {
 
       await queue.flushQueue(send);
 
-      expect(capturedHeaders['Idempotency-Key']).toBeTruthy();
-      expect(typeof capturedHeaders['Idempotency-Key']).toBe('string');
+      expect(capturedHeaders['Idempotency-Key']).toBe('stored-key-123');
     });
 
-    it('idempotency key is stable for identical payloads', async () => {
-      const payload = { outlet_id: 1, items: [{ product_id: 1, quantity: 1 }] };
-      await queue.enqueue(payload);
-      await queue.enqueue(payload); // same payload again
+    it('reuses each queued intent\'s own stored key without recomputation', async () => {
+      // Identical items, different intents → different stored keys must both be sent.
+      const items = [{ product_id: 1, quantity: 1 }];
+      await queue.enqueue({ outlet_id: 1, items, idempotency_key: 'intent-A' });
+      await queue.enqueue({ outlet_id: 1, items, idempotency_key: 'intent-B' });
 
       const keys: string[] = [];
       const send = jest.fn().mockImplementation(async (_body: unknown, init?: RequestInit) => {
@@ -142,8 +166,24 @@ describe('orderQueue', () => {
 
       await queue.flushQueue(send);
 
-      expect(keys).toHaveLength(2);
-      expect(keys[0]).toBe(keys[1]);
+      expect(keys).toEqual(['intent-A', 'intent-B']);
+    });
+
+    it('falls back to the stored queue id when the payload has no key', async () => {
+      await queue.enqueue({ outlet_id: 7, items: [] });
+      const [item] = await queue.list();
+
+      const keys: string[] = [];
+      const send = jest.fn().mockImplementation(async (_body: unknown, init?: RequestInit) => {
+        if (init?.headers) {
+          keys.push((init.headers as Record<string, string>)['Idempotency-Key']);
+        }
+        return { ok: true, status: 201, json: async () => ({ ok: true }) };
+      });
+
+      await queue.flushQueue(send);
+
+      expect(keys).toEqual([item.id]);
     });
   });
 });

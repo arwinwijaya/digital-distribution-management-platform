@@ -19,6 +19,7 @@
     "e2e:seed": "bash scripts/e2e-seed.sh"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
     "typescript": "^5.4.0"
   }
 }

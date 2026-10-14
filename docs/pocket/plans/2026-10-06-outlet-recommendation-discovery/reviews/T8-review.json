@@ -1,0 +1,50 @@
+{
+  "task_id": "T8",
+  "task_name": "Integrate DiscoverySection into OrderForm",
+  "cycle": 2,
+  "timestamp": "2026-10-07T15:38:23Z",
+  "reviewer_mode": "read-only",
+  "reviewer_config": "batch-parallel",
+  "stage_1": {
+    "status": "PASS",
+    "issues": [],
+    "concerns_addressed": [
+      "All 4 GWT scenarios verified at fc2615d: renders discovery below reorder, hidden when NEXT_PUBLIC_ENABLE_DISCOVERY=false, hidden in dummy mode, refreshes after order success via discoveryRefreshKey increment",
+      "Placement below ReorderSection in same section wrapper confirmed (OrderFormRecommendations.tsx:33-45; OrderForm.tsx:87-94)",
+      "Feature flag guard matches reorderEnabled pattern: discoveryEnabled = process.env.NEXT_PUBLIC_ENABLE_DISCOVERY !== 'false' (OrderFormRecommendations.tsx:21)",
+      "Dummy-mode guard matches showReorderSection pattern: showDiscoverySection = discoveryEnabled && !isDummy (OrderFormRecommendations.tsx:24 vs showReorderSection at 22-23)",
+      "Post-order refresh key increment implemented in useOrderSubmission.ts:47 (setDiscoveryRefreshKey((k) => k + 1))",
+      "Props offline={!isOnline}, error, onRetry from hook wired to DiscoverySection (OrderFormRecommendations.tsx:38-40)",
+      "No changes to ReorderSection behavior, OrderCreationService, or auto-add logic — scope respected"
+    ]
+  },
+  "stage_2": {
+    "status": "PASS",
+    "strengths": [
+      "Implementation follows existing ReorderSection integration pattern exactly — consistent architecture",
+      "Feature flag, dummy guard, and cache invalidation parity with reorder section achieved cleanly",
+      "All 4 GWT scenarios have dedicated integration tests with proper mocking and assertions",
+      "DOM order verified via compareDocumentPosition (OrderForm.test.tsx:985-990)",
+      "Test for refresh key increment tracks hook options across renders (OrderForm.test.tsx:1059-1112)",
+      "TypeScript strict compliance — no tsc --noEmit errors",
+      "Refactor split OrderForm into focused components (OrderFormRecommendations, OrderFormCatalog, OrderFormTracking) and hooks (useOrderSubmission, useOrderQueue) — all files well under ~300 lines, functions under ~50 lines",
+      "No extra work beyond T8 scope (OrderCreationService, auth, DB schema untouched)"
+    ],
+    "issues": [
+      {
+        "severity": "Minor",
+        "description": "Circular import between OrderForm.tsx and OrderFormTracking.tsx (OrderForm imports OrderFormTracking; OrderFormTracking imports trackOrder function from OrderForm). Works at runtime due to ES module live bindings but is a code smell; could extract trackOrder to shared lib in future refactor.",
+        "location": "apps/web/src/components/OrderForm.tsx:12, apps/web/src/components/OrderFormTracking.tsx:6"
+      }
+    ],
+    "assessment": "Approved"
+  },
+  "overall": "REVIEW_PASS",
+  "fix_instructions": "",
+  "loop_info": {
+    "current_cycle": 2,
+    "max_cycles": 2,
+    "cycles_remaining": 0
+  },
+  "reviewed_sha": "fc2615deff0406311ec6c35d13a30a8d03da35b0"
+}

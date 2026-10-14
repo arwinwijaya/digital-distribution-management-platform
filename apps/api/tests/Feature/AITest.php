@@ -78,6 +78,203 @@ class AITest extends TestCase
         $this->assertLessThanOrEqual(10, count($response->json('data.recommendations')));
     }
 
+    public function test_outlet_discovery_returns_never_bought_products(): void
+    {
+        [, $outlet, $headers] = $this->authenticatedUser();
+        $p1 = Product::factory()->create(['name' => 'P1', 'category' => 'food', 'stock_quantity' => 10, 'is_active' => true]);
+        $p2 = Product::factory()->create(['name' => 'P2', 'category' => 'food', 'stock_quantity' => 10, 'is_active' => true]);
+        $p3 = Product::factory()->create(['name' => 'P3', 'category' => 'food', 'stock_quantity' => 10, 'is_active' => true]);
+        $p4 = Product::factory()->create(['name' => 'P4', 'category' => 'food', 'stock_quantity' => 0, 'is_active' => true]);
+
+        $order = $this->order($outlet, '2025-09-01');
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $p1->id, 'quantity' => 2, 'unit_price' => 50, 'subtotal' => 100]);
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $p2->id, 'quantity' => 3, 'unit_price' => 50, 'subtotal' => 150]);
+
+        $response = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.fallback', false)
+            ->assertJsonPath('data.limit', 5)
+            ->assertJsonPath('data.method', 'discovery_popular_v1');
+        $this->assertSame([$p3->id], collect($response->json('data.recommendations'))->pluck('product_id')->all());
+        $this->assertNotEmpty($response->json('data.recommendations.0.reason'));
+        $this->assertNotContains($p4->id, collect($response->json('data.recommendations'))->pluck('product_id')->all());
+    }
+
+    public function test_outlet_discovery_excludes_purchased_products(): void
+    {
+        [, $outlet, $headers] = $this->authenticatedUser();
+        $p1 = Product::factory()->create(['name' => 'Bought one', 'category' => 'food']);
+        $p2 = Product::factory()->create(['name' => 'Bought two', 'category' => 'food']);
+        $p3 = Product::factory()->create(['name' => 'New product', 'category' => 'food']);
+        $order = $this->order($outlet, '2025-09-01');
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $p1->id, 'quantity' => 1, 'unit_price' => 50, 'subtotal' => 50]);
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $p2->id, 'quantity' => 1, 'unit_price' => 50, 'subtotal' => 50]);
+
+        $response = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+
+        $response->assertOk()->assertJsonPath('data.fallback', false);
+        $this->assertSame([$p3->id], collect($response->json('data.recommendations'))->pluck('product_id')->all());
+        $this->assertNotContains($p1->id, collect($response->json('data.recommendations'))->pluck('product_id')->all());
+        $this->assertNotContains($p2->id, collect($response->json('data.recommendations'))->pluck('product_id')->all());
+    }
+
+    public function test_outlet_discovery_guards_availability(): void
+    {
+        [, $outlet, $headers] = $this->authenticatedUser();
+        $purchased = Product::factory()->create(['category' => 'food']);
+        $activeSupplier = Supplier::factory()->active()->create();
+        $inactiveSupplier = Supplier::factory()->create();
+        $eligible = Product::factory()->create(['category' => 'food', 'supplier_id' => $activeSupplier->id, 'stock_quantity' => 10, 'is_active' => true]);
+        $outOfStock = Product::factory()->create(['category' => 'food', 'stock_quantity' => 0]);
+        $inactive = Product::factory()->create(['category' => 'food', 'is_active' => false]);
+        $blockedSupplier = Product::factory()->create(['category' => 'food', 'supplier_id' => $inactiveSupplier->id]);
+        $order = $this->order($outlet, '2025-09-01');
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $purchased->id, 'quantity' => 1, 'unit_price' => 50, 'subtotal' => 50]);
+
+        $response = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+
+        $response->assertOk()->assertJsonPath('data.fallback', false);
+        $ids = collect($response->json('data.recommendations'))->pluck('product_id')->all();
+        $this->assertSame([$eligible->id], $ids);
+        foreach ([$outOfStock, $inactive, $blockedSupplier] as $product) {
+            $this->assertNotContains($product->id, $ids);
+        }
+    }
+
+    public function test_outlet_discovery_fallback_global_popular_new_outlet(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        Product::factory()->count(8)->create(['category' => 'food', 'stock_quantity' => 10, 'is_active' => true]);
+
+        $response = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+
+        $response->assertOk()
+            ->assertJsonPath('data.fallback', true)
+            ->assertJsonPath('data.limit', 5)
+            ->assertJsonPath('data.data_points', 0);
+        $this->assertCount(5, $response->json('data.recommendations'));
+        foreach ($response->json('data.recommendations') as $recommendation) {
+            $this->assertSame('Populer di platform', $recommendation['reason']);
+        }
+    }
+
+    public function test_outlet_discovery_ranking_deterministic_tie_breaker(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        [, $otherOutlet] = $this->authenticatedUser();
+        $products = Product::factory()->count(8)->create(['category' => 'food']);
+        $order = $this->order($otherOutlet, '2025-09-01');
+        foreach ($products as $product) {
+            OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'quantity' => 2, 'unit_price' => 50, 'subtotal' => 100]);
+        }
+        $expected = $products->pluck('id')->sort()->take(5)->values()->all();
+
+        $first = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+        $second = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+
+        $first->assertOk()->assertJsonPath('data.fallback', true);
+        $second->assertOk();
+        $this->assertSame($expected, collect($first->json('data.recommendations'))->pluck('product_id')->all());
+        $this->assertSame($first->json('data.recommendations'), $second->json('data.recommendations'));
+    }
+
+    public function test_outlet_discovery_cancelled_only_product_not_excluded(): void
+    {
+        [, $outlet, $headers] = $this->authenticatedUser();
+        $product = Product::factory()->create(['category' => 'food', 'stock_quantity' => 10, 'is_active' => true]);
+        $order = $this->order($outlet, '2025-09-01');
+        $order->update(['status' => 'Cancelled']);
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'quantity' => 2, 'unit_price' => 50, 'subtotal' => 100]);
+
+        $response = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+
+        $response->assertOk()
+            ->assertJsonPath('data.fallback', true)
+            ->assertJsonPath('data.data_points', 0)
+            ->assertJsonPath('data.recommendations.0.product_id', $product->id)
+            ->assertJsonPath('data.recommendations.0.purchased_quantity', 0)
+            ->assertJsonPath('data.recommendations.0.reason', 'Populer di platform');
+    }
+
+    public function test_outlet_discovery_limit_clamp_max_5(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        Product::factory()->count(8)->create(['category' => 'food']);
+
+        $response = $this->withHeaders($headers)->getJson('/api/ai/discovery?limit=10');
+
+        $response->assertOk()->assertJsonPath('data.limit', 5);
+        $this->assertCount(5, $response->json('data.recommendations'));
+    }
+
+    public function test_outlet_discovery_category_reason_string(): void
+    {
+        [, $outlet, $headers] = $this->authenticatedUser();
+        $purchased = Product::factory()->create(['name' => 'Purchased drink', 'category' => 'Minuman']);
+        $drink = Product::factory()->create(['name' => 'New drink', 'category' => 'Minuman']);
+        $other = Product::factory()->create(['name' => 'Other category', 'category' => 'food']);
+        $order = $this->order($outlet, '2025-09-01');
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $purchased->id, 'quantity' => 1, 'unit_price' => 50, 'subtotal' => 50]);
+        [, $otherOutlet] = $this->authenticatedUser();
+        $popularOrder = $this->order($otherOutlet, '2025-09-02');
+        OrderItem::create(['order_id' => $popularOrder->id, 'product_id' => $drink->id, 'quantity' => 3, 'unit_price' => 50, 'subtotal' => 150]);
+        OrderItem::create(['order_id' => $popularOrder->id, 'product_id' => $other->id, 'quantity' => 10, 'unit_price' => 50, 'subtotal' => 500]);
+
+        $response = $this->withHeaders($headers)->getJson('/api/ai/discovery');
+
+        $response->assertOk()
+            ->assertJsonPath('data.fallback', false)
+            ->assertJsonPath('data.recommendations.0.product_id', $drink->id)
+            ->assertJsonPath('data.recommendations.0.reason', 'Populer di kategori Minuman');
+        $this->assertSame([$drink->id], collect($response->json('data.recommendations'))->pluck('product_id')->all());
+    }
+
+    public function test_outlet_discovery_scoping_strict_token_only(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        [, $otherOutlet] = $this->authenticatedUser();
+
+        $this->withHeaders($headers)
+            ->getJson('/api/ai/discovery?outlet_id='.$otherOutlet->id)
+            ->assertForbidden()
+            ->assertJsonPath('status', 'error');
+    }
+
+    public function test_outlet_discovery_non_outlet_role_forbidden(): void
+    {
+        foreach (['admin', 'sales'] as $role) {
+            [, , $headers] = $this->authenticatedUser($role);
+            $this->withHeaders($headers)
+                ->getJson('/api/ai/discovery')
+                ->assertForbidden()
+                ->assertJsonPath('status', 'error');
+        }
+    }
+
+    public function test_outlet_discovery_fetch_error_response_shape(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+
+        $this->mock(\App\Services\RecommendationService::class, function ($mock) {
+            $mock->shouldReceive('discover')
+                ->once()
+                ->andThrow(new \RuntimeException('discovery backend unavailable'));
+        });
+
+        $this->withHeaders($headers)
+            ->getJson('/api/ai/discovery')
+            ->assertStatus(500)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonStructure(['status', 'message']);
+    }
+
+    public function test_outlet_discovery_unauthenticated_401(): void
+    {
+        $this->getJson('/api/ai/discovery')->assertStatus(401);
+    }
+
     public function test_forecast_validates_period_and_horizon_and_is_deterministic(): void
     {
         [, $outlet, $headers] = $this->authenticatedUser();
@@ -130,5 +327,85 @@ class AITest extends TestCase
         $this->withHeaders($adminHeaders)->getJson('/api/ai/recommendations')
             ->assertOk()
             ->assertJsonPath('data.recommendations.0.reason', 'Frequently purchased across all outlets.');
+    }
+
+    public function test_outlet_discovery_event_tracking_recorded(): void
+    {
+        [, $outlet, $headers] = $this->authenticatedUser();
+        $product = Product::factory()->create(['stock_quantity' => 10, 'is_active' => true]);
+        $eventUuid = 'evt-'.uniqid();
+
+        $response = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', [
+            'event_uuid' => $eventUuid,
+            'event_type' => 'displayed',
+            'product_id' => $product->id,
+            'occurred_at' => now()->toDateTimeString(),
+        ]);
+
+        $response->assertCreated()->assertJsonPath('status', 'success');
+        $this->assertDatabaseHas('recommendation_events', [
+            'event_uuid' => $eventUuid,
+            'event_type' => 'displayed',
+            'outlet_id' => $outlet->id,
+            'product_id' => $product->id,
+        ]);
+    }
+
+    public function test_outlet_discovery_event_idempotent_replay(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        $product = Product::factory()->create(['stock_quantity' => 10, 'is_active' => true]);
+        $payload = [
+            'event_uuid' => 'evt-'.uniqid(),
+            'event_type' => 'displayed',
+            'product_id' => $product->id,
+            'occurred_at' => now()->toDateTimeString(),
+        ];
+
+        $first = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', $payload);
+        $first->assertCreated();
+
+        $second = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', $payload);
+        $second->assertOk()->assertJsonPath('data.idempotent_replay', true);
+        $this->assertSame(1, \App\Models\RecommendationEvent::where('event_uuid', $payload['event_uuid'])->count());
+    }
+
+    public function test_outlet_discovery_event_conflict_409(): void
+    {
+        [, , $headers] = $this->authenticatedUser();
+        $product = Product::factory()->create(['stock_quantity' => 10, 'is_active' => true]);
+        $eventUuid = 'evt-'.uniqid();
+        $occurredAt = now()->toDateTimeString();
+
+        $first = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', [
+            'event_uuid' => $eventUuid,
+            'event_type' => 'displayed',
+            'product_id' => $product->id,
+            'occurred_at' => $occurredAt,
+        ]);
+        $first->assertCreated();
+
+        $second = $this->withHeaders($headers)->postJson('/api/ai/discovery/events', [
+            'event_uuid' => $eventUuid,
+            'event_type' => 'clicked',
+            'product_id' => $product->id,
+            'occurred_at' => $occurredAt,
+        ]);
+        $second->assertStatus(409)->assertJsonPath('status', 'error');
+    }
+
+    public function test_outlet_discovery_event_non_outlet_forbidden(): void
+    {
+        [, , $adminHeaders] = $this->authenticatedUser('admin');
+        $product = Product::factory()->create(['stock_quantity' => 10, 'is_active' => true]);
+
+        $response = $this->withHeaders($adminHeaders)->postJson('/api/ai/discovery/events', [
+            'event_uuid' => 'evt-'.uniqid(),
+            'event_type' => 'displayed',
+            'product_id' => $product->id,
+            'occurred_at' => now()->toDateTimeString(),
+        ]);
+
+        $response->assertForbidden();
     }
 }

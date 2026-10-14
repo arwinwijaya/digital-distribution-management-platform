@@ -18,7 +18,7 @@ if [[ -d "$RESULTS_DIR" ]]; then
     # Delete screenshot, trace, video subdirectories
     for subdir in "$RESULTS_DIR"/{screenshots,traces,videos}; do
         if [[ -d "$subdir" ]]; then
-            find "$subdir" -type f -name '*.png' -o -name '*.json' -o -name '*.zip' -o -name '*.webm' \
+            find "$subdir" -type f \( -name '*.png' -o -name '*.json' -o -name '*.zip' -o -name '*.webm' \) \
                 -mtime +7 -delete 2>/dev/null || true
             echo "  Purged files older than 7 days in $subdir"
             # Remove empty subdirectories
